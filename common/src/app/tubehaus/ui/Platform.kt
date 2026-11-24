@@ -22,8 +22,12 @@ interface Platform {
     val weak: Boolean get() = false
     /** videos can be saved to watch without internet (every app does; a platform without it can say so) */
     val canDownload: Boolean get() = true
-    /** the website without the extension (Instant mode): anonymous, no downloads, no sound effects; FullMode prompts instead */
+    /** the website without the extension (Instant mode): anonymous, 360p downloads only (webSave), no sound effects; FullMode prompts instead */
     val instant: Boolean get() = false
+    /** Instant mode: the file for [id] is looked up early (the save dialog opened), so the click acts at once */
+    fun webSavePrepare(id: String) {}
+    /** Instant mode: saves video [id] (360p, one MP4) through the browser's own downloads; [done] gets "saved", "tab" (opened in a new tab to save from there) or an error text */
+    fun webSave(id: String, title: String, done: (String) -> Unit) = done("")
     val player: VideoPlayer
     /** Google Cast: the TVs on this Wi-Fi to send videos to (Android, the desktop); null where there is none */
     val caster: Caster? get() = null

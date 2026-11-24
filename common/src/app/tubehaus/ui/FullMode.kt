@@ -11,16 +11,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.tubehaus.engine.Video
 
 /**
  * Instant mode (the website without the extension, Platform.instant): what only the app or the
- * extension can do (downloads, stable volume, voice boost) asks calmly for one of them
+ * extension can do (HD downloads, stable volume, voice boost) asks calmly for one of them
  * instead of offering a button that can't work.
  */
 object FullMode {
@@ -41,7 +44,7 @@ fun FullModeDialog(app: AppState, feature: String, close: () -> Unit) {
         title = { Text(feature) },
         text = {
             Text(
-                tr("This needs the Tubeless app or the browser extension. The website plays videos without either, but your browser keeps it from saving videos or changing the sound."),
+                tr("This needs the Tubeless app or the browser extension. The website plays videos without either, but your browser keeps it from saving videos in HD or changing the sound."),
                 style = MaterialTheme.typography.bodyMedium,
             )
         },
@@ -68,4 +71,39 @@ fun FullModeRow(title: String, sub: String) {
         }
         Icon(Sym.Extension.outline, null, Modifier.padding(start = 12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+/**
+ * Instant mode's Download: the website can't read YouTube's video bytes, so it can't join HD picture and sound; it
+ * hands YouTube's one-file 360p MP4 to the browser's own downloads instead (Platform.webSave), and points to the
+ * app or the extension for HD.
+ */
+@Composable
+fun WebSaveDialog(app: AppState, v: Video, close: () -> Unit) {
+    var state by remember(v.id) { mutableStateOf("") }   // "", "busy", then webSave's answer
+    LaunchedEffect(v.id) { app.platform.webSavePrepare(v.id) }
+    AlertDialog(
+        onDismissRequest = close,
+        title = { Text(tr("Download")) },
+        text = {
+            Text(
+                when {
+                    state == "saved" -> tr("Saving to your browser's downloads (360p MP4, picture and sound).")
+                    state == "tab" -> tr("The video opened in a new tab. Save it from there: in Chrome with ⋮ → Download, in Firefox with right-click → Save Video As.")
+                    state.startsWith("error:") -> tr("This video can't be saved from the website.") + " " + state.removePrefix("error:")
+                    else -> tr("The website saves videos at 360p, picture and sound in one MP4, into your browser's downloads. The Tubeless app and the extension save up to 4K.")
+                },
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        },
+        confirmButton = {
+            Row {
+                if (state == "" || state == "busy") {
+                    TextButton(onClick = { app.platform.openExternal(FullMode.APP_URL); close() }) { Text(tr("Get the app")) }
+                    TextButton(enabled = state == "", onClick = { state = "busy"; app.platform.webSave(v.id, v.title) { state = it } }) { Text(tr("Save 360p")) }
+                } else TextButton(onClick = close) { Text(tr("Done")) }
+            }
+        },
+        dismissButton = { if (state == "" || state == "busy") TextButton(onClick = close) { Text(tr("Cancel")) } },
+    )
 }

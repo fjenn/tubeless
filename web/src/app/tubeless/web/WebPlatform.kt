@@ -47,6 +47,11 @@ class WebPlatform(fontData: ByteArray?) : Platform {
         }
     }
     override fun setFullscreen(on: Boolean) = jsFullscreen(on)
+    override fun webSavePrepare(id: String) = jsSavePrepare(id)
+    override fun webSave(id: String, title: String, done: (String) -> Unit) {
+        val p = jsWebSave(id, title)   // called now: the browser counts the click only for a moment
+        MainScope().launch { done(runCatching { p.await<JsString>().toString() }.getOrElse { "error:" + (it.message ?: "") }) }
+    }
     override val knowsMetered = true
     override fun metered(): Boolean = jsMetered()
     /** the browser's Web Speech API (Chrome, Edge, Safari); none in Firefox: no mic button there, as on youtube.com */
@@ -85,6 +90,9 @@ private fun jsSave(name: String, mime: String, b: ArrayBuffer): Unit =
 private fun jsPick(many: Boolean): Promise<JsAny?> = js("""new Promise(function(ok){ var i = document.createElement('input'); i.type = 'file'; i.multiple = many;
   i.onchange = function(){ Promise.all(Array.from(i.files).map(function(f){ return f.text().then(function(t){ return [f.name, t] }) })).then(ok) };
   i.oncancel = function(){ ok(null) }; i.click() })""")
+private fun jsSavePrepare(id: String): Unit = js("{ if (tubeless.save) tubeless.save.prepare(id) }")
+private fun jsWebSave(id: String, title: String): Promise<JsString> =
+    js("tubeless.save ? tubeless.save.go(id, title).catch(function(e){ return 'error:' + ((e && e.message) || e) }) : Promise.resolve('error:')")
 private fun jsLen(a: JsAny): Int = js("a.length")
 private fun jsName(a: JsAny, i: Int): String = js("a[i][0]")
 private fun jsText(a: JsAny, i: Int): String = js("a[i][1]")

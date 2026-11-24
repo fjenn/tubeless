@@ -1,11 +1,11 @@
 // Drives the built website (site/dist) in a throwaway headless Chrome or Firefox (own temporary profile; the
 // user's browsers, settings and YouTube session are never touched) and checks Instant mode end to end.
-//   node site/test/run.mjs chrome|firefox <scenario...>    scenarios: home search watch seek shorts sponsor drift
+//   node site/test/run.mjs chrome|firefox <scenario...>    scenarios: home search watch seek shorts sponsor drift save
 // env: BIN=<browser binary>, DIST=<site dir> (site/dist), SHOTS=<dir for screenshots>, DRIFT_S=<seconds> (600),
 //      EXT=<unpacked Chrome extension dir> (Full-mode hand-over check, chrome only), PORT
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { createServer } from "node:http";
-import { mkdirSync, mkdtempSync, readFileSync, existsSync, writeFileSync, statSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, existsSync, writeFileSync, statSync, rmSync, readdirSync, cpSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,6 +35,8 @@ console.log("serving", dist, "at", base);
 
 // ------------------------------------------------------------------ browser drivers: open(url), eval(expr), shot(file), click(x,y), key(k), type(s), wheel(x,y,dy)
 const profile = mkdtempSync(join(process.env.TMPDIR || tmpdir(), `tubeless-site-${browser}-`));
+const dlDir = join(profile, "downloads");   // the browser's downloads folder (the save scenario)
+mkdirSync(dlDir);
 let drv;
 if (browser === "chrome") drv = await chrome();
 else drv = await firefox();
@@ -64,6 +66,7 @@ async function chrome() {
     return new Promise((r) => waiting.set(msg.id, r)).then((x) => { if (x.error) throw new Error(method + ": " + x.error.message); return x.result; });
   };
   if (process.env.EXT) console.log("extension:", (await send("Extensions.loadUnpacked", { path: resolve(process.env.EXT) })).id);
+  await send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: dlDir });
   const { targetId } = await send("Target.createTarget", { url: "about:blank" });
   const { sessionId: s } = await send("Target.attachToTarget", { targetId, flatten: true });
   for (const d of ["Runtime", "Page", "Network"]) await send(d + ".enable", {}, s);
@@ -72,7 +75,7 @@ async function chrome() {
   return {
     net,
     async open(url) { await send("Page.navigate", { url }, s); },
-    async eval(expr) { const r = await send("Runtime.evaluate", { expression: expr, returnByValue: true, awaitPromise: true }, s); return r.result.value; },
+    async eval(expr) { const r = await send("Runtime.evaluate", { expression: expr, returnByValue: true, awaitPromise: true, userGesture: true }, s); return r.result.value; },
     async shot(file) { const r = await send("Page.captureScreenshot", { format: "png" }, s); writeFileSync(file, Buffer.from(r.data, "base64")); },
     async click(x, y) { await mouse("mouseMoved", x, y); await mouse("mousePressed", x, y); await sleep(60); await mouse("mouseReleased", x, y); },
     async key(key, code = key, keyCode = 0) { for (const type of ["keyDown", "keyUp"]) await send("Input.dispatchKeyEvent", { type, key, code, windowsVirtualKeyCode: keyCode, nativeVirtualKeyCode: keyCode }, s); },
@@ -90,6 +93,9 @@ async function firefox() {
     `user_pref("media.autoplay.default", 0);`, `user_pref("media.autoplay.blocking_policy", 0);`,
     `user_pref("datareporting.policy.dataSubmissionEnabled", false);`, `user_pref("browser.shell.checkDefaultBrowser", false);`,
     `user_pref("media.volume_scale", "0.0");`,
+    `user_pref("browser.download.dir", ${JSON.stringify(dlDir)});`, `user_pref("browser.download.folderList", 2);`,
+    `user_pref("browser.download.useDownloadDir", true);`, `user_pref("browser.download.always_ask_before_handling_new_types", false);`,
+    `user_pref("dom.disable_open_during_load", false);`,
   ].join("\n") + "\n");
   const proc = spawn(bin, ["--headless", "--profile", profile, "--remote-debugging-port", "0", "--no-remote", "--window-size", "1280,800"],
     { stdio: ["ignore", "pipe", "pipe"] });
@@ -339,6 +345,41 @@ const S = {
     await sleep(4000);
     const url = await drv.url();
     ok("Full-mode hand-over", /^chrome-extension:\/\/.*\/app\.html\?lang=en/.test(url), `tab now at ${url.slice(0, 70)}`);
+  },
+  // Instant mode's Download (docs/BUILD-STATUS.md WEB-DL): the 360p MP4 lands in the browser's downloads folder
+  // with picture and sound (ffprobe); a gir=yes video (no attachment header) opens in a new tab instead
+  async save() {
+    await drv.open(base + `?lang=en&v=${VIDEO}`);
+    await appReady();
+    await playing(2, 60);
+    let how;
+    if (process.env.SAVE_BTN) {
+      // through the app: the Download chip under the video (1280x800 layout), then the dialog's "Save 360p"
+      await drv.click(780, 603); await sleep(3000); await shot("save-dialog");
+      const [x, y] = process.env.SAVE_BTN.split(",").map(Number);
+      await drv.click(x, y); await sleep(2500); await shot("save-done");
+      how = "saved";
+    } else {
+      await drv.eval(`tubeless.save.prepare('${VIDEO}')`);
+      await sleep(3000);
+      how = await drv.eval(`tubeless.save.go('${VIDEO}', 'Tubeless save – test').catch((e) => 'error:' + e.message)`);
+    }
+    let file = null;
+    for (let i = 0; i < 240 && !file; i++) {
+      await sleep(1000);
+      const done = readdirSync(dlDir).filter((f) => f.endsWith(".mp4"));
+      if (done.length && !readdirSync(dlDir).some((f) => /\.(crdownload|part)$/.test(f))) file = join(dlDir, done[0]);
+    }
+    let probe = "";
+    if (file) try { probe = execFileSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_type,codec_name,width,height:format=duration", "-of", "compact", file]).toString().trim().replace(/\n/g, " | "); } catch (e) { probe = "ffprobe: " + e.message; }
+    if (file && process.env.KEEP_SAVED) cpSync(file, join(process.env.KEEP_SAVED, `${browser}-${VIDEO}.mp4`));
+    ok("save 360p", how === "saved" && /codec_type=video/.test(probe) && /codec_type=audio/.test(probe),
+      `${how}; ${file ? file.split("/").pop() + " " + statSync(file).size + " bytes" : "no file"}; ${probe}`);
+    const gir = process.env.GIR_VIDEO || "-5rtUVyxH5w";
+    await drv.eval(`tubeless.save.prepare('${gir}')`);
+    await sleep(3000);
+    const how2 = await drv.eval(`tubeless.save.go('${gir}', 'x').catch((e) => 'error:' + e.message)`);
+    ok("save (no attachment header)", how2 === "tab" || how2 === "saved", `${gir}: ${how2}`);
   },
   async fallback() {
     // the null-origin trick failing: the bridge answers 403 → notice + YouTube's embedded player

@@ -241,7 +241,7 @@ fun App(app: AppState) {
                     if (app.casting.picking) CastDialog(app)
                     app.whatsNew?.let { WhatsNewDialog(app, it) }
                     app.reminder?.let { ReminderDialog(app, it) }
-                    app.offline.asking?.let { if (app.platform.instant) FullModeDialog(app, tr("Downloads")) { app.offline.asking = null } else OfflineDialog(app, it) }
+                    app.offline.asking?.let { if (app.platform.instant) WebSaveDialog(app, it) { app.offline.asking = null } else OfflineDialog(app, it) }
                     FullMode.asking?.let { FullModeDialog(app, it) { FullMode.asking = null } }
                     if (app.platform.instant) CodeSignInDialog(app)
                 }

@@ -152,6 +152,7 @@ parent.postMessage({ k: "tl-ready", origin: self.origin }, "*");
     return url;
   }
   const empty = (binary, status) => (binary ? { status, bytes: new ArrayBuffer(0) } : { status, text: "" });
+  let visitor = null;   // the app's own visitorData, seen on its InnerTube calls (used by save below)
   const net = {
     async fetch(method, url, headerList, body, binary) {
       if (url.startsWith("opfs://") || url.startsWith("sabrcap://")) return empty(binary, 404);
@@ -170,6 +171,7 @@ parent.postMessage({ k: "tl-ready", origin: self.origin }, "*");
       if (isYt(host) && host !== "oauth2.googleapis.com") {
         const inner = u.pathname.startsWith("/youtubei/");
         // ?simulate=broken: YouTube refusing the bridge, as it would after an allow-list change (tests the fallback)
+        if (inner && body) visitor = /"visitorData":"([^"]+)"/.exec(body)?.[1] || visitor;
         const r = inner && params.get("simulate") === "broken" ? { status: 403, text: "" } : await bridge.fetch(method, inner ? withToken(url, headerList) : url, method === "GET" ? null : body ?? "");
         if (inner) { health.seen(!r.error && r.status !== 403 && r.status !== 0); health.calls[u.pathname.split("/").pop()] = r.error ? "error" : r.status; }
         if (r.error) throw new Error(r.error);
@@ -650,6 +652,70 @@ parent.postMessage({ k: "tl-ready", origin: self.origin }, "*");
     async caption() { return ""; },
     forget() {},
   };
+  // ------------------------------------------------------------------ saving a video to the device (docs/BUILD-STATUS.md WEB-DL)
+  // googlevideo's bytes can't be read from this page, so nothing is fetched or joined here: the ANDROID client's
+  // muxed 360p MP4 (itag 18, picture + sound in one file) goes to the browser's own downloads. With &title= googlevideo
+  // answers "Content-Disposition: attachment" and a hidden frame saves it under the video's name. Videos whose link
+  // carries gir=yes (about half) get no attachment header: that file opens in a new tab, whose player saves it
+  // (Chrome: ⋮ → Download; Firefox: right-click → Save Video As).
+  const save = (() => {
+    const CLIENT = { clientName: "ANDROID", clientVersion: "20.10.38", androidSdkVersion: 30, osName: "Android", osVersion: "11", hl: "en", gl: "US" };
+    const links = new Map();
+    async function ask(id, client) {
+      const r = await bridge.fetch("POST", "https://www.youtube.com/youtubei/v1/player?prettyPrint=false",
+        JSON.stringify({ context: { client }, videoId: id, contentCheckOk: true, racyCheckOk: true }));
+      if (r.error || r.status !== 200) throw new Error(r.error || "YouTube answered " + r.status);
+      const d = JSON.parse(r.text);
+      const f = (d.streamingData?.formats || []).find((x) => x.itag === 18 && x.url);
+      if (!f) log("save: no 360p file for", id, d.playabilityStatus?.status, d.playabilityStatus?.reason || "", client.visitorData ? "(with visitor)" : "");
+      return f ? f : { reason: d.playabilityStatus?.reason };
+    }
+    async function link(id) {
+      // the app's visitor first (as its other calls); some visitors are answered without the one-file format: then none
+      let f = visitor ? await ask(id, { ...CLIENT, visitorData: visitor }) : null;
+      if (!f?.url) f = await ask(id, CLIENT);
+      if (!f.url) throw new Error(f.reason || "YouTube offers no file to save for this video");
+      return { url: f.url, attach: new URL(f.url).searchParams.get("gir") !== "yes", height: f.height || 360, bytes: +f.contentLength || 0 };
+    }
+    // asked for when the save dialog opens, so the click itself acts at once (a new tab needs the click's activation)
+    function prepare(id) {
+      if (!links.has(id)) {
+        const p = link(id);
+        p.then((l) => { p.known = l; }, () => links.delete(id));
+        links.set(id, p);
+        setTimeout(() => links.get(id) === p && links.delete(id), 4 * 60 * 1000);
+      }
+      return links.get(id);
+    }
+    return {
+      prepare(id) { prepare(id).catch(() => {}); },
+      // "saved" (in the browser's downloads), "tab" (opened in a new tab to save from there), or throws
+      async go(id, title) {
+        // a new tab only if the link isn't known yet or has no attachment: now, while the click still counts
+        const p = prepare(id);
+        const tab = p.known?.attach ? null : window.open("", "_blank");
+        try {
+          const l = await p;
+          if (l.attach) {
+            tab?.close();
+            const name = (title || id).replace(/[\\/:*?"<>|\u0000-\u001f;]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 120) || id;
+            const f = document.createElement("iframe");
+            f.hidden = true; f.setAttribute("aria-hidden", "true");
+            f.src = l.url + "&title=" + encodeURIComponent(name);
+            document.body.appendChild(f);
+            setTimeout(() => f.remove(), 10 * 60 * 1000);
+            log("saving", id, l.height + "p", l.bytes, "bytes");
+            return "saved";
+          }
+          if (!tab) throw new Error("The browser blocked the new tab");
+          tab.opener = null;
+          tab.location.href = l.url;
+          return "tab";
+        } catch (e) { tab?.close(); throw e; }
+      },
+    };
+  })();
+
   const nope = async () => { throw new Error("Downloads need the Tubeless app or the extension"); };
   const dl = {
     fetchTo: async () => ({ status: 0, have: 0 }), writeText: nope, readText: nope, readBytes: nope,
@@ -683,5 +749,5 @@ parent.postMessage({ k: "tl-ready", origin: self.origin }, "*");
     }, 1000 * +params.get("report"));
   }
 
-  window.tubeless = { instant: true, net, fs, auth, fonts, player, sabr, dl, embed, bridge, health, notice, ready };
+  window.tubeless = { instant: true, net, fs, auth, fonts, player, sabr, dl, save, embed, bridge, health, notice, ready };
 })();
