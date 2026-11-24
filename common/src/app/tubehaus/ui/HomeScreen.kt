@@ -1,5 +1,7 @@
 package app.tubehaus.ui
 
+import app.tubehaus.engine.YtError
+
 import app.tubehaus.engine.YouTubeAccount
 
 import app.tubehaus.engine.Sys
@@ -73,6 +75,7 @@ fun HomeScreen(app: AppState) {
     }
     val scope = rememberCoroutineScope()
     var loading by remember { mutableStateOf(false) }
+    var errorCode by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
     suspend fun load(more: Boolean) {
         if (loading) return
@@ -90,6 +93,7 @@ fun HomeScreen(app: AppState) {
             HomeCache.items.addAll(got.filter { g -> HomeCache.items.none { it.id == g.id } })
             HomeCache.at = Sys.nowMs()
         } catch (e: Exception) {
+            errorCode = (e as? YtError)?.http ?: 0
             error = e.message ?: tr("Something went wrong")
         } finally { loading = false }
     }
@@ -104,6 +108,10 @@ fun HomeScreen(app: AppState) {
     HomeCtl.changed = { HomeCache.items.clear(); app.rec.clearCache(); scope.launch { load(false) } }
     when {
         HomeCache.items.isEmpty() && loading -> Skeleton()
+        // YouTube answered, but refused (a sign-in it won't take, a bad request): say so, don't claim "offline"
+        HomeCache.items.isEmpty() && error != null && errorCode > 0 -> FeedOff(tr("YouTube didn't load your Home"), tr("YouTube answered %1\$s. Try again, or sign out and back in.").replace("%1\$s", errorCode.toString())) {
+            Button(onClick = { scope.launch { load(false) } }) { Text(tr("Retry")) }
+        }
         HomeCache.items.isEmpty() && error != null -> YouAreOffline(app) { scope.launch { load(false) } }
         // YouTube's own empty Home (a new visitor, history paused): what youtube.com says
         HomeCache.items.isEmpty() -> FeedOff(tr("Try searching to get started"), tr("Start watching videos to help us build a feed of videos you'll love.")) {
