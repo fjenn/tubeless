@@ -1,0 +1,262 @@
+package app.tubehaus.engine
+
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import app.tubehaus.engine.Volatile
+
+/**
+ * InnerTube is the JSON API YouTube's own apps talk to. Each request names a "client"
+ * (the web site, a TV, the Vision Pro app...) and YouTube answers in that client's format.
+ *
+ * - Lists (search, related videos, channels, playlists, comments) come from the WEB client.
+ * - Video streams come from clients whose player response carries plain, ready-to-play URLs
+ *   with no PO token and no JavaScript challenge: VISIONOS first (whole video), ANDROID_VR as
+ *   a last resort (YouTube cuts its streams off about a minute in).
+ *   (Checked October 2026. Client versions drift; when YouTube stops answering one, the
+ *   versions here are the first thing to update.)
+ *
+ * Every request carries a visitor identity ("visitorData", what a browser keeps in a cookie).
+ * Without one YouTube answers most player requests with "Sign in to confirm you're not a bot",
+ * even from a home connection. Its bot wall is tied to the visitor, so when every client is
+ * walled the identity is replaced once and the request retried.
+ */
+data class Client(
+    val name: String,
+    val version: String,
+    val id: Int,
+    val userAgent: String,
+    val extra: Map<String, Any> = emptyMap(),
+    /** the site it belongs to: YouTube Music answers on its own (music.youtube.com) */
+    val host: String = "www.youtube.com",
+)
+
+object Clients {
+    val WEB = Client(
+        "WEB", "2.20260708.00.00", 1,
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+    )
+    val VISIONOS = Client(
+        "VISIONOS", "1.02", 101,
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+        mapOf("deviceMake" to "Apple", "deviceModel" to "RealityDevice17,1", "osName" to "visionOS", "osVersion" to "26.5.23O471"),
+    )
+    val ANDROID_VR = Client(
+        "ANDROID_VR", "1.65.10", 28,
+        "com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip",
+        mapOf("deviceMake" to "Oculus", "deviceModel" to "Quest 3", "androidSdkVersion" to 32, "osName" to "Android", "osVersion" to "12L"),
+    )
+    /** YouTube Music's web site: albums and artists (its songs and charts are Premium-only in some countries) */
+    val MUSIC = Client(
+        "WEB_REMIX", "1.20261104.00.00", 67,
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+        host = "music.youtube.com",
+    )
+    /**
+     * YouTube Music's Android app: the only client its lyrics come with times for (the web site gets
+     * the same lyrics as plain text). Asked for lyrics only, never for a video. No sign-in: lyrics
+     * come to signed-out requests in the countries where YouTube Music is free (not from Korea)
+     */
+    val MUSIC_ANDROID = Client(
+        "ANDROID_MUSIC", "7.21.50", 21,
+        "com.google.android.apps.youtube.music/7.21.50 (Linux; U; Android 14) gzip",
+        mapOf("osName" to "Android", "osVersion" to "14", "androidSdkVersion" to 34),
+        host = "music.youtube.com",
+    )
+    /**
+     * A Samsung TV's YouTube: its links come locked (signature and n, solved by [Cipher]), but it
+     * still serves what the others call "not available" (videos made for kids, some labels)
+     */
+    val TV = Client(
+        "TVHTML5", "5.20260707", 7,
+        "Mozilla/5.0 (SMART-TV; Linux; Tizen 2.4.0) AppleWebKit/538.1 (KHTML, like Gecko) Version/2.4.0 TV Safari/538.1",
+        mapOf("osName" to "Tizen", "osVersion" to "2.4.0", "deviceMake" to "Samsung", "deviceModel" to "SmartTV"),
+    )
+    /**
+     * YouTube Kids for Android: it serves only what YouTube Kids allows, but those with plain links
+     * (no signature to solve, no start ad to wait out), up to 2160p. The first try for what the others
+     * call "not available" (videos made for kids), before [TV]; the only one where there is no solver
+     */
+    val KIDS = Client(
+        "ANDROID_KIDS", "7.36.1", 18,
+        "com.google.android.apps.youtube.kids/7.36.1 (Linux; U; Android 11) gzip",
+        mapOf("androidSdkVersion" to 30, "osName" to "Android", "osVersion" to "11"),
+    )
+    /** YouTube's web player through [Sabr]: never called on InnerTube from here, the name marks streams it played */
+    val WEB_SABR = Client("WEB_SABR", "2.20261119.01.00", 1, "")
+    /** in the order the player tries them; replaced by the list on GitHub when there is a newer one (Remote) */
+    @Volatile var PLAYERS = listOf(VISIONOS, ANDROID_VR)
+}
+
+object InnerTube {
+    /** signed-in headers (Cookie, Authorization: SAPISIDHASH, X-Goog-AuthUser), sent only on www.youtube.com (WEB-family) calls;
+     *  stream clients stay anonymous ([signs]). Set by [Accounts] (and the eval cookies.txt [Auth]); null = signed out */
+    @Volatile var authHeaders: ((origin: String) -> Map<String, String>)? = null
+    /** a brand channel's page id for signed calls (context.user.onBehalfOfUser); set by [Accounts] */
+    @Volatile var onBehalfOf: (() -> String?)? = null
+
+    /**
+     * Whether a call carries the account (PLAN §1.3 signed-in rule): WEB-family clients (WEB on www.youtube.com,
+     * WEB_REMIX on music.youtube.com: feeds, next, browse, actions, the WEB player for playback-tracking
+     * pings), never the stream clients (MUSIC_ANDROID lyrics included)
+     * (VISIONOS, ANDROID_VR, KIDS, TV, SABR), never the visitor-id call. [auth] = true is the caller's
+     * exception (age-restricted, members-only, Premium HLS, behind [Accounts.signedPlayback]); false never signs.
+     */
+    private val SIGNED_HOSTS = setOf("www.youtube.com", "music.youtube.com")
+
+    /**
+     * Whether a call belongs to the one YouTube session (signed in or a remembered visitor): the same
+     * WEB-family calls [signs] picks, whether or not an account is signed in. Signed out they carry the
+     * visitor's cookies ([Accounts.visitorCookie]); stream clients never do.
+     */
+    fun inSession(c: Client, endpoint: String, auth: Boolean? = null): Boolean {
+        if (auth == false || c.host !in SIGNED_HOSTS) return false
+        return auth == true || c.name.startsWith("WEB") && c.name != Clients.WEB_SABR.name && endpoint != "visitor_id"
+    }
+
+    /** marks a request whose Set-Cookie answers go back to the session's jar (Net strips it before sending) */
+    const val SESSION_MARK = "X-Tubeless-Session"
+
+    fun signs(c: Client, endpoint: String, auth: Boolean? = null): Boolean {
+        if (authHeaders == null || auth == false || c.host !in SIGNED_HOSTS) return false
+        if (auth == true) return true
+        return c.name.startsWith("WEB") && c.name != Clients.WEB_SABR.name && endpoint != "visitor_id"
+    }
+    /** interface language and content region of the requests; set from the app settings */
+    @Volatile var hl = "en"
+    @Volatile var gl = "US"
+
+    /** where the visitor identity is kept between starts; set by the app */
+    @Volatile var identityFile: okio.Path? = null
+    @Volatile private var visitorData: String? = null
+    private val visitorLock = Mutex()
+    private val rerolls = ArrayList<Long>()
+    private const val VISITOR_MAX_AGE = 7 * 86400L
+    private const val REROLL_LIMIT = 2
+    private const val REROLL_WINDOW = 6 * 3600L
+
+    private fun now() = Sys.nowMs() / 1000
+
+    /** The visitor identity in use: the saved one while it is under a week old, else a new one. */
+    suspend fun visitor(): String? {
+        visitorData?.let { return it }
+        return visitorLock.withLock {
+            visitorData ?: (restore() ?: fetchVisitor())?.also { visitorData = it; Accounts.visitorChanged(it) }
+        }
+    }
+
+    private fun restore(): String? = try {
+        val o = identityFile?.readTextOrNull()?.let(::parse)
+        val v = o.at("visitorData").str
+        val at = o.at("at").long ?: 0
+        v?.takeIf { it.isNotBlank() && now() - at in 0 until VISITOR_MAX_AGE }
+    } catch (e: Exception) { null }
+
+    private fun save(v: String) {
+        val f = identityFile ?: return
+        runCatching {
+            f.writeText(buildJsonObject { put("visitorData", v); put("at", now()) }.toString())
+        }
+    }
+
+    private suspend fun fetchVisitor(): String? = try {
+        val body = buildJsonObject { put("context", context(Clients.WEB, null)) }
+        val d = parse(Net.post("https://www.youtube.com/youtubei/v1/visitor_id?prettyPrint=false", body.toString(), headers(Clients.WEB, null)))
+        d.at("responseContext.visitorData").str?.takeIf { it.isNotBlank() }?.also(::save)
+    } catch (e: Exception) { null }
+
+    /** Replaces a walled visitor identity. At most twice in six hours, so a walled network can't loop. */
+    suspend fun reroll(): Boolean = visitorLock.withLock {
+        val t = now()
+        rerolls.removeAll { t - it >= REROLL_WINDOW }
+        if (rerolls.size >= REROLL_LIMIT) return@withLock false
+        val fresh = fetchVisitor() ?: return@withLock false
+        rerolls += t
+        visitorData = fresh
+        Accounts.visitorChanged(fresh)
+        true
+    }
+
+    internal fun headers(c: Client, visitor: String?, signed: Boolean = false, session: Boolean = signed) = buildMap {
+        put("User-Agent", c.userAgent)
+        put("X-YouTube-Client-Name", c.id.toString())
+        put("X-YouTube-Client-Version", c.version)
+        put("X-Goog-Api-Format-Version", "1")
+        put("Origin", "https://${c.host}")
+        put("Referer", "https://${c.host}/")
+        put("Accept-Language", hl)
+        if (visitor != null) put("X-Goog-Visitor-Id", visitor)
+        if (signed) authHeaders?.invoke("https://${c.host}")?.let { putAll(it) }
+        else if (session && c.host == "www.youtube.com") Accounts.visitorCookie()?.let { put("Cookie", it) }
+        if (session && Accounts.visitorSession) put(SESSION_MARK, "1")
+    }
+
+    private fun context(c: Client, visitor: String?, signed: Boolean = false): JsonObject = buildJsonObject {
+        put("client", buildJsonObject {
+            put("clientName", c.name)
+            put("clientVersion", c.version)
+            put("hl", hl)
+            put("gl", gl)
+            put("userAgent", c.userAgent)
+            if (visitor != null) put("visitorData", visitor)
+            for ((k, v) in c.extra) when (v) {
+                is Int -> put(k, v)
+                else -> put(k, v.toString())
+            }
+        })
+        if (signed) onBehalfOf?.invoke()?.let { page -> put("user", buildJsonObject { put("onBehalfOfUser", page) }) }
+    }
+
+    suspend fun call(endpoint: String, body: Map<String, Any?>, client: Client = Clients.WEB, auth: Boolean? = null): JsonElement {
+        val signed = signs(client, endpoint, auth)
+        val session = inSession(client, endpoint, auth)
+        // signed in, the account's own visitor (what YouTube handed this session), never the anonymous one
+        val visitor = if (signed) Accounts.accountVisitor else visitor()
+        val payload = buildJsonObject {
+            put("context", context(client, visitor, signed))
+            for ((k, v) in body) when (v) {
+                null -> {}
+                is JsonElement -> put(k, v)
+                is Boolean -> put(k, v)
+                is Number -> put(k, v)
+                else -> put(k, JsonPrimitive(v.toString()))
+            }
+        }
+        val headers = headers(client, visitor, signed, session)
+        val text = try {
+            Backoff.retry { Net.post("https://${client.host}/youtubei/v1/$endpoint?prettyPrint=false", payload.toString(), headers) }
+        } catch (e: HttpError) {
+            if (signed && e.code == 401) Accounts.sessionRejected()
+            throw YtError("YouTube answered ${e.code}", YtError.Kind.NETWORK)
+        } catch (e: okio.IOException) {
+            throw YtError("No connection to YouTube", YtError.Kind.NETWORK)
+        }
+        // YouTube's answers run to hundreds of kilobytes: read them off the main thread, or a slow TV box
+        // freezes on every page (and Android closes the app as not responding)
+        val d = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { parse(text) }
+        // a signed call answered as signed out: the cookies went stale (Accounts refreshes them)
+        if (signed && d.at("responseContext.mainAppWebResponseContext.loggedOut").str == "true") Accounts.sessionRejected()
+        if (signed && Accounts.accountVisitor == null) d.at("responseContext.visitorData").str?.takeIf { it.isNotBlank() }?.let { Accounts.accountVisitor = it }
+        return d
+    }
+
+    /** A WEB call with explicit [extra] headers (the account code, checking cookies before they are saved). */
+    suspend fun callWith(endpoint: String, body: JsonObject, extra: Map<String, String>, client: Client = Clients.WEB): JsonElement {
+        val payload = buildJsonObject {
+            put("context", context(client, null))
+            for ((k, v) in body) put(k, v)
+        }
+        val text = try {
+            Net.post("https://${client.host}/youtubei/v1/$endpoint?prettyPrint=false", payload.toString(), headers(client, null) + extra)
+        } catch (e: HttpError) {
+            throw YtError("YouTube answered ${e.code}", YtError.Kind.NETWORK)
+        } catch (e: okio.IOException) {
+            throw YtError("No connection to YouTube", YtError.Kind.NETWORK)
+        }
+        return parse(text)
+    }
+}

@@ -1,0 +1,9 @@
+{ "contents": { "sectionListRenderer": { "contents": [ { "itemSectionRenderer": { "contents": [
+  { "lockupViewModel": { "contentId": "QpQteBTPgVM", "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+    "contentImage": { "thumbnailViewModel": { "overlays": [ { "thumbnailBottomOverlayViewModel": { "badges": [ { "thumbnailBadgeViewModel": { "text": "23:16" } } ] } } ] } },
+    "metadata": { "lockupMetadataViewModel": { "title": { "content": "OCD | Cannes Film Festival | Short Film" },
+      "metadata": { "contentMetadataViewModel": { "metadataRows": [ { "metadataParts": [ { "text": { "content": "Arsalaan Shaikh" } }, { "text": { "content": "1.1M" } } ] } ] } } } } } },
+  { "lockupViewModel": { "contentId": "spUNpyF58BY", "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+    "metadata": { "lockupMetadataViewModel": { "title": { "content": "A channel page video" },
+      "metadata": { "contentMetadataViewModel": { "metadataRows": [ { "metadataParts": [ { "text": { "content": "12M views" } }, { "text": { "content": "6 years ago" } } ] } ] } } } } } }
+] } } ] } } }

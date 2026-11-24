@@ -1,0 +1,504 @@
+name: Release
+
+# Every platform's release files from one tag, collected into one DRAFT GitHub release (publish it by
+# hand after a look; the in-app updater and the AltStore source only see published releases).
+#
+#   git tag -a app-v1.9.0 -m "Tubeless 1.9.0" && git push origin app-v1.9.0
+#   or Actions → Release → Run workflow (no tag: a dry run that only uploads build artifacts)
+#
+# Tags are app-v<app.version from gradle.properties>; the app's update check (Remote.kt) looks for
+# exactly that prefix. Files:
+#   mac        Tubeless-<v>-mac-{arm64,x64}.dmg    Developer ID signed + notarized when the secrets are
+#                                                 set, ad hoc otherwise (packaging/macos/sign-dmg.sh)
+#   windows    Tubeless-<v>-win-x64.msi (+ portable .zip)      unsigned (SignPath/Azure signing: later)
+#   linux      Tubeless-<v>-linux-{x86_64,aarch64}.AppImage, .deb, .rpm; Tubeless-<v>-linux-x86_64.flatpak;
+#              .snap per arch (best effort, Snap Store upload when SNAPCRAFT_STORE_CREDENTIALS is set)
+#   android    Tubeless-release-<v>.apk            release-signed with the repo keystore secrets
+#   ios        Tubeless-<v>-ios.ipa (unsigned; AltStore/SideStore sign it) + altstore.json (the source:
+#              https://github.com/<repo>/releases/latest/download/altstore.json)
+#   extension  Tubeless-<v>-chrome.zip (Load unpacked), Tubeless-<v>-firefox.xpi (signed unlisted on AMO when
+#              AMO_JWT_ISSUER/AMO_JWT_SECRET are set, else Tubeless-<v>-firefox-unsigned.xpi)
+#
+# Secrets (all optional; a missing one degrades that file, never the release):
+#   MACOS_CERTIFICATE, MACOS_CERTIFICATE_PASSWORD     Developer ID Application .p12 (base64) and password
+#   APPLE_API_KEY, APPLE_API_KEY_ID, APPLE_API_ISSUER_ID   App Store Connect API key (.p8 base64) for notarytool
+#   ANDROID_KEYSTORE_B64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+#   AMO_JWT_ISSUER, AMO_JWT_SECRET                    addons.mozilla.org API key (unlisted XPI signing)
+#   SNAPCRAFT_STORE_CREDENTIALS                       `snapcraft export-login` output
+on:
+  push:
+    tags: ["app-v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag app-v<version> (empty: dry run, artifacts only)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event_name == 'push' && github.ref_name || inputs.tag || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4g -Dkotlin.daemon.jvm.options=-Xmx3g -Dorg.gradle.internal.repository.max.retries=6 -Dorg.gradle.internal.repository.initial.backoff=2000
+
+jobs:
+  meta:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.v.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        env:
+          TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+        run: |
+          version=$(sed -n 's/^app.version=//p' gradle.properties)
+          if [ -n "$TAG" ] && [ "$TAG" != "app-v$version" ]; then
+            echo "::error::tag $TAG does not match app.version=$version in gradle.properties (expected app-v$version)"; exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Tubeless $version, tag '${TAG:-<dry run>}'"
+      - name: Asset lint
+        run: scripts/asset-lint.sh
+
+  mac:
+    needs: meta
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: arm64, runner: macos-15 }
+          - { arch: x64, runner: macos-15-intel }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      HAS_CERT: ${{ secrets.MACOS_CERTIFICATE != '' }}
+      HAS_NOTARY: ${{ secrets.APPLE_API_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Put libmpv inside the app
+        id: mpv
+        continue-on-error: true
+        run: packaging/macos/bundle-libmpv.sh desktop/resources/macos
+      - name: Without libmpv inside
+        if: steps.mpv.outcome != 'success'
+        run: |
+          rm -rf desktop/resources/macos
+          echo "::warning::libmpv could not be put inside the mac-${{ matrix.arch }} app; it will need Homebrew's or MacPorts' mpv"
+      # Google sign-in: tools/signin-helper (the helper window) and libtubeless_webview.dylib (sign-in inside
+      # the main window), next to the app's resources (SignIn.kt, EmbeddedSignIn.kt look there)
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Sign-in helper
+        run: |
+          (cd tools/signin-helper && cargo build --release --locked)
+          mkdir -p desktop/resources/macos
+          cp tools/signin-helper/target/release/signin-helper tools/signin-helper/target/release/libtubeless_webview.dylib desktop/resources/macos/
+      # a throwaway keychain holding only the Developer ID identity
+      - name: Import signing certificate
+        if: env.HAS_CERT == 'true'
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/tubeless-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
+          echo "::add-mask::$KEYCHAIN_PASSWORD"
+          CERT="$RUNNER_TEMP/developer-id.p12"
+          (umask 077; printf '%s' "$MACOS_CERTIFICATE" | base64 --decode > "$CERT")
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$CERT" -k "$KEYCHAIN" -f pkcs12 -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          rm -f "$CERT"
+          for ca in DeveloperIDG2CA DeveloperIDCA; do
+            curl -fsSL --retry 3 -o "$RUNNER_TEMP/$ca.cer" "https://www.apple.com/certificateauthority/$ca.cer"
+            security import "$RUNNER_TEMP/$ca.cer" -k "$KEYCHAIN" >/dev/null 2>&1 || true
+          done
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          # shellcheck disable=SC2046
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          name=$(security find-identity -v -p codesigning "$KEYCHAIN" | sed -n 's/.*"\(Developer ID Application: .*\)"/\1/p' | head -1)
+          [ -n "$name" ] || { echo "::error::no Developer ID Application identity in MACOS_CERTIFICATE"; exit 1; }
+          {
+            echo "SIGN_IDENTITY=$name"
+            # Compose signs the jars' native libraries too; it wants the name without the prefix
+            echo "COMPOSE_SIGN=-Pcompose.desktop.mac.sign=true -Pcompose.desktop.mac.signing.keychain=$KEYCHAIN"
+            echo "COMPOSE_IDENTITY=${name#Developer ID Application: }"
+          } >> "$GITHUB_ENV"
+      - name: Notary key
+        if: env.HAS_CERT == 'true' && env.HAS_NOTARY == 'true'
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          (umask 077; printf '%s' "$APPLE_API_KEY" | base64 --decode > "$RUNNER_TEMP/notary.p8")
+          { echo "NOTARY_KEY_PATH=$RUNNER_TEMP/notary.p8"; echo "NOTARY_KEY_ID=$APPLE_API_KEY_ID"; echo "NOTARY_ISSUER=$APPLE_API_ISSUER_ID"; } >> "$GITHUB_ENV"
+      - name: Build the app
+        run: |
+          # shellcheck disable=SC2086
+          if [ -n "${COMPOSE_SIGN:-}" ]; then
+            ./gradlew --no-daemon :desktop:createReleaseDistributable $COMPOSE_SIGN "-Pcompose.desktop.mac.signing.identity=$COMPOSE_IDENTITY"
+          else
+            ./gradlew --no-daemon :desktop:createReleaseDistributable
+          fi
+      - name: Sign, DMG, notarize
+        run: |
+          app=$(find desktop/build/compose/binaries/main-release/app -maxdepth 1 -name '*.app' | head -1)
+          packaging/macos/sign-dmg.sh "$app" "Tubeless-$VERSION-mac-${{ matrix.arch }}.dmg"
+          if [ -z "${SIGN_IDENTITY:-}" ]; then echo "::warning::mac-${{ matrix.arch }}: ad-hoc signed (no MACOS_CERTIFICATE secret): users right-click → Open once"; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-${{ matrix.arch }}
+          path: Tubeless-*.dmg
+          if-no-files-found: error
+
+  windows:
+    needs: meta
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: libmpv
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: packaging/windows/fetch-libmpv.ps1 -Arch x86_64 -VulkanArch x64 -Out desktop/resources/windows
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Sign-in helper
+        shell: bash
+        run: |
+          (cd tools/signin-helper && cargo build --release --locked)
+          cp tools/signin-helper/target/release/signin-helper.exe desktop/resources/windows/
+      - name: Build .msi and portable .zip
+        shell: bash
+        run: |
+          ./gradlew --no-daemon :desktop:packageReleaseMsi :desktop:createReleaseDistributable
+          out=desktop/build/compose/binaries/main-release
+          cp "$(find $out/msi -name '*.msi' | head -1)" "Tubeless-$VERSION-win-x64.msi"
+          (cd $out/app && 7z a -tzip "$GITHUB_WORKSPACE/Tubeless-$VERSION-win-x64-portable.zip" Tubeless >/dev/null)
+          ls -la Tubeless-*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: |
+            Tubeless-*.msi
+            Tubeless-*.zip
+          if-no-files-found: error
+
+  linux:
+    needs: meta
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-22.04, arch: x86_64, deb: amd64 }
+          - { runner: ubuntu-22.04-arm, arch: aarch64, deb: arm64 }
+    # 22.04: the oldest glibc floor GitHub still offers, so the AppImage runs on older distributions
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Sign-in helper
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
+          (cd tools/signin-helper && cargo build --release --locked)
+          mkdir -p desktop/resources/linux
+          cp tools/signin-helper/target/release/signin-helper desktop/resources/linux/
+      - name: Build .deb, .rpm and the app
+        run: |
+          sudo apt-get install -y rpm
+          ./gradlew --no-daemon :desktop:packageReleaseDeb :desktop:packageReleaseRpm :desktop:createReleaseDistributable
+          out=desktop/build/compose/binaries/main-release
+          cp "$(find $out/deb -name '*.deb' | head -1)" "Tubeless-$VERSION-linux-${{ matrix.deb }}.deb"
+          packaging/linux/fix-deb.sh "Tubeless-$VERSION-linux-${{ matrix.deb }}.deb"
+          cp "$(find $out/rpm -name '*.rpm' | head -1)" "Tubeless-$VERSION-linux-${{ matrix.arch }}.rpm"
+          tar -C "$out/app/Tubeless" -cf "app-${{ matrix.arch }}.tar" .
+      - name: Build .AppImage
+        run: packaging/linux/make-appimage.sh desktop/build/compose/binaries/main-release/app/Tubeless "Tubeless-$VERSION-linux-${{ matrix.arch }}.AppImage"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}
+          path: |
+            Tubeless-*.deb
+            Tubeless-*.rpm
+            Tubeless-*.AppImage
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-linux-${{ matrix.arch }}
+          path: app-${{ matrix.arch }}.tar
+          retention-days: 1
+
+  flatpak:
+    needs: [meta, linux]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-26.08
+      options: --privileged
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-linux-x86_64
+      - name: Put the app next to the manifest
+        run: |
+          mkdir -p packaging/flatpak/app && tar -C packaging/flatpak/app -xf app-x86_64.tar
+          packaging/fill-metadata.sh "$GITHUB_REPOSITORY" "$VERSION" packaging/flatpak/dev.tubeless.app.metainfo.xml
+      # flatpak-builder run directly with the SDK installed for this user (the action's own SDK update
+      # failed with "Invalid cross-device link", upstream 2026-11-15)
+      - name: Build the Flatpak
+        run: |
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak-builder --user --install-deps-from=flathub --disable-rofiles-fuse --force-clean \
+            --repo=repo build packaging/flatpak/dev.tubeless.app.yml
+          flatpak build-bundle repo "Tubeless-$VERSION-linux-x86_64.flatpak" dev.tubeless.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flatpak
+          path: Tubeless-*.flatpak
+          if-no-files-found: error
+
+  snap:
+    needs: [meta, linux]
+    # best effort: the snap name "tubeless" has to be registered in the Snap Store first
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-24.04, arch: x86_64, snap: amd64 }
+          - { runner: ubuntu-24.04-arm, arch: aarch64, snap: arm64 }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-linux-${{ matrix.arch }}
+      - name: Put the app next to snapcraft.yaml
+        run: |
+          mkdir -p packaging/snap/app && tar -C packaging/snap/app -xf "app-${{ matrix.arch }}.tar"
+          sed -i "s/^version: .*/version: '$VERSION'/" packaging/snap/snap/snapcraft.yaml
+          packaging/fill-metadata.sh "$GITHUB_REPOSITORY" "$VERSION" packaging/snap/snap/snapcraft.yaml
+      - uses: snapcore/action-build@v1
+        id: build
+        with:
+          path: packaging/snap
+      - name: Install it and check libmpv inside
+        run: |
+          sudo snap install --dangerous "${{ steps.build.outputs.snap }}"
+          root=/snap/tubeless/current
+          test -x $root/tubeless/bin/Tubeless
+          test -n "$(find $root/usr/lib -name 'libmpv.so.2*' | head -1)"
+          cp "${{ steps.build.outputs.snap }}" "Tubeless-$VERSION-linux-${{ matrix.snap }}.snap"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: snap-${{ matrix.snap }}
+          path: Tubeless-*.snap
+      - name: Send to the Snap Store (edge)
+        if: needs.meta.outputs.tag != '' && env.SNAPCRAFT_STORE_CREDENTIALS != ''
+        uses: snapcore/action-publish@v1
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: edge
+
+  android:
+    needs: meta
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      HAS_KEY: ${{ secrets.ANDROID_KEYSTORE_B64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Keystore
+        if: env.HAS_KEY == 'true'
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          (umask 077; echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks")
+          echo "TUBEHAUS_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+      - name: Build the APK
+        env:
+          TUBEHAUS_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          TUBEHAUS_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          TUBEHAUS_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          # android/build.gradle.kts signs with TUBEHAUS_KEYSTORE when it is set, else with the debug key
+          [ -n "${TUBEHAUS_KEY_ALIAS:-}" ] || unset TUBEHAUS_KEY_ALIAS
+          [ -n "${TUBEHAUS_KEY_PASSWORD:-}" ] || unset TUBEHAUS_KEY_PASSWORD
+          ./gradlew --no-daemon :android:assembleRelease
+          apk=$(find android/build/outputs/apk/release -name '*.apk' | head -1)
+          # "Tubeless-release-": the in-app updater of a release-key install looks for that prefix
+          if [ "$HAS_KEY" = true ]; then out="Tubeless-release-$VERSION.apk"
+          else out="Tubeless-$VERSION-debugkey.apk"; echo "::warning::no ANDROID_KEYSTORE_B64 secret: the APK is signed with a throwaway debug key and cannot update a release install"; fi
+          cp "$apk" "$out"
+          "$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)/apksigner" verify --print-certs "$out" | head -3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: Tubeless-*.apk
+          if-no-files-found: error
+
+  ios:
+    needs: meta
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      TAG: ${{ needs.meta.outputs.tag }}
+      GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx5g -Dkotlin.daemon.jvm.options=-Xmx2g -Dorg.gradle.internal.repository.max.retries=6 -Dorg.gradle.internal.repository.initial.backoff=2000
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Kotlin → framework
+        run: |
+          ./gradlew :ios:linkReleaseFrameworkIosArm64 --no-configuration-cache
+          mkdir -p ios/build/kit && cp -R ios/build/bin/iosArm64/releaseFramework/*.framework ios/build/kit/
+      - name: Xcode project
+        run: |
+          brew install xcodegen
+          cd ios/app && xcodegen generate
+      - name: Build the app (unsigned) and the .ipa
+        run: |
+          proj=$(find ios/app -maxdepth 1 -name '*.xcodeproj' | head -1); scheme=$(basename "$proj" .xcodeproj)
+          xcodebuild -project "$proj" -scheme "$scheme" -sdk iphoneos -configuration Release \
+            -derivedDataPath build/xcode CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+          app=$(find build/xcode/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' | head -1)
+          test -d "$app"
+          mkdir -p out/Payload && cp -R "$app" out/Payload/
+          (cd out && zip -qr "../Tubeless-$VERSION-ios.ipa" Payload)
+          ls -la Tubeless-*.ipa
+      - name: AltStore source
+        run: |
+          prev=""
+          if gh release download --repo "$GITHUB_REPOSITORY" --pattern altstore.json --dir prev 2>/dev/null; then prev=prev/altstore.json; fi
+          notes=$(git tag -l --format='%(contents:subject)' "$TAG" 2>/dev/null | head -1)
+          python3 altstore/make-source.py --repo "$GITHUB_REPOSITORY" --tag "${TAG:-app-v$VERSION}" \
+            --ipa "Tubeless-$VERSION-ios.ipa" --build "$(sed -n 's/^app.versionCode=//p' gradle.properties)" \
+            --notes "${notes:-Tubeless $VERSION}" --branch "${{ github.event.repository.default_branch }}" \
+            ${prev:+--previous "$prev"} -o altstore.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios
+          path: |
+            Tubeless-*.ipa
+            altstore.json
+          if-no-files-found: error
+
+  extension:
+    needs: meta
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+      AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # extension/build.sh: the :web wasm release build, then extension/build.mjs (plain files, no npm install)
+      # → extension/dist/tubeless-<v>-{chrome,firefox}.zip
+      - name: Build Chrome zip and Firefox package
+        run: |
+          GRADLE_ARGS=--no-daemon extension/build.sh
+          cp "extension/dist/tubeless-$VERSION-chrome.zip" "Tubeless-$VERSION-chrome.zip"
+          cp "extension/dist/tubeless-$VERSION-firefox.zip" "Tubeless-$VERSION-firefox-unsigned.zip"
+      - name: Sign the XPI (unlisted, AMO)
+        if: env.AMO_JWT_ISSUER != ''
+        run: |
+          mkdir -p xpi && cd xpi && unzip -q "../Tubeless-$VERSION-firefox-unsigned.zip"
+          npx --yes web-ext@8 sign --channel unlisted --api-key "$AMO_JWT_ISSUER" --api-secret "$AMO_JWT_SECRET" --artifacts-dir ../signed
+          cp "$(find ../signed -maxdepth 1 -name '*.xpi' | head -1)" "$GITHUB_WORKSPACE/Tubeless-$VERSION-firefox.xpi"
+      - name: Unsigned XPI when there is no AMO key (installable in Firefox Developer Edition / Nightly, or about:debugging)
+        if: env.AMO_JWT_ISSUER == ''
+        run: cp "Tubeless-$VERSION-firefox-unsigned.zip" "Tubeless-$VERSION-firefox-unsigned.xpi"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: extension
+          path: |
+            Tubeless-*.zip
+            Tubeless-*.xpi
+
+  publish:
+    needs: [meta, mac, windows, linux, flatpak, snap, android, ios, extension]
+    # a best-effort file that failed (snap) is just missing; the core platforms must all be there
+    if: ${{ !cancelled() && needs.meta.outputs.tag != '' && needs.mac.result == 'success' && needs.windows.result == 'success' && needs.linux.result == 'success' && needs.android.result == 'success' && needs.ios.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.meta.outputs.tag }}
+      VERSION: ${{ needs.meta.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dl
+      - name: Draft release
+        run: |
+          mkdir -p files
+          find dl -type f ! -path 'dl/app-linux-*' \( -name 'Tubeless-*' -o -name altstore.json \) -exec cp {} files/ \;
+          (cd files && sha256sum Tubeless-* > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          notes=$(git tag -l --format='%(contents)' "$TAG" 2>/dev/null)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" files/* --clobber
+          else
+            gh release create "$TAG" --draft --verify-tag=false --title "Tubeless $VERSION" \
+              --notes "${notes:-Tubeless $VERSION}" files/*
+          fi
+          echo "::notice::draft release $TAG ready: check it, then publish it on GitHub"

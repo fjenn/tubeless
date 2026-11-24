@@ -1,0 +1,17 @@
+{"responseContext":{"mainAppWebResponseContext":{"loggedOut":false}},
+ "contents":{"twoColumnBrowseResultsRenderer":{"tabs":[{"tabRenderer":{"selected":true,"content":{"sectionListRenderer":{"contents":[
+   {"itemSectionRenderer":{"header":{"itemSectionHeaderRenderer":{"title":{"runs":[{"text":"Today"}]}}},"contents":[
+     {"videoRenderer":{"videoId":"hhhhhhhhhh1","title":{"runs":[{"text":"Watched today"}]},"longBylineText":{"runs":[{"text":"Chan","navigationEndpoint":{"browseEndpoint":{"browseId":"UChhhhhhhhhhhhhhhhhhhhhh"}}}]},"lengthText":{"simpleText":"20:00"},
+       "thumbnailOverlays":[{"thumbnailOverlayResumePlaybackRenderer":{"percentDurationWatched":37}}],
+       "menu":{"menuRenderer":{"topLevelButtons":[{"buttonRenderer":{"icon":{"iconType":"CLOSE"},"serviceEndpoint":{"feedbackEndpoint":{"feedbackToken":"TOK_HIST_1"}},"tooltip":"Remove from watch history"}}]}}}}]}},
+   {"itemSectionRenderer":{"header":{"itemSectionHeaderRenderer":{"title":{"runs":[{"text":"Yesterday"}]}}},"contents":[
+     {"lockupViewModel":{"contentId":"hhhhhhhhhh2","contentType":"LOCKUP_CONTENT_TYPE_VIDEO","metadata":{"lockupMetadataViewModel":{"title":{"content":"Watched yesterday"},
+       "metadata":{"contentMetadataViewModel":{"metadataRows":[{"metadataParts":[{"text":{"content":"Chan 2"}}]},{"metadataParts":[{"text":{"content":"7 views"}}]}]}},
+       "menuButton":{"buttonViewModel":{"onTap":{"innertubeCommand":{"showSheetCommand":{"panelLoadingStrategy":{"inlineContent":{"sheetViewModel":{"content":{"listViewModel":{"listItems":[
+         {"listItemViewModel":{"title":{"content":"Remove from watch history"},"leadingImage":{"sources":[{"clientResource":{"imageName":"DELETE"}}]},"rendererContext":{"commandContext":{"onTap":{"innertubeCommand":{"feedbackEndpoint":{"feedbackToken":"TOK_HIST_2"}}}}}}}]}}}}}}}}}}}}}}]}},
+   {"continuationItemRenderer":{"continuationEndpoint":{"continuationCommand":{"token":"HIST_NEXT"}}}}
+ ]}}}}],
+ "secondaryContents":{"browseFeedActionsRenderer":{"contents":[
+   {"searchBoxRenderer":{"placeholderText":{"runs":[{"text":"Search watch history"}]}}},
+   {"buttonRenderer":{"text":{"runs":[{"text":"Clear all watch history"}]},"icon":{"iconType":"DELETE"},"navigationEndpoint":{"confirmDialogEndpoint":{"content":{"confirmDialogRenderer":{"confirmEndpoint":{"feedbackEndpoint":{"feedbackToken":"TOK_CLEAR"}}}}}}}},
+   {"buttonRenderer":{"text":{"runs":[{"text":"Turn on watch history"}]},"icon":{"iconType":"PLAY_ARROW"},"navigationEndpoint":{"confirmDialogEndpoint":{"content":{"confirmDialogRenderer":{"confirmEndpoint":{"feedbackEndpoint":{"feedbackToken":"TOK_RESUME"}}}}}}}}]}}}}}

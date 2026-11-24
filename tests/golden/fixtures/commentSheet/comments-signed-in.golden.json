@@ -1,0 +1,26 @@
+{
+  "@type": "CommentSheet",
+  "createParams": "CREATE_P",
+  "actions": {
+    "Ugx1": {
+      "@type": "CommentActions",
+      "commentId": "Ugx1",
+      "like": "LIKE_1",
+      "unlike": "UNLIKE_1",
+      "dislike": "DISLIKE_1",
+      "undislike": "UNDISLIKE_1",
+      "replyParams": "REPLY_1",
+      "liked": true
+    },
+    "Ugx2": {
+      "@type": "CommentActions",
+      "commentId": "Ugx2",
+      "like": "LIKE_2",
+      "unlike": null,
+      "dislike": null,
+      "undislike": null,
+      "replyParams": "REPLY_2",
+      "liked": false
+    }
+  }
+}

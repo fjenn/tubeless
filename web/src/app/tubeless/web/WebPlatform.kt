@@ -1,0 +1,66 @@
+package app.tubeless.web
+
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.platform.Font
+import app.tubehaus.ui.Platform
+import app.tubehaus.ui.VideoPlayer
+import app.tubehaus.web.WebFs
+import app.tubehaus.web.toArrayBuffer
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.await
+import kotlinx.coroutines.launch
+import okio.Path
+import okio.Path.Companion.toPath
+import org.khronos.webgl.ArrayBuffer
+import kotlin.js.Promise
+
+/** What the browser supplies to the shared app. */
+class WebPlatform(fontData: ByteArray?) : Platform {
+    override val name = "web"
+    override val dataDir: Path = WebFs.KEEP.toPath()
+    override val cacheDir: Path = "/tubeless/cache".toPath()
+    override val touch = jsTouch()
+    private val web = WebPlayer()
+    override val player: VideoPlayer = web
+    override val font: FontFamily? = fontData?.let { data ->
+        runCatching {
+            FontFamily(listOf(400, 500, 600, 700, 800).map { w ->
+                Font("Roboto-$w", data, FontWeight(w), variationSettings = FontVariation.Settings(FontVariation.weight(w)))
+            })
+        }.getOrNull()
+    }
+    override val canPip get() = true
+    override fun startPip() = web.pip()
+
+    override fun share(title: String, url: String): Boolean = jsShare(title, url)
+    override fun openExternal(url: String) = jsOpen(url)
+    override fun saveFile(name: String, mime: String, bytes: ByteArray, done: (Boolean) -> Unit) { jsSave(name, mime, bytes.toArrayBuffer()); done(true) }
+    override fun openTextFile(done: (String?) -> Unit) { MainScope().launch { done(jsPick(false).await<JsAny?>()?.let { jsFirstText(it) }) } }
+    override fun openTextFiles(done: (List<Pair<String, String>>) -> Unit) {
+        MainScope().launch {
+            val all = jsPick(true).await<JsAny?>() ?: return@launch done(emptyList())
+            done((0 until jsLen(all)).map { jsName(all, it) to jsText(all, it) })
+        }
+    }
+    override fun setFullscreen(on: Boolean) = jsFullscreen(on)
+    override val knowsMetered = true
+    override fun metered(): Boolean = jsMetered()
+}
+
+private fun jsTouch(): Boolean = js("matchMedia('(pointer: coarse)').matches")
+private fun jsShare(title: String, url: String): Boolean =
+    js("(function(){ if (navigator.share) { navigator.share({ title: title, url: url }).catch(function(){}); return true } navigator.clipboard && navigator.clipboard.writeText(url); return false })()")
+private fun jsOpen(url: String): Unit = js("{ window.open(url, '_blank') }")
+private fun jsFullscreen(on: Boolean): Unit = js("{ if (on) document.documentElement.requestFullscreen().catch(function(){}); else if (document.fullscreenElement) document.exitFullscreen() }")
+private fun jsMetered(): Boolean = js("!!(navigator.connection && navigator.connection.saveData)")
+private fun jsSave(name: String, mime: String, b: ArrayBuffer): Unit =
+    js("{ var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([b], { type: mime })); a.download = name; a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href) }, 10000) }")
+private fun jsPick(many: Boolean): Promise<JsAny?> = js("""new Promise(function(ok){ var i = document.createElement('input'); i.type = 'file'; i.multiple = many;
+  i.onchange = function(){ Promise.all(Array.from(i.files).map(function(f){ return f.text().then(function(t){ return [f.name, t] }) })).then(ok) };
+  i.oncancel = function(){ ok(null) }; i.click() })""")
+private fun jsLen(a: JsAny): Int = js("a.length")
+private fun jsName(a: JsAny, i: Int): String = js("a[i][0]")
+private fun jsText(a: JsAny, i: Int): String = js("a[i][1]")
+private fun jsFirstText(a: JsAny): String? = js("a.length ? a[0][1] : null")

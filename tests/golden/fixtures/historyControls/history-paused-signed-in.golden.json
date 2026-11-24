@@ -1,0 +1,10 @@
+{
+  "@type": "Pair",
+  "first": {
+    "@type": "HistoryControls",
+    "clear": "TOK_CLEAR",
+    "pause": null,
+    "resume": "TOK_RESUME"
+  },
+  "second": true
+}

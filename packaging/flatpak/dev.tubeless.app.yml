@@ -1,0 +1,125 @@
+# Tubeless as a Flatpak: the desktop app (its own Java runtime inside, from the Gradle build) and the
+# libmpv it plays with, so nothing has to be installed on the system.
+#
+# Built in CI (.github/workflows/release.yml, job flatpak): the app is built with Gradle first and put in ./app, then
+#   flatpak-builder --user --install build dev.tubeless.app.yml
+# The mpv part follows Flathub's own io.mpv.Mpv, cut down to what Tubeless uses: libmpv only (no mpv
+# command), drawing into the app's window in software, sound through PulseAudio/PipeWire.
+id: dev.tubeless.app
+runtime: org.freedesktop.Platform
+runtime-version: '26.08'
+sdk: org.freedesktop.Sdk
+command: tubeless
+
+finish-args:
+  - --share=network
+  - --share=ipc
+  # the window is AWT (Compose for Desktop), which speaks X11 (XWayland on Wayland)
+  - --socket=x11
+  - --socket=pulseaudio
+  - --device=dri
+  # saving a video or a transcript where you choose
+  - --filesystem=xdg-download
+  - --env=LC_NUMERIC=C
+
+cleanup:
+  - '*.la'
+  - '*.a'
+  - /include
+  - /lib/pkgconfig
+  - /share/man
+  - /share/doc
+
+modules:
+  - name: libass
+    config-opts:
+      - --disable-static
+      - --enable-asm
+      - --enable-harfbuzz
+      - --enable-fontconfig
+    sources:
+      - type: git
+        url: https://github.com/libass/libass.git
+        tag: 0.17.5
+        commit: 4a05d8127f525943ebf45fdc6497c9e665947f0d
+
+  # YouTube's formats only: VP9 and AV1 (dav1d), H.264 (built in), Opus and AAC (built in)
+  - name: ffmpeg
+    config-opts:
+      - --disable-debug
+      - --disable-doc
+      - --disable-static
+      - --disable-programs
+      - --enable-shared
+      - --enable-gnutls
+      - --enable-libdav1d
+      - --enable-libvpx
+      - --enable-libopus
+      - --enable-libass
+      - --enable-libfreetype
+      - --enable-vaapi
+      - --enable-libdrm
+    cleanup:
+      - /share/ffmpeg
+    sources:
+      - type: git
+        url: https://git.ffmpeg.org/ffmpeg.git
+        tag: n9.0.2
+        commit: 946fcce07b6dcd0331c8cc609192aeff5e1924f8
+
+  - name: libplacebo
+    buildsystem: meson
+    config-opts:
+      - -Dvulkan=disabled
+      - -Dshaderc=disabled
+      - -Ddemos=false
+      - -Dtests=false
+    sources:
+      - type: git
+        url: https://code.videolan.org/videolan/libplacebo.git
+        tag: v7.387.0
+        commit: 275f7dea27924cdd34ab2e6c20e448b6bc4fab65
+
+  - name: mpv
+    buildsystem: meson
+    config-opts:
+      - -Dlibmpv=true
+      - -Dcplayer=false
+      - -Dbuild-date=false
+      - -Dwerror=false
+      - -Dlua=disabled
+      - -Djavascript=disabled
+      - -Dpulse=enabled
+      - -Dpipewire=enabled
+      - -Dalsa=enabled
+      - -Dvaapi=enabled
+      - -Dmanpage-build=disabled
+      - -Dhtml-build=disabled
+    sources:
+      - type: git
+        url: https://github.com/mpv-player/mpv.git
+        tag: v0.42.0
+        commit: b0841e8c4d156b8403dc1876c4cbd9011eb583f3
+
+  - name: tubeless
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/tubeless /app/bin
+      - cp -a app/. /app/tubeless/
+      - install -Dm755 tubeless.sh /app/bin/tubeless
+      - install -Dm644 dev.tubeless.app.desktop /app/share/applications/dev.tubeless.app.desktop
+      - install -Dm644 dev.tubeless.app.metainfo.xml /app/share/metainfo/dev.tubeless.app.metainfo.xml
+      - install -Dm644 icon.png /app/share/icons/hicolor/512x512/apps/dev.tubeless.app.png
+    sources:
+      # the app as Gradle builds it (desktop/build/compose/binaries/main-release/app/Tubeless), put here by CI
+      - type: dir
+        path: app
+        dest: app
+      - type: file
+        path: tubeless.sh
+      - type: file
+        path: dev.tubeless.app.desktop
+      - type: file
+        path: dev.tubeless.app.metainfo.xml
+      - type: file
+        path: icon.png

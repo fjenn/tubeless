@@ -1,0 +1,27 @@
+// Golden-JSON parser tests, wired in from outside the build files (those belong to S0):
+//
+//   ./gradlew --init-script tests/golden/golden.init.gradle :desktop:goldenCheck            # check
+//   ./gradlew --init-script tests/golden/golden.init.gradle :desktop:goldenCheck -Pupdate   # (re)write expected files
+//
+// Adds a `golden` source set to :desktop (tests/golden/src, compiled against the app's main code with
+// access to its `internal` declarations) and a goldenCheck task that runs it over tests/golden/fixtures.
+// Nothing here goes into the app.
+allprojects { p ->
+    p.plugins.withId('org.jetbrains.kotlin.jvm') {
+        if (p.path != ':desktop') return
+        def golden = p.sourceSets.create('golden')
+        p.kotlin.sourceSets.getByName('golden').kotlin.srcDir(p.rootProject.file('tests/golden/src'))
+        def comps = p.kotlin.target.compilations
+        comps.getByName('golden').associateWith(comps.getByName('main'))
+        p.configurations.getByName('goldenImplementation').extendsFrom(p.configurations.getByName('implementation'))
+        p.configurations.getByName('goldenRuntimeOnly').extendsFrom(p.configurations.getByName('runtimeOnly'))
+        p.tasks.register('goldenCheck', JavaExec) {
+            group = 'verification'
+            description = 'Golden-JSON parser tests (tests/golden/fixtures)'
+            classpath = golden.runtimeClasspath + p.sourceSets.getByName('main').runtimeClasspath
+            mainClass.set('app.tubehaus.golden.GoldenCheckKt')
+            args(p.rootProject.file('tests/golden/fixtures').path, p.layout.buildDirectory.dir('golden-actual').get().asFile.path)
+            if (p.hasProperty('update')) args('--update')
+        }
+    }
+}

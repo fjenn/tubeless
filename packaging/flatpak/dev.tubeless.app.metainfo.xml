@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>dev.tubeless.app</id>
+  <name>Tubeless</name>
+  <summary>Ad-free video player with or without a Google account</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-or-later</project_license>
+  <developer id="dev.tubeless">
+    <name>Tubeless contributors</name>
+  </developer>
+  <description>
+    <p>
+      Tubeless plays YouTube without a Google account, without ads and without tracking. Your
+      subscriptions, history, playlists and recommendations stay on your computer.
+    </p>
+    <ul>
+      <li>Subscriptions, Watch later, playlists and history, imported from Google Takeout or NewPipe if you like</li>
+      <li>Recommendations made on your device from what you watch</li>
+      <li>SponsorBlock, Return YouTube Dislike and DeArrow</li>
+      <li>Captions, chapters, a video queue and audio-only playback</li>
+      <li>Videos saved to watch without internet</li>
+      <li>Optionally synced with your YouTube account, or none at all</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">dev.tubeless.app.desktop</launchable>
+  <url type="homepage">https://github.com/@REPO@</url>
+  <url type="bugtracker">https://github.com/@REPO@/issues</url>
+  <url type="vcs-browser">https://github.com/@REPO@</url>
+  <content_rating type="oars-1.1"/>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Video</category>
+  </categories>
+  <releases>
+    <release version="@VERSION@" date="@DATE@"/>
+  </releases>
+</component>

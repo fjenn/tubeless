@@ -1,0 +1,31 @@
+{"responseContext":{"mainAppWebResponseContext":{"loggedOut":false,"datasyncId":"fixture||"}},
+ "contents":{"twoColumnBrowseResultsRenderer":{"tabs":[{"tabRenderer":{"selected":true,"content":{"richGridRenderer":{
+  "header":{"feedFilterChipBarRenderer":{"contents":[
+    {"chipCloudChipRenderer":{"text":{"runs":[{"text":"All"}]},"isSelected":true}},
+    {"chipCloudChipRenderer":{"text":{"runs":[{"text":"Music"}]},"navigationEndpoint":{"continuationCommand":{"token":"CHIP_MUSIC","request":"CONTINUATION_REQUEST_TYPE_BROWSE"}},"isSelected":false}},
+    {"chipCloudChipRenderer":{"text":{"runs":[{"text":"Recently uploaded"}]},"navigationEndpoint":{"continuationCommand":{"token":"CHIP_RECENT","request":"CONTINUATION_REQUEST_TYPE_BROWSE"}},"isSelected":false}}]}},
+  "contents":[
+   {"richItemRenderer":{"content":{"lockupViewModel":{"contentId":"aaaaaaaaaaa","contentType":"LOCKUP_CONTENT_TYPE_VIDEO",
+     "contentImage":{"thumbnailViewModel":{"image":{"sources":[{"url":"https://i.ytimg.com/vi/aaaaaaaaaaa/hqdefault.jpg","width":480,"height":270}]},
+       "overlays":[{"thumbnailBottomOverlayViewModel":{"progressBar":{"thumbnailOverlayProgressBarViewModel":{"startPercent":42}},"badges":[{"thumbnailBadgeViewModel":{"text":"12:34","badgeStyle":"THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT"}}]}}]}},
+     "metadata":{"lockupMetadataViewModel":{"title":{"content":"A personal pick"},
+       "image":{"decoratedAvatarViewModel":{"avatar":{"avatarViewModel":{"image":{"sources":[{"url":"https://yt3.ggpht.com/a.jpg","width":68}]}}}}},
+       "metadata":{"contentMetadataViewModel":{"metadataRows":[
+         {"metadataParts":[{"text":{"content":"Some Channel","commandRuns":[{"onTap":{"innertubeCommand":{"browseEndpoint":{"browseId":"UCaaaaaaaaaaaaaaaaaaaaaa"}}}}]}}]},
+         {"metadataParts":[{"text":{"content":"1.2M views"}},{"text":{"content":"3 days ago"}}]}]}},
+       "menuButton":{"buttonViewModel":{"iconName":"MORE_VERT","onTap":{"innertubeCommand":{"showSheetCommand":{"panelLoadingStrategy":{"inlineContent":{"sheetViewModel":{"content":{"listViewModel":{"listItems":[
+         {"listItemViewModel":{"title":{"content":"Save to Watch later"},"leadingImage":{"sources":[{"clientResource":{"imageName":"WATCH_LATER"}}]},"rendererContext":{"commandContext":{"onTap":{"innertubeCommand":{"playlistEditEndpoint":{"playlistId":"WL","actions":[{"addedVideoId":"aaaaaaaaaaa","action":"ACTION_ADD_VIDEO"}]}}}}}}},
+         {"listItemViewModel":{"title":{"content":"Not interested"},"leadingImage":{"sources":[{"clientResource":{"imageName":"NOT_INTERESTED"}}]},"rendererContext":{"commandContext":{"onTap":{"innertubeCommand":{"feedbackEndpoint":{"feedbackToken":"TOK_NI_A","uiActions":{"hideEnclosingContainer":true}}}}}}}},
+         {"listItemViewModel":{"title":{"content":"Don't recommend channel"},"leadingImage":{"sources":[{"clientResource":{"imageName":"REMOVE_CIRCLE"}}]},"rendererContext":{"commandContext":{"onTap":{"innertubeCommand":{"feedbackEndpoint":{"feedbackToken":"TOK_DRC_A","uiActions":{"hideEnclosingContainer":true}}}}}}}}]}}}}}}}}}}}}}}}}
+   ,
+   {"richItemRenderer":{"content":{"videoRenderer":{"videoId":"bbbbbbbbbbb","title":{"runs":[{"text":"An older-shape item"}]},
+     "longBylineText":{"runs":[{"text":"Other Channel","navigationEndpoint":{"browseEndpoint":{"browseId":"UCbbbbbbbbbbbbbbbbbbbbbb"}}}]},
+     "lengthText":{"simpleText":"4:05"},"viewCountText":{"simpleText":"3,000 views"},"publishedTimeText":{"simpleText":"1 year ago"},
+     "thumbnailOverlays":[{"thumbnailOverlayResumePlaybackRenderer":{"percentDurationWatched":100}}],
+     "menu":{"menuRenderer":{"items":[
+       {"menuServiceItemRenderer":{"text":{"runs":[{"text":"Not interested"}]},"icon":{"iconType":"NOT_INTERESTED"},"serviceEndpoint":{"feedbackEndpoint":{"feedbackToken":"TOK_NI_B"}}}},
+       {"menuServiceItemRenderer":{"text":{"runs":[{"text":"Don't recommend channel"}]},"icon":{"iconType":"REMOVE"},"serviceEndpoint":{"feedbackEndpoint":{"feedbackToken":"TOK_DRC_B"}}}}]}}}}}},
+   {"richSectionRenderer":{"content":{"richShelfRenderer":{"title":{"runs":[{"text":"Shorts"}]},"contents":[
+     {"richItemRenderer":{"content":{"shortsLockupViewModel":{"entityId":"shorts-shelf-item-ccccccccccc","onTap":{"innertubeCommand":{"reelWatchEndpoint":{"videoId":"ccccccccccc"}}},"overlayMetadata":{"primaryText":{"content":"A short"},"secondaryText":{"content":"9K views"}}}}}}]}}}},
+   {"continuationItemRenderer":{"continuationEndpoint":{"continuationCommand":{"token":"HOME_NEXT","request":"CONTINUATION_REQUEST_TYPE_BROWSE"}}}}
+  ]}}}}]}}}

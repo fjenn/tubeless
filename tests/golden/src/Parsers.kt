@@ -1,0 +1,63 @@
+package app.tubehaus.golden
+
+import app.tubehaus.engine.AccountParse
+import app.tubehaus.engine.Bell
+import app.tubehaus.engine.Notifications
+import app.tubehaus.engine.WatchTime
+import app.tubehaus.engine.YouTubeAccount
+import app.tubehaus.engine.chaptersIn
+import app.tubehaus.engine.continuationOf
+import app.tubehaus.engine.parseItems
+import app.tubehaus.engine.parsePosts
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import app.tubehaus.engine.at
+import app.tubehaus.engine.findAll
+import app.tubehaus.engine.str
+
+/**
+ * The parsers golden tests can run. The key is the folder name under tests/golden/fixtures.
+ *
+ * To test a new parser: add one line here (input: the fixture's JSON, output: anything; it is
+ * turned into JSON field by field), make tests/golden/fixtures/<key>/, drop `<case>.json` in it and
+ * run goldenCheck with -Pupdate once. Review the `<case>.golden.json` it writes, then commit both.
+ */
+val PARSERS: Map<String, (JsonElement) -> Any?> = mapOf(
+    "parseItems" to { j -> parseItems(j) },
+    "continuationOf" to { j -> continuationOf(j) },
+    "parsePosts" to { j -> parsePosts(j) },
+    // input: a JSON string (a video description)
+    "chaptersIn" to { j -> chaptersIn((j as JsonPrimitive).content) },
+    // S4, the signed-in account (engine/YouTubeAccount, Notifications, WatchTime)
+    "accountFeed" to { j -> AccountParse.feed(j) },
+    "historyControls" to { j -> AccountParse.historyControls(j).let { it to it.paused } },
+    "watchState" to { j -> AccountParse.watch("wwwwwwwwwww", j) },
+    "commentSheet" to { j -> AccountParse.comments(j) },
+    "notifications" to { j -> Notifications.parse(j) to Notifications.unseenOf(j) },
+    "playbackTracking" to { j -> AccountParse.tracking(j) },
+    // input: [channelId, "ALL"|"PERSONALIZED"|"NONE"] -> the params written here and the index read back;
+    // or [params] -> the index read from params YouTube made
+    "bellParams" to { j ->
+        val a = (j as kotlinx.serialization.json.JsonArray).map { (it as JsonPrimitive).content }
+        if (a.size == 1) AccountParse.prefIndex(a[0])
+        else YouTubeAccount.bellParams(a[0], Bell.valueOf(a[1])).let { it to AccountParse.prefIndex(it) }
+    },
+    // FIX1: YouTube's Shorts sequence (reel/reel_watch_sequence) and a seeded sequence's params
+    "reelSequence" to { j -> app.tubehaus.engine.Ads.clear(); app.tubehaus.engine.ReelSequence.parse(j) },
+    // FIX2: the ads among Shorts and list items: what is left out, and the ad ids the player will refuse
+    "adsLeftOut" to { j ->
+        app.tubehaus.engine.Ads.clear()
+        val kept = if (j.at("entries") != null) app.tubehaus.engine.ReelSequence.parse(j).map { it.video.id } else parseItems(j).map { it.id }
+        val refused = j.findAll("videoId", emptySet()).mapNotNull { it.str }.distinct().filter { app.tubehaus.engine.Ads.isAd(it) }
+        val played = refused.map { id -> kotlinx.coroutines.runBlocking { runCatching { app.tubehaus.engine.YouTube.stream(id) }.exceptionOrNull()?.message } }
+        mapOf("kept" to kept, "refused" to refused, "playerSays" to played.distinct())
+    },
+    "reelSeed" to { j -> app.tubehaus.engine.ReelSequence.seedParams((j as JsonPrimitive).content) },
+    // input: {base, cpn, cmt, st, et, len, state?, rt, rtn}
+    "watchTimeUrl" to { j ->
+        val o = j as kotlinx.serialization.json.JsonObject
+        fun d(k: String) = (o[k] as JsonPrimitive).content.toDouble()
+        WatchTime.url((o["base"] as JsonPrimitive).content, (o["cpn"] as JsonPrimitive).content, d("cmt"), d("st"), d("et"), d("len"),
+            (o["state"] as? JsonPrimitive)?.content, d("rt"), (o["rtn"] as JsonPrimitive).content.toInt())
+    },
+)

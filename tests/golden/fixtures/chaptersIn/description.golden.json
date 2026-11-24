@@ -1,0 +1,26 @@
+[
+  {
+    "@type": "Chapter",
+    "title": "Intro",
+    "startMs": 0,
+    "thumb": ""
+  },
+  {
+    "@type": "Chapter",
+    "title": "The first part",
+    "startMs": 83000,
+    "thumb": ""
+  },
+  {
+    "@type": "Chapter",
+    "title": "Second part",
+    "startMs": 725000,
+    "thumb": ""
+  },
+  {
+    "@type": "Chapter",
+    "title": "The end",
+    "startMs": 3723000,
+    "thumb": ""
+  }
+]

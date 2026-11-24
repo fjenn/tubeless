@@ -1,0 +1,16 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tubeless</title>
+<link rel="icon" href="icon-128.png">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0f0f0f; }
+  /* the video lies under the Compose canvas; the canvas is see-through where the player is */
+  #tubeless-video { position: fixed; left: 0; top: 0; width: 0; height: 0; background: #000; z-index: 0; }
+  body > :not(video):not(iframe) { position: relative; z-index: 1; }
+  #tubeless-sabr { position: fixed; width: 1px; height: 1px; left: -10px; top: -10px; border: 0; opacity: 0; }
+</style>
+<video id="tubeless-video" playsinline></video>
+<script src="vendor/shaka-player.compiled.js"></script>
+<script src="tubeless.js"></script>
+<script type="module" src="app.js"></script>

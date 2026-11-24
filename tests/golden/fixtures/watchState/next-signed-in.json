@@ -1,0 +1,24 @@
+{"responseContext":{"mainAppWebResponseContext":{"loggedOut":false}},
+ "contents":{"twoColumnWatchNextResults":{"results":{"results":{"contents":[
+   {"videoPrimaryInfoRenderer":{"videoActions":{"menuRenderer":{"topLevelButtons":[{"segmentedLikeDislikeButtonViewModel":{"likeButtonViewModel":{"likeButtonViewModel":{
+     "likeStatusEntity":{"key":"K1","likeStatus":"LIKE"},
+     "toggleButtonViewModel":{"toggleButtonViewModel":{
+       "defaultButtonViewModel":{"buttonViewModel":{"iconName":"LIKE","onTap":{"serialCommand":{"commands":[{"innertubeCommand":{"likeEndpoint":{"status":"LIKE","target":{"videoId":"wwwwwwwwwww"},"likeParams":"LIKE_P"}}}]}}}},
+       "toggledButtonViewModel":{"buttonViewModel":{"iconName":"LIKE","onTap":{"serialCommand":{"commands":[{"innertubeCommand":{"likeEndpoint":{"status":"INDIFFERENT","target":{"videoId":"wwwwwwwwwww"},"removeLikeParams":"UNLIKE_P"}}}]}}}}}}}},
+     "dislikeButtonViewModel":{"dislikeButtonViewModel":{"toggleButtonViewModel":{"toggleButtonViewModel":{"defaultButtonViewModel":{"buttonViewModel":{"onTap":{"serialCommand":{"commands":[{"innertubeCommand":{"likeEndpoint":{"status":"DISLIKE","target":{"videoId":"wwwwwwwwwww"},"dislikeParams":"DISLIKE_P"}}}]}}}}}}}}}}]}}}},
+   {"videoSecondaryInfoRenderer":{"owner":{"videoOwnerRenderer":{"navigationEndpoint":{"browseEndpoint":{"browseId":"UCwwwwwwwwwwwwwwwwwwwwww"}}}},
+     "subscribeButton":{"subscribeButtonRenderer":{"subscribed":true,"channelId":"UCwwwwwwwwwwwwwwwwwwwwww",
+       "notificationPreferenceButton":{"subscriptionNotificationToggleButtonRenderer":{"currentStateId":2,
+         "states":[{"stateId":2,"nextStateId":2},{"stateId":1,"nextStateId":1},{"stateId":3,"nextStateId":3}],
+         "command":{"commandExecutorCommand":{"commands":[{"openPopupAction":{"popup":{"menuPopupRenderer":{"items":[
+           {"menuServiceItemRenderer":{"text":{"runs":[{"text":"All"}]},"icon":{"iconType":"NOTIFICATIONS_ACTIVE"},"serviceEndpoint":{"modifyChannelNotificationPreferenceEndpoint":{"params":"ChhVQ3d3d3d3d3d3d3d3d3d3d3d3d3d3d3cSAggCGAAgBA%3D%3D"}}}},
+           {"menuServiceItemRenderer":{"text":{"runs":[{"text":"Personalized"}]},"icon":{"iconType":"NOTIFICATIONS_NONE"},"serviceEndpoint":{"modifyChannelNotificationPreferenceEndpoint":{"params":"ChhVQ3d3d3d3d3d3d3d3d3d3d3d3d3d3d3cSAggBGAAgBA%3D%3D"}}}},
+           {"menuServiceItemRenderer":{"text":{"runs":[{"text":"None"}]},"icon":{"iconType":"NOTIFICATIONS_OFF"},"serviceEndpoint":{"modifyChannelNotificationPreferenceEndpoint":{"params":"ChhVQ3d3d3d3d3d3d3d3d3d3d3d3d3d3d3cSAggDGAAgBA%3D%3D"}}}}]}}}}]}}}}}}}}]}},
+   "secondaryResults":{"secondaryResults":{"results":[
+     {"lockupViewModel":{"contentId":"uuuuuuuuuuu","contentType":"LOCKUP_CONTENT_TYPE_VIDEO","metadata":{"lockupMetadataViewModel":{"title":{"content":"Up next for you"},
+       "metadata":{"contentMetadataViewModel":{"metadataRows":[{"metadataParts":[{"text":{"content":"Up Chan"}}]},{"metadataParts":[{"text":{"content":"10K views"}},{"text":{"content":"1 day ago"}}]}]}},
+       "menuButton":{"buttonViewModel":{"onTap":{"innertubeCommand":{"showSheetCommand":{"panelLoadingStrategy":{"inlineContent":{"sheetViewModel":{"content":{"listViewModel":{"listItems":[
+         {"listItemViewModel":{"title":{"content":"Not interested"},"leadingImage":{"sources":[{"clientResource":{"imageName":"NOT_INTERESTED"}}]},"rendererContext":{"commandContext":{"onTap":{"innertubeCommand":{"feedbackEndpoint":{"feedbackToken":"TOK_UP_NI"}}}}}}}]}}}}}}}}}}}}}},
+     {"continuationItemRenderer":{"continuationEndpoint":{"continuationCommand":{"token":"UPNEXT_NEXT"}}}}]}}}},
+ "frameworkUpdates":{"entityBatchUpdate":{"mutations":[
+   {"entityKey":"S1","type":"ENTITY_MUTATION_TYPE_REPLACE","payload":{"subscriptionStateEntity":{"key":"S1","subscribed":true}}}]}}}

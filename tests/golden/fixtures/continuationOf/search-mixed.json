@@ -1,0 +1,110 @@
+{
+  "contents": {
+    "twoColumnSearchResultsRenderer": {
+      "primaryContents": {
+        "sectionListRenderer": {
+          "contents": [
+            {
+              "itemSectionRenderer": {
+                "contents": [
+                  {
+                    "videoRenderer": {
+                      "videoId": "jNQXAC9IVRw",
+                      "title": { "runs": [{ "text": "Me at the zoo" }] },
+                      "longBylineText": { "runs": [{ "text": "jawed", "navigationEndpoint": { "browseEndpoint": { "browseId": "UC4QobU6STFB0P71PMvOGN5A" } } }] },
+                      "lengthText": { "simpleText": "0:19" },
+                      "viewCountText": { "simpleText": "372,155,812 views" },
+                      "publishedTimeText": { "simpleText": "19 years ago" },
+                      "channelThumbnailSupportedRenderers": { "channelThumbnailWithLinkRenderer": { "thumbnail": { "thumbnails": [
+                        { "url": "//yt3.ggpht.com/a-small", "width": 68, "height": 68 },
+                        { "url": "//yt3.ggpht.com/a-large", "width": 176, "height": 176 }
+                      ] } } }
+                    }
+                  },
+                  {
+                    "videoRenderer": {
+                      "videoId": "LiveLive001",
+                      "title": { "runs": [{ "text": "A live stream" }] },
+                      "ownerText": { "runs": [{ "text": "Some Channel", "navigationEndpoint": { "browseEndpoint": { "browseId": "UCaaaaaaaaaaaaaaaaaaaaaa" } } }] },
+                      "viewCountText": { "runs": [{ "text": "1,234" }, { "text": " watching" }] },
+                      "badges": [{ "metadataBadgeRenderer": { "style": "BADGE_STYLE_TYPE_LIVE_NOW", "label": "LIVE" } }]
+                    }
+                  },
+                  {
+                    "lockupViewModel": {
+                      "contentId": "Lockup00001",
+                      "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+                      "contentImage": { "thumbnailViewModel": { "overlays": [{ "thumbnailOverlayBadgeViewModel": { "thumbnailBadges": [{ "thumbnailBadgeViewModel": { "text": "12:34", "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT" } }] } }] } },
+                      "metadata": { "lockupMetadataViewModel": {
+                        "title": { "content": "A lockup video" },
+                        "image": { "decoratedAvatarViewModel": { "avatar": { "avatarViewModel": { "image": { "sources": [{ "url": "https://yt3.ggpht.com/b", "width": 68, "height": 68 }] } } } } },
+                        "metadata": { "contentMetadataViewModel": { "metadataRows": [
+                          { "metadataParts": [{ "text": { "content": "Lockup Channel", "commandRuns": [{ "onTap": { "innertubeCommand": { "browseEndpoint": { "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb" } } } }] } }] },
+                          { "metadataParts": [{ "text": { "content": "2.5M views" } }, { "text": { "content": "3 days ago" } }] }
+                        ] } }
+                      } }
+                    }
+                  },
+                  {
+                    "lockupViewModel": {
+                      "contentId": "PLxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                      "contentType": "LOCKUP_CONTENT_TYPE_PLAYLIST",
+                      "contentImage": { "collectionThumbnailViewModel": { "primaryThumbnail": { "thumbnailViewModel": {
+                        "image": { "sources": [{ "url": "https://i.ytimg.com/vi/x/hq.jpg", "width": 480, "height": 270 }] },
+                        "overlays": [{ "thumbnailOverlayBadgeViewModel": { "thumbnailBadges": [{ "thumbnailBadgeViewModel": { "text": "42 videos" } }] } }]
+                      } } } },
+                      "metadata": { "lockupMetadataViewModel": {
+                        "title": { "content": "A playlist" },
+                        "metadata": { "contentMetadataViewModel": { "metadataRows": [{ "metadataParts": [{ "text": { "content": "Playlist Owner" } }] }] } }
+                      } }
+                    }
+                  },
+                  {
+                    "lockupViewModel": {
+                      "contentId": "AdAdAdAdAd1",
+                      "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+                      "metadata": { "feedAdMetadataViewModel": { "title": "Sponsored" } }
+                    }
+                  },
+                  {
+                    "shortsLockupViewModel": {
+                      "entityId": "shorts-shelf-item-Short000001",
+                      "onTap": { "innertubeCommand": { "reelWatchEndpoint": { "videoId": "Short000001" } } },
+                      "overlayMetadata": { "primaryText": { "content": "A short" }, "secondaryText": { "content": "8.1K views" } }
+                    }
+                  },
+                  {
+                    "channelRenderer": {
+                      "channelId": "UCcccccccccccccccccccccc",
+                      "title": { "simpleText": "A Channel" },
+                      "thumbnail": { "thumbnails": [{ "url": "//yt3.ggpht.com/c", "width": 88, "height": 88 }] },
+                      "subscriberCountText": { "simpleText": "@achannel" },
+                      "videoCountText": { "simpleText": "1.2M subscribers" }
+                    }
+                  },
+                  {
+                    "videoRenderer": {
+                      "videoId": "jNQXAC9IVRw",
+                      "title": { "runs": [{ "text": "duplicate: dropped" }] }
+                    }
+                  },
+                  {
+                    "videoRenderer": {
+                      "videoId": "too-short",
+                      "title": { "runs": [{ "text": "bad id: dropped" }] }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "continuationItemRenderer": {
+                "continuationEndpoint": { "continuationCommand": { "token": "TOKEN-NEXT-PAGE", "request": "CONTINUATION_REQUEST_TYPE_SEARCH" } }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

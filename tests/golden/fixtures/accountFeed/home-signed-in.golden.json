@@ -1,0 +1,103 @@
+{
+  "@type": "AccountFeed",
+  "items": [
+    {
+      "@type": "Video",
+      "id": "aaaaaaaaaaa",
+      "title": "A personal pick",
+      "author": "Some Channel",
+      "channelId": "UCaaaaaaaaaaaaaaaaaaaaaa",
+      "lengthSec": 754,
+      "viewsText": "1.2M views",
+      "views": 1200000,
+      "publishedText": "3 days ago",
+      "publishedAt": 0,
+      "live": false,
+      "short": false,
+      "avatar": "https://yt3.ggpht.com/a.jpg",
+      "members": false
+    },
+    {
+      "@type": "Video",
+      "id": "bbbbbbbbbbb",
+      "title": "An older-shape item",
+      "author": "Other Channel",
+      "channelId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+      "lengthSec": 245,
+      "viewsText": "3,000 views",
+      "views": 3000,
+      "publishedText": "1 year ago",
+      "publishedAt": 0,
+      "live": false,
+      "short": false,
+      "avatar": "",
+      "members": false
+    }
+  ],
+  "next": "HOME_NEXT",
+  "chips": [
+    {
+      "@type": "FeedChip",
+      "title": "All",
+      "token": null,
+      "selected": true
+    },
+    {
+      "@type": "FeedChip",
+      "title": "Music",
+      "token": "CHIP_MUSIC",
+      "selected": false
+    },
+    {
+      "@type": "FeedChip",
+      "title": "Recently uploaded",
+      "token": "CHIP_RECENT",
+      "selected": false
+    }
+  ],
+  "shelves": [
+    {
+      "@type": "Shelf",
+      "title": "Shorts",
+      "items": [
+        {
+          "@type": "Video",
+          "id": "ccccccccccc",
+          "title": "A short",
+          "author": "",
+          "channelId": "",
+          "lengthSec": 0,
+          "viewsText": "9K views",
+          "views": 9000,
+          "publishedText": "",
+          "publishedAt": 0,
+          "live": false,
+          "short": true,
+          "avatar": "",
+          "members": false
+        }
+      ],
+      "playlistId": null,
+      "tabParams": null
+    }
+  ],
+  "actions": {
+    "aaaaaaaaaaa": {
+      "@type": "ItemActions",
+      "notInterested": "TOK_NI_A",
+      "dontRecommendChannel": "TOK_DRC_A",
+      "removeFromHistory": null,
+      "resumePercent": 42,
+      "setVideoId": null
+    },
+    "bbbbbbbbbbb": {
+      "@type": "ItemActions",
+      "notInterested": "TOK_NI_B",
+      "dontRecommendChannel": "TOK_DRC_B",
+      "removeFromHistory": null,
+      "resumePercent": 100,
+      "setVideoId": null
+    }
+  },
+  "loggedOut": false
+}

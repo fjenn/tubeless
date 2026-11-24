@@ -1,0 +1,19 @@
+{"responseContext":{"mainAppWebResponseContext":{"loggedOut":false}},
+ "onResponseReceivedEndpoints":[
+  {"reloadContinuationItemsCommand":{"continuationItems":[{"commentsHeaderRenderer":{"countText":{"runs":[{"text":"12"},{"text":" Comments"}]},
+    "createRenderer":{"commentSimpleboxRenderer":{"submitButton":{"buttonRenderer":{"serviceEndpoint":{"createCommentEndpoint":{"createCommentParams":"CREATE_P"}}}},"placeholderText":{"runs":[{"text":"Add a comment..."}]}}}}}]}},
+  {"reloadContinuationItemsCommand":{"continuationItems":[
+   {"commentThreadRenderer":{"commentViewModel":{"commentViewModel":{"commentId":"Ugx1","commentKey":"CK1","toolbarStateKey":"TS1","toolbarSurfaceKey":"TF1"}}}},
+   {"commentThreadRenderer":{"commentViewModel":{"commentViewModel":{"commentId":"Ugx2","commentKey":"CK2","toolbarStateKey":"TS2","toolbarSurfaceKey":"TF2"}}}}]}}],
+ "frameworkUpdates":{"entityBatchUpdate":{"mutations":[
+  {"entityKey":"TF1","payload":{"engagementToolbarSurfaceEntityPayload":{"key":"TF1",
+    "likeCommand":{"innertubeCommand":{"performCommentActionEndpoint":{"action":"LIKE_1"}}},
+    "unlikeCommand":{"innertubeCommand":{"performCommentActionEndpoint":{"action":"UNLIKE_1"}}},
+    "dislikeCommand":{"innertubeCommand":{"performCommentActionEndpoint":{"action":"DISLIKE_1"}}},
+    "undislikeCommand":{"innertubeCommand":{"performCommentActionEndpoint":{"action":"UNDISLIKE_1"}}},
+    "replyCommand":{"innertubeCommand":{"createCommentReplyDialogEndpoint":{"dialog":{"commentReplyDialogRenderer":{"replyButton":{"buttonRenderer":{"serviceEndpoint":{"createCommentReplyEndpoint":{"createReplyParams":"REPLY_1"}}}}}}}}}}}},
+  {"entityKey":"TS1","payload":{"engagementToolbarStateEntityPayload":{"key":"TS1","likeState":"TOOLBAR_LIKE_STATE_LIKED","heartState":"TOOLBAR_HEART_STATE_UNHEARTED"}}},
+  {"entityKey":"TF2","payload":{"engagementToolbarSurfaceEntityPayload":{"key":"TF2",
+    "likeCommand":{"innertubeCommand":{"performCommentActionEndpoint":{"action":"LIKE_2"}}},
+    "replyCommand":{"innertubeCommand":{"createCommentReplyDialogEndpoint":{"dialog":{"commentReplyDialogRenderer":{"replyButton":{"buttonRenderer":{"serviceEndpoint":{"createCommentReplyEndpoint":{"createReplyParams":"REPLY_2"}}}}}}}}}}}},
+  {"entityKey":"TS2","payload":{"engagementToolbarStateEntityPayload":{"key":"TS2","likeState":"TOOLBAR_LIKE_STATE_INDIFFERENT"}}}]}}}

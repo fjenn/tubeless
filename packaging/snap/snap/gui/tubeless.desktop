@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Tubeless
+GenericName=Video player
+Comment=Ad-free videos, with or without a Google account
+Exec=tubeless
+Icon=${SNAP}/meta/gui/icon.png
+Terminal=false
+Categories=AudioVideo;Video;Player;
+Keywords=youtube;video;player;subscriptions;

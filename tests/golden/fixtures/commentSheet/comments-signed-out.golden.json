@@ -1,0 +1,36 @@
+{
+  "@type": "CommentSheet",
+  "createParams": null,
+  "actions": {
+    "UgwPwTibxdgqCHZxktd4AaABAg": {
+      "@type": "CommentActions",
+      "commentId": "UgwPwTibxdgqCHZxktd4AaABAg",
+      "like": null,
+      "unlike": null,
+      "dislike": null,
+      "undislike": null,
+      "replyParams": null,
+      "liked": false
+    },
+    "Ugw10bSluCDSZMIxUSB4AaABAg": {
+      "@type": "CommentActions",
+      "commentId": "Ugw10bSluCDSZMIxUSB4AaABAg",
+      "like": null,
+      "unlike": null,
+      "dislike": null,
+      "undislike": null,
+      "replyParams": null,
+      "liked": false
+    },
+    "UgyW4kfw4IeIP2SVP6N4AaABAg": {
+      "@type": "CommentActions",
+      "commentId": "UgyW4kfw4IeIP2SVP6N4AaABAg",
+      "like": null,
+      "unlike": null,
+      "dislike": null,
+      "undislike": null,
+      "replyParams": null,
+      "liked": false
+    }
+  }
+}

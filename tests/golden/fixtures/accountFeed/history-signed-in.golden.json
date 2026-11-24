@@ -1,0 +1,75 @@
+{
+  "@type": "AccountFeed",
+  "items": [],
+  "next": "HIST_NEXT",
+  "chips": [],
+  "shelves": [
+    {
+      "@type": "Shelf",
+      "title": "Today",
+      "items": [
+        {
+          "@type": "Video",
+          "id": "hhhhhhhhhh1",
+          "title": "Watched today",
+          "author": "Chan",
+          "channelId": "UChhhhhhhhhhhhhhhhhhhhhh",
+          "lengthSec": 1200,
+          "viewsText": "",
+          "views": 0,
+          "publishedText": "",
+          "publishedAt": 0,
+          "live": false,
+          "short": false,
+          "avatar": "",
+          "members": false
+        }
+      ],
+      "playlistId": null,
+      "tabParams": null
+    },
+    {
+      "@type": "Shelf",
+      "title": "Yesterday",
+      "items": [
+        {
+          "@type": "Video",
+          "id": "hhhhhhhhhh2",
+          "title": "Watched yesterday",
+          "author": "Chan 2",
+          "channelId": "",
+          "lengthSec": 0,
+          "viewsText": "7 views",
+          "views": 7,
+          "publishedText": "",
+          "publishedAt": 0,
+          "live": false,
+          "short": false,
+          "avatar": "",
+          "members": false
+        }
+      ],
+      "playlistId": null,
+      "tabParams": null
+    }
+  ],
+  "actions": {
+    "hhhhhhhhhh1": {
+      "@type": "ItemActions",
+      "notInterested": null,
+      "dontRecommendChannel": null,
+      "removeFromHistory": "TOK_HIST_1",
+      "resumePercent": 37,
+      "setVideoId": null
+    },
+    "hhhhhhhhhh2": {
+      "@type": "ItemActions",
+      "notInterested": null,
+      "dontRecommendChannel": null,
+      "removeFromHistory": "TOK_HIST_2",
+      "resumePercent": null,
+      "setVideoId": null
+    }
+  },
+  "loggedOut": false
+}

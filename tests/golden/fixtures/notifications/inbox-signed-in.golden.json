@@ -1,0 +1,37 @@
+{
+  "@type": "Pair",
+  "first": {
+    "@type": "NoticePage",
+    "items": [
+      {
+        "@type": "Notice",
+        "id": "111",
+        "text": "Sub One uploaded: Relevant upload",
+        "sent": "2 hours ago",
+        "avatar": "https://yt3.ggpht.com/one.jpg",
+        "thumb": "https://i.ytimg.com/vi/rrrrrrrrrrr/mqdefault.jpg",
+        "videoId": "rrrrrrrrrrr",
+        "channelId": null,
+        "read": false,
+        "section": "Important",
+        "short": false
+      },
+      {
+        "@type": "Notice",
+        "id": "222",
+        "text": "Sub Two is live: Latest upload",
+        "sent": "1 day ago",
+        "avatar": "https://yt3.ggpht.com/two.jpg",
+        "thumb": "",
+        "videoId": null,
+        "channelId": "UClllllllllllllllllllllll",
+        "read": true,
+        "section": "More notifications",
+        "short": false
+      }
+    ],
+    "next": "NOTIF_NEXT",
+    "loggedOut": false
+  },
+  "second": null
+}

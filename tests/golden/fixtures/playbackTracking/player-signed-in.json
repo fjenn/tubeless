@@ -1,0 +1,6 @@
+{"responseContext":{"mainAppWebResponseContext":{"loggedOut":false}},"playabilityStatus":{"status":"OK"},
+ "playbackTracking":{
+  "videostatsPlaybackUrl":{"baseUrl":"https://s.youtube.com/api/stats/playback?cl=1&docid=wwwwwwwwwww&ei=EI&fexp=1&ns=yt&plid=P&el=detailpage&len=213&of=O&vm=V"},
+  "videostatsDelayplayUrl":{"baseUrl":"https://s.youtube.com/api/stats/delayplay?docid=wwwwwwwwwww"},
+  "videostatsWatchtimeUrl":{"baseUrl":"https://s.youtube.com/api/stats/watchtime?cl=1&docid=wwwwwwwwwww&ei=EI&fexp=1&ns=yt&plid=P&el=detailpage&len=213&of=O&vm=V"},
+  "ptrackingUrl":{"baseUrl":"https://www.youtube.com/ptracking?video_id=wwwwwwwwwww"}}}

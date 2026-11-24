@@ -1,0 +1,7 @@
+{"responseContext":{"mainAppWebResponseContext":{"loggedOut":false}},
+ "contents":{"twoColumnBrowseResultsRenderer":{"tabs":[{"tabRenderer":{"selected":true,"content":{"richGridRenderer":{"contents":[
+   {"richSectionRenderer":{"content":{"richShelfRenderer":{"title":{"runs":[{"text":"Most relevant"}]},"contents":[
+     {"richItemRenderer":{"content":{"videoRenderer":{"videoId":"rrrrrrrrrrr","title":{"runs":[{"text":"Relevant upload"}]},"longBylineText":{"runs":[{"text":"Sub One","navigationEndpoint":{"browseEndpoint":{"browseId":"UCrrrrrrrrrrrrrrrrrrrrrr"}}}]},"lengthText":{"simpleText":"10:00"},"viewCountText":{"simpleText":"5K views"},"publishedTimeText":{"simpleText":"2 hours ago"}}}}}]}}}},
+   {"richItemRenderer":{"content":{"videoRenderer":{"videoId":"lllllllllll","title":{"runs":[{"text":"Latest upload"}]},"longBylineText":{"runs":[{"text":"Sub Two","navigationEndpoint":{"browseEndpoint":{"browseId":"UClllllllllllllllllllllll"}}}]},"lengthText":{"simpleText":"1:02:03"},"viewCountText":{"simpleText":"28 watching"},"badges":[{"metadataBadgeRenderer":{"style":"BADGE_STYLE_TYPE_LIVE_NOW","label":"LIVE"}}]}}}},
+   {"continuationItemRenderer":{"continuationEndpoint":{"continuationCommand":{"token":"SUBS_NEXT"}}}}
+ ]}}}}]}}}

@@ -1,0 +1,4 @@
+Third-party files in this folder, unmodified:
+- shaka-player.compiled.js  Shaka Player 4.16.9 (npm shaka-player), Apache-2.0, Google LLC
+- mediabunny.min.mjs        Mediabunny 1.66.3 (npm mediabunny), MPL-2.0, Vanilagy
+- js-joda.mjs               @js-joda/core 5.6.5 dist/js-joda.esm.js, BSD-3-Clause (kotlinx-datetime's JS dependency)

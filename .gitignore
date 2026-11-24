@@ -1,0 +1,25 @@
+.gradle/
+build/
+*/build/
+local.properties
+.idea/
+*.iml
+.kotlin/
+# libmpv is downloaded separately (see README)
+desktop/resources/windows/*.dll
+*.jks
+*.keystore
+
+# JVM crash logs
+hs_err_pid*.log
+
+# made by XcodeGen in CI (ios/app/project.yml)
+ios/app/TubeHaus.xcodeproj/
+ios/app/Tubeless.xcodeproj/
+
+# the app CI puts next to the Flatpak manifest
+packaging/flatpak/app/
+packaging/snap/app/
+desktop/resources/macos/
+desktop/resources/linux/
+desktop/resources/windows/signin-helper.exe

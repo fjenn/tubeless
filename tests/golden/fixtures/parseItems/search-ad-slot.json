@@ -1,0 +1,680 @@
+{
+ "contents": [
+  {
+   "adSlotRenderer": {
+    "adSlotMetadata": {
+     "slotId": "1795493112394618:79194234:3592475455:1",
+     "slotType": "SLOT_TYPE_IN_FEED",
+     "slotPhysicalPosition": 1
+    },
+    "fulfillmentContent": {
+     "fulfilledLayout": {
+      "inFeedAdLayoutRenderer": {
+       "adLayoutMetadata": {
+        "layoutId": "gBIYzr2EqqAh8Fac",
+        "layoutType": "LAYOUT_TYPE_DISPLAY_COMPACT_LANDSCAPE_NO_BUTTON"
+       },
+       "renderingContent": {
+        "compactLandscapeNoButtonLayoutViewModel": {
+         "interaction": {
+          "onFirstVisible": {
+           "performOnceCommand": {
+            "identifier": "72977cdb-0000-24a4-a351-d4f547f2cc34",
+            "command": {
+             "innertubeCommand": {
+              "loggingUrls": [
+               {
+                "baseUrl": "https://www.youtube.com/pagead/paralleladview?ai=CCRR8-AwFa_qKGPrQ4dUPv6aDsQ0A7sqTtbYRABABIABgIYIBE3BhcnRuZXIteW91dHViZS1zcnCoAwSqBBdP0HN9nO6-qroOhegnkLCC09NOzRrMD5AHBKgH552xAqgH6J2xAqgHvOqxAqgHyM-xAqgHyc-xAqgH_NWxAqgH-9WxAqgHjNaxAqgHi9axAqgHmuKxAqgHm-KxAqgHnuqxAqgHn-qxAqgH-OuxAtIILgiAQRABGF4yAoICOg-AQoDAgICAgICAAqqAgBhI2aDSNVAUWKjapIndn5gDYAGwCwG6CywIAxAFGAwgCCgFMBxAAUgAWE5gAGgAcAGIAQCYAQGiAQgKAKgCAdgCAoACAYoXGAgDGAEgASgBMAE4AUABSAFQAVgBYAJoAaAXAQ&sigh=-6swzJ5bb00&cid=CAASqgHkaKL9Fj8NCQ2iuTNOBLgzFFm3SORvmpdqWZCktfDEvQtEdy7Qa-6u-HpWIEzxDGwQ3IoRUWZCjaEH_HwPLauyVuD-i2wh4QHlw_QQFix_qO4cWlvGPCjd9rgaLcEKvb6PsuZYhiYPtoeOjmqBUjOoIyHQ3HbYSdLMPLFGkB19_uGDM7bWon1G7yB4lO9GswKsZd0mwtCII0BB1URMAZ0v8g01H4oLJ16SiA&vt=0&ad_mt=%5BAD_MT%5D"
+               }
+              ],
+              "pingingEndpoint": {
+               "hack": true
+              }
+             }
+            }
+           }
+          }
+         },
+         "thumbnailImage": {
+          "adImageViewModel": {
+           "interaction": {
+            "onTap": {
+             "innertubeCommand": {
+              "loggingUrls": [
+               {
+                "baseUrl": "https://www.youtube.com/pagead/paralleladinteraction?ai=CMlM2-AwFa_qKGPrQ4dUPv6aDsQ0A7sqTtbYRABABIABgIYIBE3BhcnRuZXIteW91dHViZS1zcnCoAwSqBBdP0HN9nO6-qroOhegnkLCC09NOzRrMD8AFrAGQBwSoB-edsQKoB-idsQKoB7zqsQKoB8jPsQKoB8nPsQKoB_zVsQKoB_vVsQKoB4zWsQKoB4vWsQKoB5risQKoB5visQKoB57qsQKoB5_qsQKoB_jrsQLSCC4IgEEQARheMgKCAjoPgEKAwICAgICAgAKqgIAYSNmg0jVQFFio2qSJ3Z-YA2ABsAsBugs4CAMQBRgMIAgoBTAcQAFIAFhOYABoAHABiAEAkAEBmAEBogEICgCoAgHYAgLAAQHQAQHgAQGAAgGgFwE&sigh=ulPWFLi423Q&cid=CAASqgHkaKL9Fj8NCQ2iuTNOBLgzFFm3SORvmpdqWZCktfDEvQtEdy7Qa-6u-HpWIEzxDGwQ3IoRUWZCjaEH_HwPLauyVuD-i2wh4QHlw_QQFix_qO4cWlvGPCjd9rgaLcEKvb6PsuZYhiYPtoeOjmqBUjOoIyHQ3HbYSdLMPLFGkB19_uGDM7bWon1G7yB4lO9GswKsZd0mwtCII0BB1URMAZ0v8g01H4oLJ16SiA&ad_mt=%5BAD_MT%5D&acvw=%5BVIEWABILITY%5D&gv=%5BGOOGLE_VIEWABILITY%5D&nb=9&label=video_click_to_advertiser_site"
+               }
+              ],
+              "commandMetadata": {
+               "webCommandMetadata": {
+                "url": "https://www.google.com/aclk?sa=L&ai=AD",
+                "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                "rootVe": 83769
+               }
+              },
+              "urlEndpoint": {
+               "url": "https://www.google.com/aclk?sa=L&ai=AD",
+               "target": "TARGET_NEW_WINDOW",
+               "attributionSrcMode": "ATTRIBUTION_SRC_MODE_LABEL_CHROME"
+              }
+             }
+            }
+           },
+           "imageSources": [
+            {
+             "url": "https://tpc.googlesyndication.com/simgad/9009631341555751372",
+             "width": 1200,
+             "height": 628
+            }
+           ],
+           "imageProperties": {
+            "contentMode": "CONTENT_MODE_SCALE_ASPECT_FIT",
+            "overlayIcon": {
+             "iconImage": {
+              "sources": [
+               {
+                "clientResource": {
+                 "imageName": "ARROW_DIAGONAL_UP_RIGHT_FILLED"
+                }
+               }
+              ]
+             }
+            },
+            "renderingAspect": "RENDERING_ASPECT_LANDSCAPE"
+           }
+          }
+         },
+         "feedAdMetadata": {
+          "feedAdMetadataViewModel": {
+           "interaction": {
+            "onTap": {
+             "innertubeCommand": {
+              "loggingUrls": [
+               {
+                "baseUrl": "https://www.youtube.com/pagead/paralleladinteraction?ai=ChwpT-AwFa_qKGPrQ4dUPv6aDsQ0A7sqTtbYRABABIABgIYIBE3BhcnRuZXIteW91dHViZS1zcnCoAwSqBBdP0HN9nO6-qroOhegnkLCC09NOzRrMD5AHBKgH552xAqgH6J2xAqgHvOqxAqgHyM-xAqgHyc-xAqgH_NWxAqgH-9WxAqgHjNaxAqgHi9axAqgHmuKxAqgHm-KxAqgHnuqxAqgHn-qxAqgH-OuxAtIILgiAQRABGF4yAoICOg-AQoDAgICAgICAAqqAgBhI2aDSNVAUWKjapIndn5gDYAGwCwG6CzgIAxAFGAwgCCgFMBxAAUgAWE5gAGgAcAGIAQCQAQGYAQGiAQgKAKgCAdgCAsABAdABAeABAYACAaAXAQ&sigh=eXBeQDSF2Ds&cid=CAASqgHkaKL9Fj8NCQ2iuTNOBLgzFFm3SORvmpdqWZCktfDEvQtEdy7Qa-6u-HpWIEzxDGwQ3IoRUWZCjaEH_HwPLauyVuD-i2wh4QHlw_QQFix_qO4cWlvGPCjd9rgaLcEKvb6PsuZYhiYPtoeOjmqBUjOoIyHQ3HbYSdLMPLFGkB19_uGDM7bWon1G7yB4lO9GswKsZd0mwtCII0BB1URMAZ0v8g01H4oLJ16SiA&ad_mt=%5BAD_MT%5D&acvw=%5BVIEWABILITY%5D&gv=%5BGOOGLE_VIEWABILITY%5D&nb=2&label=video_click_to_advertiser_site"
+               }
+              ],
+              "commandMetadata": {
+               "webCommandMetadata": {
+                "url": "https://www.google.com/aclk?sa=L&ai=AD",
+                "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                "rootVe": 83769
+               }
+              },
+              "urlEndpoint": {
+               "url": "https://www.google.com/aclk?sa=L&ai=AD",
+               "target": "TARGET_NEW_WINDOW",
+               "attributionSrcMode": "ATTRIBUTION_SRC_MODE_LABEL_CHROME"
+              }
+             }
+            }
+           },
+           "style": "FEED_AD_METADATA_STYLE_COMPACT",
+           "headline": {
+            "content": "Top 10 Best VPNs for 2026",
+            "commandRuns": [
+             {},
+             {
+              "onTap": {
+               "innertubeCommand": {
+                "loggingUrls": [
+                 {
+                  "baseUrl": "https://www.youtube.com/pagead/paralleladinteraction?ai=ChwpT-AwFa_qKGPrQ4dUPv6aDsQ0A7sqTtbYRABABIABgIYIBE3BhcnRuZXIteW91dHViZS1zcnCoAwSqBBdP0HN9nO6-qroOhegnkLCC09NOzRrMD5AHBKgH552xAqgH6J2xAqgHvOqxAqgHyM-xAqgHyc-xAqgH_NWxAqgH-9WxAqgHjNaxAqgHi9axAqgHmuKxAqgHm-KxAqgHnuqxAqgHn-qxAqgH-OuxAtIILgiAQRABGF4yAoICOg-AQoDAgICAgICAAqqAgBhI2aDSNVAUWKjapIndn5gDYAGwCwG6CzgIAxAFGAwgCCgFMBxAAUgAWE5gAGgAcAGIAQCQAQGYAQGiAQgKAKgCAdgCAsABAdABAeABAYACAaAXAQ&sigh=eXBeQDSF2Ds&cid=CAASqgHkaKL9Fj8NCQ2iuTNOBLgzFFm3SORvmpdqWZCktfDEvQtEdy7Qa-6u-HpWIEzxDGwQ3IoRUWZCjaEH_HwPLauyVuD-i2wh4QHlw_QQFix_qO4cWlvGPCjd9rgaLcEKvb6PsuZYhiYPtoeOjmqBUjOoIyHQ3HbYSdLMPLFGkB19_uGDM7bWon1G7yB4lO9GswKsZd0mwtCII0BB1URMAZ0v8g01H4oLJ16SiA&ad_mt=%5BAD_MT%5D&acvw=%5BVIEWABILITY%5D&gv=%5BGOOGLE_VIEWABILITY%5D&nb=0&label=video_click_to_advertiser_site"
+                 }
+                ],
+                "commandMetadata": {
+                 "webCommandMetadata": {
+                  "url": "https://www.google.com/aclk?sa=L&ai=AD",
+                  "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                  "rootVe": 83769
+                 }
+                },
+                "urlEndpoint": {
+                 "url": "https://www.google.com/aclk?sa=L&ai=AD",
+                 "target": "TARGET_NEW_WINDOW",
+                 "attributionSrcMode": "ATTRIBUTION_SRC_MODE_LABEL_CHROME"
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "content": "\"Top 10\" Best VPNs (2026) We Tested & Ranked the Best VPN Services of 2026. Compare Top Picks & Find Your Match. Surf the Web Safely & Anonymously Using a Top VPN From Our List of Recommended Brands. 256-Bit AES Encryption. Connect Up To 10 Devices. Military-Grade Encryption. 24/7 Live Support. 30-Day Money-Back. Ultra Fast VPN Servers. Easy-To-Use. DNS Leak Prevention. Zero Logging Policy. 100% Anonymity.",
+            "commandRuns": [
+             {},
+             {
+              "onTap": {
+               "innertubeCommand": {
+                "loggingUrls": [
+                 {
+                  "baseUrl": "https://www.youtube.com/pagead/paralleladinteraction?ai=ChwpT-AwFa_qKGPrQ4dUPv6aDsQ0A7sqTtbYRABABIABgIYIBE3BhcnRuZXIteW91dHViZS1zcnCoAwSqBBdP0HN9nO6-qroOhegnkLCC09NOzRrMD5AHBKgH552xAqgH6J2xAqgHvOqxAqgHyM-xAqgHyc-xAqgH_NWxAqgH-9WxAqgHjNaxAqgHi9axAqgHmuKxAqgHm-KxAqgHnuqxAqgHn-qxAqgH-OuxAtIILgiAQRABGF4yAoICOg-AQoDAgICAgICAAqqAgBhI2aDSNVAUWKjapIndn5gDYAGwCwG6CzgIAxAFGAwgCCgFMBxAAUgAWE5gAGgAcAGIAQCQAQGYAQGiAQgKAKgCAdgCAsABAdABAeABAYACAaAXAQ&sigh=eXBeQDSF2Ds&cid=CAASqgHkaKL9Fj8NCQ2iuTNOBLgzFFm3SORvmpdqWZCktfDEvQtEdy7Qa-6u-HpWIEzxDGwQ3IoRUWZCjaEH_HwPLauyVuD-i2wh4QHlw_QQFix_qO4cWlvGPCjd9rgaLcEKvb6PsuZYhiYPtoeOjmqBUjOoIyHQ3HbYSdLMPLFGkB19_uGDM7bWon1G7yB4lO9GswKsZd0mwtCII0BB1URMAZ0v8g01H4oLJ16SiA&ad_mt=%5BAD_MT%5D&acvw=%5BVIEWABILITY%5D&gv=%5BGOOGLE_VIEWABILITY%5D&nb=7&label=video_click_to_advertiser_site"
+                 }
+                ],
+                "commandMetadata": {
+                 "webCommandMetadata": {
+                  "url": "https://www.google.com/aclk?sa=L&ai=AD",
+                  "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                  "rootVe": 83769
+                 }
+                },
+                "urlEndpoint": {
+                 "url": "https://www.google.com/aclk?sa=L&ai=AD",
+                 "target": "TARGET_NEW_WINDOW",
+                 "attributionSrcMode": "ATTRIBUTION_SRC_MODE_LABEL_CHROME"
+                }
+               }
+              }
+             }
+            ]
+           },
+           "adBadge": {
+            "adBadgeViewModel": {
+             "interaction": {
+              "onTap": {
+               "innertubeCommand": {
+                "loggingUrls": [
+                 {
+                  "baseUrl": "https://www.youtube.com/pagead/paralleladinteraction?ai=ChwpT-AwFa_qKGPrQ4dUPv6aDsQ0A7sqTtbYRABABIABgIYIBE3BhcnRuZXIteW91dHViZS1zcnCoAwSqBBdP0HN9nO6-qroOhegnkLCC09NOzRrMD5AHBKgH552xAqgH6J2xAqgHvOqxAqgHyM-xAqgHyc-xAqgH_NWxAqgH-9WxAqgHjNaxAqgHi9axAqgHmuKxAqgHm-KxAqgHnuqxAqgHn-qxAqgH-OuxAtIILgiAQRABGF4yAoICOg-AQoDAgICAgICAAqqAgBhI2aDSNVAUWKjapIndn5gDYAGwCwG6CzgIAxAFGAwgCCgFMBxAAUgAWE5gAGgAcAGIAQCQAQGYAQGiAQgKAKgCAdgCAsABAdABAeABAYACAaAXAQ&sigh=eXBeQDSF2Ds&cid=CAASqgHkaKL9Fj8NCQ2iuTNOBLgzFFm3SORvmpdqWZCktfDEvQtEdy7Qa-6u-HpWIEzxDGwQ3IoRUWZCjaEH_HwPLauyVuD-i2wh4QHlw_QQFix_qO4cWlvGPCjd9rgaLcEKvb6PsuZYhiYPtoeOjmqBUjOoIyHQ3HbYSdLMPLFGkB19_uGDM7bWon1G7yB4lO9GswKsZd0mwtCII0BB1URMAZ0v8g01H4oLJ16SiA&ad_mt=%5BAD_MT%5D&acvw=%5BVIEWABILITY%5D&gv=%5BGOOGLE_VIEWABILITY%5D&nb=31&label=video_click_to_advertiser_site"
+                 }
+                ],
+                "commandMetadata": {
+                 "webCommandMetadata": {
+                  "url": "https://www.google.com/aclk?sa=L&ai=AD",
+                  "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                  "rootVe": 83769
+                 }
+                },
+                "urlEndpoint": {
+                 "url": "https://www.google.com/aclk?sa=L&ai=AD",
+                 "target": "TARGET_NEW_WINDOW",
+                 "attributionSrcMode": "ATTRIBUTION_SRC_MODE_LABEL_CHROME"
+                }
+               }
+              }
+             },
+             "style": "AD_BADGE_STYLE_STARK",
+             "label": {
+              "content": "Sponsored"
+             }
+            }
+           },
+           "adDetailsLine": {
+            "adDetailsLineViewModel": {
+             "interaction": {
+              "onTap": {
+               "innertubeCommand": {
+                "loggingUrls": [
+                 {
+                  "baseUrl": "https://www.youtube.com/pagead/paralleladinteraction?ai=ChwpT-AwFa_qKGPrQ4dUPv6aDsQ0A7sqTtbYRABABIABgIYIBE3BhcnRuZXIteW91dHViZS1zcnCoAwSqBBdP0HN9nO6-qroOhegnkLCC09NOzRrMD5AHBKgH552xAqgH6J2xAqgHvOqxAqgHyM-xAqgHyc-xAqgH_NWxAqgH-9WxAqgHjNaxAqgHi9axAqgHmuKxAqgHm-KxAqgHnuqxAqgHn-qxAqgH-OuxAtIILgiAQRABGF4yAoICOg-AQoDAgICAgICAAqqAgBhI2aDSNVAUWKjapIndn5gDYAGwCwG6CzgIAxAFGAwgCCgFMBxAAUgAWE5gAGgAcAGIAQCQAQGYAQGiAQgKAKgCAdgCAsABAdABAeABAYACAaAXAQ&sigh=eXBeQDSF2Ds&cid=CAASqgHkaKL9Fj8NCQ2iuTNOBLgzFFm3SORvmpdqWZCktfDEvQtEdy7Qa-6u-HpWIEzxDGwQ3IoRUWZCjaEH_HwPLauyVuD-i2wh4QHlw_QQFix_qO4cWlvGPCjd9rgaLcEKvb6PsuZYhiYPtoeOjmqBUjOoIyHQ3HbYSdLMPLFGkB19_uGDM7bWon1G7yB4lO9GswKsZd0mwtCII0BB1URMAZ0v8g01H4oLJ16SiA&ad_mt=%5BAD_MT%5D&acvw=%5BVIEWABILITY%5D&gv=%5BGOOGLE_VIEWABILITY%5D&nb=7&label=video_click_to_advertiser_site"
+                 }
+                ],
+                "commandMetadata": {
+                 "webCommandMetadata": {
+                  "url": "https://www.google.com/aclk?sa=L&ai=AD",
+                  "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                  "rootVe": 83769
+                 }
+                },
+                "urlEndpoint": {
+                 "url": "https://www.google.com/aclk?sa=L&ai=AD",
+                 "target": "TARGET_NEW_WINDOW",
+                 "attributionSrcMode": "ATTRIBUTION_SRC_MODE_LABEL_CHROME"
+                }
+               }
+              }
+             },
+             "style": "AD_DETAILS_LINE_STYLE_STANDARD",
+             "attributes": [
+              {
+               "text": {
+                "content": "https://www.vpncenter.com/best-vpn/2026"
+               }
+              }
+             ]
+            }
+           },
+           "adRenderingContextType": "AD_RENDERING_CONTEXT_TYPE_SEARCH"
+          }
+         },
+         "adButtonHoverOverlay": {
+          "adButtonHoverOverlayViewModel": {
+           "interaction": {
+            "onTap": {
+             "innertubeCommand": {
+              "loggingUrls": [
+               {
+                "baseUrl": "https://www.youtube.com/pagead/paralleladinteraction?ai=ChwpT-AwFa_qKGPrQ4dUPv6aDsQ0A7sqTtbYRABABIABgIYIBE3BhcnRuZXIteW91dHViZS1zcnCoAwSqBBdP0HN9nO6-qroOhegnkLCC09NOzRrMD5AHBKgH552xAqgH6J2xAqgHvOqxAqgHyM-xAqgHyc-xAqgH_NWxAqgH-9WxAqgHjNaxAqgHi9axAqgHmuKxAqgHm-KxAqgHnuqxAqgHn-qxAqgH-OuxAtIILgiAQRABGF4yAoICOg-AQoDAgICAgICAAqqAgBhI2aDSNVAUWKjapIndn5gDYAGwCwG6CzgIAxAFGAwgCCgFMBxAAUgAWE5gAGgAcAGIAQCQAQGYAQGiAQgKAKgCAdgCAsABAdABAeABAYACAaAXAQ&sigh=eXBeQDSF2Ds&cid=CAASqgHkaKL9Fj8NCQ2iuTNOBLgzFFm3SORvmpdqWZCktfDEvQtEdy7Qa-6u-HpWIEzxDGwQ3IoRUWZCjaEH_HwPLauyVuD-i2wh4QHlw_QQFix_qO4cWlvGPCjd9rgaLcEKvb6PsuZYhiYPtoeOjmqBUjOoIyHQ3HbYSdLMPLFGkB19_uGDM7bWon1G7yB4lO9GswKsZd0mwtCII0BB1URMAZ0v8g01H4oLJ16SiA&ad_mt=%5BAD_MT%5D&acvw=%5BVIEWABILITY%5D&gv=%5BGOOGLE_VIEWABILITY%5D&nb=%5BNB%5D&label=video_click_to_advertiser_site"
+               }
+              ],
+              "commandMetadata": {
+               "webCommandMetadata": {
+                "url": "https://www.google.com/aclk?sa=L&ai=AD",
+                "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                "rootVe": 83769
+               }
+              },
+              "urlEndpoint": {
+               "url": "https://www.google.com/aclk?sa=L&ai=AD",
+               "target": "TARGET_NEW_WINDOW",
+               "attributionSrcMode": "ATTRIBUTION_SRC_MODE_LABEL_CHROME"
+              }
+             }
+            }
+           },
+           "button": {
+            "adButtonViewModel": {
+             "interaction": {
+              "onTap": {
+               "innertubeCommand": {
+                "loggingUrls": [
+                 {
+                  "baseUrl": "https://www.youtube.com/pagead/paralleladinteraction?ai=ChwpT-AwFa_qKGPrQ4dUPv6aDsQ0A7sqTtbYRABABIABgIYIBE3BhcnRuZXIteW91dHViZS1zcnCoAwSqBBdP0HN9nO6-qroOhegnkLCC09NOzRrMD5AHBKgH552xAqgH6J2xAqgHvOqxAqgHyM-xAqgHyc-xAqgH_NWxAqgH-9WxAqgHjNaxAqgHi9axAqgHmuKxAqgHm-KxAqgHnuqxAqgHn-qxAqgH-OuxAtIILgiAQRABGF4yAoICOg-AQoDAgICAgICAAqqAgBhI2aDSNVAUWKjapIndn5gDYAGwCwG6CzgIAxAFGAwgCCgFMBxAAUgAWE5gAGgAcAGIAQCQAQGYAQGiAQgKAKgCAdgCAsABAdABAeABAYACAaAXAQ&sigh=eXBeQDSF2Ds&cid=CAASqgHkaKL9Fj8NCQ2iuTNOBLgzFFm3SORvmpdqWZCktfDEvQtEdy7Qa-6u-HpWIEzxDGwQ3IoRUWZCjaEH_HwPLauyVuD-i2wh4QHlw_QQFix_qO4cWlvGPCjd9rgaLcEKvb6PsuZYhiYPtoeOjmqBUjOoIyHQ3HbYSdLMPLFGkB19_uGDM7bWon1G7yB4lO9GswKsZd0mwtCII0BB1URMAZ0v8g01H4oLJ16SiA&ad_mt=%5BAD_MT%5D&acvw=%5BVIEWABILITY%5D&gv=%5BGOOGLE_VIEWABILITY%5D&nb=8&label=video_click_to_advertiser_site"
+                 }
+                ],
+                "commandMetadata": {
+                 "webCommandMetadata": {
+                  "url": "https://www.google.com/aclk?sa=L&ai=AD",
+                  "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                  "rootVe": 83769
+                 }
+                },
+                "urlEndpoint": {
+                 "url": "https://www.google.com/aclk?sa=L&ai=AD",
+                 "target": "TARGET_NEW_WINDOW",
+                 "attributionSrcMode": "ATTRIBUTION_SRC_MODE_LABEL_CHROME"
+                }
+               }
+              }
+             },
+             "style": "AD_BUTTON_STYLE_OVERLAY_TEXT",
+             "size": "AD_BUTTON_SIZE_DEFAULT",
+             "label": {
+              "content": "Visit site"
+             },
+             "iconImage": {
+              "sources": [
+               {
+                "clientResource": {
+                 "imageName": "ARROW_DIAGONAL_UP_RIGHT_FILLED"
+                }
+               }
+              ]
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+     }
+    },
+    "enablePacfLoggingWeb": true
+   }
+  },
+  {
+   "videoRenderer": {
+    "videoId": "WTIOqtjQCV0",
+    "title": {
+     "runs": [
+      {
+       "text": "¡CyberGhost VPN: Aprovecha la Mejor Oferta de Black Friday!"
+      }
+     ]
+    },
+    "longBylineText": {
+     "runs": [
+      {
+       "text": "VPNpro en Español",
+       "navigationEndpoint": {
+        "commandMetadata": {
+         "webCommandMetadata": {
+          "url": "/@vpnproenespanol",
+          "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+          "rootVe": 3611,
+          "apiUrl": "/youtubei/v1/browse"
+         }
+        },
+        "browseEndpoint": {
+         "browseId": "UCMHthUPtcRg_QYXDaRj5-rg",
+         "canonicalBaseUrl": "/@vpnproenespanol"
+        }
+       }
+      }
+     ]
+    },
+    "publishedTimeText": {
+     "simpleText": "3 days ago"
+    },
+    "lengthText": {
+     "simpleText": "2:39"
+    },
+    "viewCountText": {
+     "simpleText": "1,539 views"
+    },
+    "navigationEndpoint": {
+     "commandMetadata": {
+      "webCommandMetadata": {
+       "url": "/watch?v=WTIOqtjQCV0&pp=ygUDdnBu",
+       "webPageType": "WEB_PAGE_TYPE_WATCH",
+       "rootVe": 3832
+      }
+     },
+     "watchEndpoint": {
+      "videoId": "WTIOqtjQCV0",
+      "params": "qgMDdnBuugMLCLj-goLM6ISC_wG6AwoI7cOL_tGpn6RxugMLCKyBicOquNTAzQG6AwoIl5uBhamHlfFHugMLCJLVwpXCpNCO8wG6AwsI_uf6ibTu7sOUAboDCwjy9oi4hubihL0BugMKCJqhr7jzkq7yULoDCwjdgsiJqtK38P8BugMLCIfGzPjDtqjjzAG6AwsIprO4hZXNgqLwAboDCwjku--i7uCd-IsBugMLCLCe0bG0qJSMugG6AwoIrtDH6tm484trugMKCJ230cnlluLvSroDCgiT4oWVr-TE2SG6AwsIoOXs3bKw9cisAboDCwic8OuMu5KRtO0BugMLCOyd7LWJ4oSZ0QHyAwUNZZEhP4IEAhAB",
+      "playerParams": "ygUDdnBu",
+      "watchEndpointSupportedOnesieConfig": {
+       "html5PlaybackOnesieConfig": {
+        "commonConfig": {
+         "url": "https://rr9---sn-uxaxjvh5gbxoupo5-x1xll.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&epbp=1&msp=1&odepv=1&id=59320eaad8d0095d&ip=186.108.66.14&initcwndbps=2684625&mt=1795492662&oweuc="
+        }
+       }
+      }
+     }
+    },
+    "badges": [
+     {
+      "metadataBadgeRenderer": {
+       "style": "BADGE_STYLE_TYPE_SIMPLE",
+       "label": "New"
+      }
+     },
+     {
+      "metadataBadgeRenderer": {
+       "style": "BADGE_STYLE_TYPE_SIMPLE",
+       "label": "4K"
+      }
+     }
+    ],
+    "ownerText": {
+     "runs": [
+      {
+       "text": "VPNpro en Español",
+       "navigationEndpoint": {
+        "commandMetadata": {
+         "webCommandMetadata": {
+          "url": "/@vpnproenespanol",
+          "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+          "rootVe": 3611,
+          "apiUrl": "/youtubei/v1/browse"
+         }
+        },
+        "browseEndpoint": {
+         "browseId": "UCMHthUPtcRg_QYXDaRj5-rg",
+         "canonicalBaseUrl": "/@vpnproenespanol"
+        }
+       }
+      }
+     ]
+    },
+    "shortBylineText": {
+     "runs": [
+      {
+       "text": "VPNpro en Español",
+       "navigationEndpoint": {
+        "commandMetadata": {
+         "webCommandMetadata": {
+          "url": "/@vpnproenespanol",
+          "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+          "rootVe": 3611,
+          "apiUrl": "/youtubei/v1/browse"
+         }
+        },
+        "browseEndpoint": {
+         "browseId": "UCMHthUPtcRg_QYXDaRj5-rg",
+         "canonicalBaseUrl": "/@vpnproenespanol"
+        }
+       }
+      }
+     ]
+    },
+    "showActionMenu": false,
+    "shortViewCountText": {
+     "simpleText": "1.5K views"
+    }
+   }
+  },
+  {
+   "videoRenderer": {
+    "videoId": "_wQTRMBAvzg",
+    "title": {
+     "runs": [
+      {
+       "text": "What Is a VPN and How Does It Work? (Explained for Beginners – 2026 Guide)"
+      }
+     ]
+    },
+    "longBylineText": {
+     "runs": [
+      {
+       "text": "vpnMentor",
+       "navigationEndpoint": {
+        "commandMetadata": {
+         "webCommandMetadata": {
+          "url": "/@vpnMentor",
+          "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+          "rootVe": 3611,
+          "apiUrl": "/youtubei/v1/browse"
+         }
+        },
+        "browseEndpoint": {
+         "browseId": "UCEA9ROzwUTy6t-QdLuWrjnw",
+         "canonicalBaseUrl": "/@vpnMentor"
+        }
+       }
+      }
+     ]
+    },
+    "publishedTimeText": {
+     "simpleText": "8 years ago"
+    },
+    "lengthText": {
+     "simpleText": "4:20"
+    },
+    "viewCountText": {
+     "simpleText": "11,420,742 views"
+    },
+    "navigationEndpoint": {
+     "commandMetadata": {
+      "webCommandMetadata": {
+       "url": "/watch?v=_wQTRMBAvzg&pp=ygUDdnBu",
+       "webPageType": "WEB_PAGE_TYPE_WATCH",
+       "rootVe": 3832
+      }
+     },
+     "watchEndpoint": {
+      "videoId": "_wQTRMBAvzg",
+      "params": "qgMDdnBuugMKCN2SwMat1YOZWboDCgjtw4v-0amfpHG6AwsIrIGJw6q41MDNAboDCgiXm4GFqYeV8Ue6AwsIktXClcKk0I7zAboDCwj-5_qJtO7uw5QBugMLCPL2iLiG5uKEvQG6AwoImqGvuPOSrvJQugMLCN2CyImq0rfw_wG6AwsIh8bM-MO2qOPMAboDCwims7iFlc2CovABugMLCOS776Lu4J34iwG6AwsIsJ7RsbSolIy6AboDCgiu0Mfq2bjzi2u6AwoInbfRyeWW4u9KugMKCJPihZWv5MTZIboDCwig5ezdsrD1yKwBugMLCJzw64y7kpG07QG6AwsI7J3stYnihJnRAfIDBQ1lkSE_ggQCEAE%3D",
+      "playerParams": "ygUDdnBu",
+      "watchEndpointSupportedOnesieConfig": {
+       "html5PlaybackOnesieConfig": {
+        "commonConfig": {
+         "url": "https://rr5---sn-uxaxjvh5gbxoupo5-x1xls.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&epbp=1&msp=1&odepv=1&id=ff041344c040bf38&ip=186.108.66.14&initcwndbps=2684625&mt=1795492662&oweuc="
+        }
+       }
+      }
+     }
+    },
+    "ownerText": {
+     "runs": [
+      {
+       "text": "vpnMentor",
+       "navigationEndpoint": {
+        "commandMetadata": {
+         "webCommandMetadata": {
+          "url": "/@vpnMentor",
+          "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+          "rootVe": 3611,
+          "apiUrl": "/youtubei/v1/browse"
+         }
+        },
+        "browseEndpoint": {
+         "browseId": "UCEA9ROzwUTy6t-QdLuWrjnw",
+         "canonicalBaseUrl": "/@vpnMentor"
+        }
+       }
+      }
+     ]
+    },
+    "shortBylineText": {
+     "runs": [
+      {
+       "text": "vpnMentor",
+       "navigationEndpoint": {
+        "commandMetadata": {
+         "webCommandMetadata": {
+          "url": "/@vpnMentor",
+          "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+          "rootVe": 3611,
+          "apiUrl": "/youtubei/v1/browse"
+         }
+        },
+        "browseEndpoint": {
+         "browseId": "UCEA9ROzwUTy6t-QdLuWrjnw",
+         "canonicalBaseUrl": "/@vpnMentor"
+        }
+       }
+      }
+     ]
+    },
+    "showActionMenu": false,
+    "shortViewCountText": {
+     "simpleText": "11M views"
+    }
+   }
+  },
+  {
+   "videoRenderer": {
+    "videoId": "cUh9TR_C4e0",
+    "title": {
+     "runs": [
+      {
+       "text": "I Found the Best VPN of 2026."
+      }
+     ]
+    },
+    "longBylineText": {
+     "runs": [
+      {
+       "text": "Switch and Click",
+       "navigationEndpoint": {
+        "commandMetadata": {
+         "webCommandMetadata": {
+          "url": "/@SwitchandClickOfficial",
+          "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+          "rootVe": 3611,
+          "apiUrl": "/youtubei/v1/browse"
+         }
+        },
+        "browseEndpoint": {
+         "browseId": "UCT6AJiTYspOILBK3hMWEq2g",
+         "canonicalBaseUrl": "/@SwitchandClickOfficial"
+        }
+       }
+      }
+     ]
+    },
+    "publishedTimeText": {
+     "simpleText": "3 months ago"
+    },
+    "lengthText": {
+     "simpleText": "18:00"
+    },
+    "viewCountText": {
+     "simpleText": "323,821 views"
+    },
+    "navigationEndpoint": {
+     "commandMetadata": {
+      "webCommandMetadata": {
+       "url": "/watch?v=cUh9TR_C4e0&pp=ygUDdnBu",
+       "webPageType": "WEB_PAGE_TYPE_WATCH",
+       "rootVe": 3832
+      }
+     },
+     "watchEndpoint": {
+      "videoId": "cUh9TR_C4e0",
+      "params": "qgMDdnBuugMKCN2SwMat1YOZWboDCwi4_oKCzOiEgv8BugMLCKyBicOquNTAzQG6AwoIl5uBhamHlfFHugMLCJLVwpXCpNCO8wG6AwsI_uf6ibTu7sOUAboDCwjy9oi4hubihL0BugMKCJqhr7jzkq7yULoDCwjdgsiJqtK38P8BugMLCIfGzPjDtqjjzAG6AwsIprO4hZXNgqLwAboDCwjku--i7uCd-IsBugMLCLCe0bG0qJSMugG6AwoIrtDH6tm484trugMKCJ230cnlluLvSroDCgiT4oWVr-TE2SG6AwsIoOXs3bKw9cisAboDCwic8OuMu5KRtO0BugMLCOyd7LWJ4oSZ0QHyAwUNZZEhP4IEAhAB",
+      "playerParams": "ygUDdnBu",
+      "watchEndpointSupportedOnesieConfig": {
+       "html5PlaybackOnesieConfig": {
+        "commonConfig": {
+         "url": "https://rr5---sn-uxaxjvh5gbxoupo5-x1xzl.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&epbp=1&msp=1&odepv=1&id=71487d4d1fc2e1ed&ip=186.108.66.14&initcwndbps=2684625&mt=1795492662&oweuc="
+        }
+       }
+      }
+     }
+    },
+    "badges": [
+     {
+      "metadataBadgeRenderer": {
+       "style": "BADGE_STYLE_TYPE_SIMPLE",
+       "label": "4K"
+      }
+     }
+    ],
+    "ownerBadges": [
+     {
+      "metadataBadgeRenderer": {
+       "icon": {
+        "iconType": "CHECK_CIRCLE_THICK"
+       },
+       "style": "BADGE_STYLE_TYPE_VERIFIED",
+       "tooltip": "Verified",
+       "accessibilityData": {
+        "label": "Verified"
+       }
+      }
+     }
+    ],
+    "ownerText": {
+     "runs": [
+      {
+       "text": "Switch and Click",
+       "navigationEndpoint": {
+        "commandMetadata": {
+         "webCommandMetadata": {
+          "url": "/@SwitchandClickOfficial",
+          "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+          "rootVe": 3611,
+          "apiUrl": "/youtubei/v1/browse"
+         }
+        },
+        "browseEndpoint": {
+         "browseId": "UCT6AJiTYspOILBK3hMWEq2g",
+         "canonicalBaseUrl": "/@SwitchandClickOfficial"
+        }
+       }
+      }
+     ]
+    },
+    "shortBylineText": {
+     "runs": [
+      {
+       "text": "Switch and Click",
+       "navigationEndpoint": {
+        "commandMetadata": {
+         "webCommandMetadata": {
+          "url": "/@SwitchandClickOfficial",
+          "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+          "rootVe": 3611,
+          "apiUrl": "/youtubei/v1/browse"
+         }
+        },
+        "browseEndpoint": {
+         "browseId": "UCT6AJiTYspOILBK3hMWEq2g",
+         "canonicalBaseUrl": "/@SwitchandClickOfficial"
+        }
+       }
+      }
+     ]
+    },
+    "showActionMenu": false,
+    "shortViewCountText": {
+     "simpleText": "323K views"
+    }
+   }
+  }
+ ]
+}

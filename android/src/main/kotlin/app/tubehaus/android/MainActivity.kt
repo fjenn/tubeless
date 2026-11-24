@@ -1,0 +1,301 @@
+package app.tubehaus.android
+
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import android.Manifest
+import android.app.PictureInPictureParams
+import android.content.ComponentName
+import android.content.Intent
+import android.content.pm.ActivityInfo
+import android.content.res.Configuration
+import android.os.Build
+import android.os.Bundle
+import android.util.Rational
+import android.view.OrientationEventListener
+import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import app.tubehaus.ui.AppFrame
+import androidx.compose.ui.Modifier
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import app.tubehaus.engine.Video
+import app.tubehaus.engine.YouTube
+import app.tubehaus.ui.App
+import app.tubehaus.ui.Screen
+import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.launch
+
+class MainActivity : ComponentActivity() {
+    private val state get() = tube.state
+    private var controller: ListenableFuture<MediaController>? = null
+
+    private var pendingSave: Pair<ByteArray, (Boolean) -> Unit>? = null
+    private var pendingOpen: ((String?) -> Unit)? = null
+    private var pendingOpenMany: ((List<Pair<String, String>>) -> Unit)? = null
+
+    private val saver = registerForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
+        val (bytes, done) = pendingSave ?: return@registerForActivityResult
+        pendingSave = null
+        if (uri == null) return@registerForActivityResult done(false)
+        done(runCatching { contentResolver.openOutputStream(uri)!!.use { it.write(bytes) } }.isSuccess)
+    }
+    private val opener = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val done = pendingOpen ?: return@registerForActivityResult
+        pendingOpen = null
+        if (uri == null) return@registerForActivityResult done(null)
+        done(runCatching { contentResolver.openInputStream(uri)!!.use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull())
+    }
+    private val openerMany = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        val done = pendingOpenMany ?: return@registerForActivityResult
+        pendingOpenMany = null
+        done(uris.mapNotNull { uri ->
+            runCatching {
+                val name = contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
+                    ?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: ""
+                name to contentResolver.openInputStream(uri)!!.use { it.readBytes().toString(Charsets.UTF_8) }
+            }.getOrNull()
+        })
+    }
+    private val askNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
+        super.onCreate(savedInstanceState)
+        tube.platform.activity = this
+        if (Build.VERSION.SDK_INT >= 31) lifecycleScope.launch {
+            // the window's "go small on Home" follows what plays: a video yes, music (only sound) no
+            kotlinx.coroutines.flow.combine(
+                state.player.state.map { it.playing }.distinctUntilChanged(),
+                androidx.compose.runtime.snapshotFlow { listOf(state.playback.video?.id, state.playback.music, state.playback.withVideo, state.casting.link != null) },
+            ) { _, _ -> }.collect { if (Build.VERSION.SDK_INT >= 26) runCatching { setPictureInPictureParams(pipParams()) } }
+        }
+        setContent {
+            // outside full screen the app stays clear of the system bars (AppFrame, shared with iOS)
+            AppFrame(state) { App(state) }
+        }
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (!state.back()) moveTaskToBack(true)
+            }
+        })
+        // the media session service keeps playing in the background and shows the controls
+        controller = MediaController.Builder(this, SessionToken(this, ComponentName(this, PlaybackService::class.java))).buildAsync()
+        // the media notification; a TV has none worth asking for (and the question would take the remote's focus)
+        if (Build.VERSION.SDK_INT >= 33 && !state.platform.tv) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+        handle(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handle(intent)
+    }
+
+    /** a shared or opened YouTube link */
+    private fun handle(i: Intent?) {
+        // developer builds: adb shell am start -n <app>/.MainActivity --es th_sabrcheck <video id> (results in logcat, tag THSABR)
+        val check = i?.getStringExtra("th_sabrcheck")
+        if (check != null && (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            state.scope.launch(kotlinx.coroutines.Dispatchers.IO) { app.tubehaus.engine.sabrCheck(check) { android.util.Log.i("THSABR", it) } }
+            return
+        }
+        val text = when (i?.action) {
+            Intent.ACTION_VIEW -> i.dataString
+            Intent.ACTION_SEND -> i.getStringExtra(Intent.EXTRA_TEXT)
+            else -> null
+        } ?: return
+        val url = Regex("https?://\\S+").find(text)?.value ?: return
+        state.scope.launch {
+            val r = runCatching { YouTube.resolve(url) }.getOrNull() ?: return@launch
+            when (r.first) {
+                "video" -> state.watch(Video(r.second, ""))
+                "playlist" -> state.go(Screen.Playlist(r.second))
+                "channel" -> state.go(Screen.Channel(r.second))
+            }
+        }
+    }
+
+    fun saveFile(name: String, @Suppress("UNUSED_PARAMETER") mime: String, bytes: ByteArray, done: (Boolean) -> Unit) {
+        pendingSave = bytes to done
+        saver.launch(name)
+    }
+
+    fun openTextFile(done: (String?) -> Unit) {
+        pendingOpen = done
+        opener.launch(arrayOf("*/*"))
+    }
+
+    fun openTextFiles(done: (List<Pair<String, String>>) -> Unit) {
+        pendingOpenMany = done
+        openerMany.launch(arrayOf("*/*"))
+    }
+
+    // Full screen the YouTube way: the button turns the screen and holds it there until the phone
+    // is physically turned the same way; from then on turning the phone enters and leaves full
+    // screen by itself (as long as the system's auto-rotate allows it).
+    /** the status and navigation bars stay hidden outside full screen too (Settings) */
+    private var immersive = false
+    private var full = false
+
+    /** the clock and battery light on a dark strip (Shorts, a dark theme), dark on a light one */
+    fun setStatusBarDark(on: Boolean?) {
+        val dark = on ?: ((resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES)
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = !dark
+    }
+
+    fun setHideBars(on: Boolean) {
+        immersive = on
+        bars(!on && !full)
+    }
+
+    fun setFullscreen(on: Boolean) {
+        full = on
+        bars(!on && !immersive)
+        // a TV never turns
+        if (state.platform.tv) return
+        // tablets keep whichever way they're held when leaving full screen; phones go back upright
+        val tablet = resources.configuration.smallestScreenWidthDp >= 600
+        requestedOrientation = when {
+            on -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            tablet -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            else -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+        }
+    }
+
+    private fun bars(show: Boolean) {
+        val c = WindowCompat.getInsetsController(window, window.decorView)
+        if (show) c.show(WindowInsetsCompat.Type.systemBars())
+        else {
+            c.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            c.hide(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
+    private val tilt by lazy {
+        object : OrientationEventListener(this) {
+            override fun onOrientationChanged(angle: Int) {
+                if (angle == ORIENTATION_UNKNOWN) return
+                val sideways = angle in 60..120 || angle in 240..300
+                val upright = angle <= 30 || angle >= 330
+                // with the system's auto-rotate off, letting go would snap back to the locked
+                // (portrait) way and leave full screen: then the button's direction stays
+                if (!autoRotate()) return
+                when (requestedOrientation) {
+                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE -> if (sideways) requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT -> if (upright) requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                }
+            }
+        }
+    }
+
+    private fun autoRotate() =
+        android.provider.Settings.System.getInt(contentResolver, android.provider.Settings.System.ACCELEROMETER_ROTATION, 0) == 1
+
+    override fun onStart() {
+        super.onStart()
+        // opening the app again (it often stays alive in the background): look for a new version
+        state.checkForUpdates()
+        // and what the other devices changed, when a server is connected
+        state.sync.refreshSoon()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (!state.platform.tv && tilt.canDetectOrientation()) tilt.enable()
+    }
+
+    override fun onPause() {
+        tilt.disable()
+        super.onPause()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (state.pip || state.platform.tv) return
+        val landscape = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE
+        if (newConfig.smallestScreenWidthDp >= 600) return
+        // Settings → Full screen when turned sideways (#58)
+        if (landscape && state.store.settings.value.rotateFull && !state.fullscreen && state.current is Screen.Watch && state.playback.video != null) {
+            state.fullscreen = true; bars(false)
+        } else if (!landscape && state.fullscreen) {
+            state.fullscreen = false; bars(true)
+        }
+    }
+
+    /** while casting, the volume keys turn the TV up and down */
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent?): Boolean {
+        val l = state.casting.link
+        if (l != null && (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN)) {
+            l.setVolume(l.state.value.volume + if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP) 0.05f else -0.05f)
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    /** a video on screen and playing; a song from the Music tab is only sound and keeps playing behind
+     *  other apps (a black picture-in-picture window for it was no use), unless its video is shown */
+    private fun watchingVideo() = state.playback.video != null && state.casting.link == null && state.player.state.value.playing &&
+        (!state.playback.music || state.playback.withVideo)
+
+    @androidx.annotation.RequiresApi(26)
+    private fun pipParams(): PictureInPictureParams {
+        val b = PictureInPictureParams.Builder().setAspectRatio(Rational(16, 9))
+        if (Build.VERSION.SDK_INT >= 31) b.setAutoEnterEnabled(watchingVideo() && app.tubehaus.ui.MobilePrefs.value.autoPip).setSeamlessResizeEnabled(true)
+        return b.build()
+    }
+
+    /** the player's picture-in-picture button */
+    fun startPip() {
+        if (Build.VERSION.SDK_INT >= 26) runCatching { enterPictureInPictureMode(pipParams()) }
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        // going home while a video plays: keep it in a small window
+        if (watchingVideo() && app.tubehaus.ui.MobilePrefs.value.autoPip && Build.VERSION.SDK_INT >= 26) {
+            runCatching { enterPictureInPictureMode(pipParams()) }
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        state.pip = isInPictureInPictureMode
+    }
+
+    override fun onStop() {
+        super.onStop()
+        state.store.flush()
+        // background play (Settings: Always, Headphones, Off): pause when the app goes away unless it
+        // allows sound now (not when it went into picture-in-picture; music always keeps playing)
+        if (!state.pip && !isChangingConfigurations && !app.tubehaus.ui.MobilePrefs.mayPlayInBackground(state, externalAudio())) state.platform.player.pause()
+    }
+
+    /** the sound goes to headphones, a Bluetooth speaker, the car, a USB or HDMI device rather than the phone's speaker */
+    private fun externalAudio(): Boolean {
+        if (Build.VERSION.SDK_INT < 23) return false
+        val am = getSystemService(android.media.AudioManager::class.java) ?: return false
+        val external = buildSet {
+            addAll(listOf(android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET, android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+                android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+                android.media.AudioDeviceInfo.TYPE_USB_DEVICE, android.media.AudioDeviceInfo.TYPE_HDMI,
+                android.media.AudioDeviceInfo.TYPE_LINE_ANALOG, android.media.AudioDeviceInfo.TYPE_LINE_DIGITAL))
+            if (Build.VERSION.SDK_INT >= 26) add(android.media.AudioDeviceInfo.TYPE_USB_HEADSET)
+            if (Build.VERSION.SDK_INT >= 31) addAll(listOf(android.media.AudioDeviceInfo.TYPE_BLE_HEADSET, android.media.AudioDeviceInfo.TYPE_BLE_SPEAKER))
+        }
+        return am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).any { it.type in external }
+    }
+
+    override fun onDestroy() {
+        if (tube.platform.activity === this) tube.platform.activity = null
+        controller?.let { MediaController.releaseFuture(it) }
+        super.onDestroy()
+    }
+}

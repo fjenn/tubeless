@@ -1,0 +1,12 @@
+{"responseContext":{"mainAppWebResponseContext":{"loggedOut":false}},
+ "actions":[{"openPopupAction":{"popupType":"DROPDOWN","popup":{"multiPageMenuRenderer":{"header":{"simpleMenuHeaderRenderer":{"title":{"simpleText":"Notifications"}}},
+  "sections":[
+   {"multiPageMenuNotificationSectionRenderer":{"sectionTitle":{"simpleText":"Important"},"items":[
+     {"notificationRenderer":{"notificationId":"111","read":false,"shortMessage":{"simpleText":"Sub One uploaded: Relevant upload"},"sentTimeText":{"simpleText":"2 hours ago"},
+       "thumbnail":{"thumbnails":[{"url":"https://yt3.ggpht.com/one.jpg","width":88}]},"videoThumbnail":{"thumbnails":[{"url":"https://i.ytimg.com/vi/rrrrrrrrrrr/mqdefault.jpg","width":320}]},
+       "navigationEndpoint":{"watchEndpoint":{"videoId":"rrrrrrrrrrr"}}}}]}},
+   {"multiPageMenuNotificationSectionRenderer":{"sectionTitle":{"simpleText":"More notifications"},"items":[
+     {"notificationRenderer":{"notificationId":"222","read":true,"shortMessage":{"runs":[{"text":"Sub Two is live: "},{"text":"Latest upload"}]},"sentTimeText":{"simpleText":"1 day ago"},
+       "thumbnail":{"thumbnails":[{"url":"https://yt3.ggpht.com/two.jpg","width":88}]},
+       "navigationEndpoint":{"browseEndpoint":{"browseId":"UClllllllllllllllllllllll"}}}},
+     {"continuationItemRenderer":{"continuationEndpoint":{"getNotificationMenuEndpoint":{"ctoken":"NOTIF_NEXT"}}}}]}}]}}}}]}
