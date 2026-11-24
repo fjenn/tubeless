@@ -41,6 +41,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import platform.AVFoundation.muted
 import kotlinx.coroutines.launch
 import platform.AVFAudio.AVAudioSession
 import platform.AVFAudio.AVAudioSessionCategoryPlayback
@@ -324,6 +325,12 @@ class IosPlayer : VideoPlayer {
     }
 
     override fun setLoop(on: Boolean) { opts = opts.copy(loop = on) }
+
+    /** a feed card's muted autoplay (FeedPlay); the phone's own volume stays the system's */
+    override fun setMuted(on: Boolean) {
+        av.muted = on
+        st.update { it.copy(muted = on) }
+    }
 
     override fun setReadAhead(long: Boolean) {
         // 0 lets AVPlayer choose (a few seconds to a minute)

@@ -70,6 +70,8 @@ class WebPlayer : VideoPlayer {
         val hls = st.hls != null && (st.live || st.video.none { it.indexRange != null })
         val manifest = if (hls) st.hls!! else Dash.manifest(st, codecs, o.maxHeight)
         jsLog("load ${st.id} via ${st.client}: ${if (hls) "HLS" else "DASH ${codecs.firstOrNull { c -> st.video.any { it.codecFamily == c } }}"}")
+        // the website's player (site/instant.js) plays the formats itself: it wants the video, the HLS link and the mode
+        jsHint(st.id, st.hls ?: "", st.client, o.audioOnly)
         jsSession(st.title, st.author, "https://i.ytimg.com/vi/${st.id}/hqdefault.jpg") { a -> action(a) }
         scope.launch {
             val err = jsLoad(manifest, hls, o.startMs / 1000.0, o.autoplay, o.maxHeight).await<JsString>().toString()
@@ -145,6 +147,8 @@ class WebPlayer : VideoPlayer {
 }
 
 
+private fun jsHint(id: String, hls: String, client: String, audioOnly: Boolean): Unit =
+    js("{ if (tubeless.player.hint) tubeless.player.hint(id, hls, client, audioOnly) }")
 private fun jsSupports(t: String): Boolean = js("tubeless.player.supports(t)")
 private fun jsOnTime(f: (Double, Double, Boolean, Boolean, Boolean, Int) -> Unit): Unit = js("tubeless.player.onTime(f)")
 private fun jsLoad(m: String, hls: Boolean, start: Double, autoplay: Boolean, maxHeight: Int): Promise<JsString> =

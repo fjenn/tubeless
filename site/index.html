@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tubeless</title>
+<meta name="description" content="YouTube without ads, in your browser. No install, no account, no server in between.">
+<meta name="theme-color" content="#0f0f0f">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="icon-128.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0f0f0f; color: #f1f1f1; font: 14px/1.4 Roboto, system-ui, -apple-system, sans-serif; }
+  /* the picture lies under the Compose canvas; the canvas is see-through where the player is */
+  #tubeless-video { position: fixed; left: 0; top: 0; width: 0; height: 0; background: #000; z-index: 0; object-fit: contain; }
+  #tubeless-audio, #tubeless-bridge { position: fixed; width: 1px; height: 1px; left: -10px; top: -10px; border: 0; opacity: 0; pointer-events: none; }
+  body > :not(video):not(iframe):not(audio):not(#tubeless-embed):not(#tubeless-notice) { position: relative; z-index: 1; }
+  /* YouTube's own player (the fallback) sits over the canvas so its buttons can be pressed */
+  #tubeless-embed { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 2; background: #000; }
+  #tubeless-embed iframe { width: 100%; height: 100%; border: 0; display: block; }
+  #tubeless-notice { position: fixed; z-index: 3; left: 50%; transform: translateX(-50%); bottom: max(16px, env(safe-area-inset-bottom));
+    max-width: min(640px, calc(100vw - 32px)); box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
+    padding: 12px 14px 12px 16px; border-radius: 12px; background: #282828; color: #f1f1f1; box-shadow: 0 4px 24px rgba(0,0,0,.45); }
+  #tubeless-notice[hidden] { display: none; }
+  #tubeless-notice span { flex: 1 1 240px; }
+  #tubeless-notice a { color: #3ea6ff; text-decoration: none; font-weight: 500; white-space: nowrap; }
+  #tubeless-notice button { background: none; border: 0; color: #aaa; font-size: 20px; line-height: 1; cursor: pointer; padding: 0 2px; }
+  #tubeless-loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; color: #aaa; z-index: 0; }
+  #tubeless-noscript { padding: 24px; }
+</style>
+<video id="tubeless-video" playsinline muted preload="auto"></video>
+<audio id="tubeless-audio" preload="auto"></audio>
+<div id="tubeless-embed" hidden></div>
+<div id="tubeless-notice" role="status" hidden></div>
+<div id="tubeless-loading">Loading Tubeless&hellip;</div>
+<noscript><p id="tubeless-noscript">Tubeless needs JavaScript.</p></noscript>
+<script src="instant.js"></script>
+<script type="module" src="app.js"></script>
+</html>

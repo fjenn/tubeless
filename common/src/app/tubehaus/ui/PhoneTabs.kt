@@ -142,7 +142,7 @@ private fun QuickActions(app: AppState, close: () -> Unit) {
                 if (t.contains("youtu")) app.openLink(t) else app.scope.launch { app.snackbar.showSnackbar(tr("No YouTube link copied")) }
             }
             if (!app.store.settings.value.hideMusicTab) Action(Sym.Music, tr("Music"), tr("Songs, albums and your playlists")) { close(); app.go(Screen.Music) }
-            if (app.platform.canDownload) Action(Sym.Download, tr("Downloads"), tr("Videos saved on this phone")) { close(); app.go(Screen.Downloads) }
+            if (app.platform.canDownload) Action(Sym.Download, tr("Downloads"), tr("Videos saved on this phone")) { close(); if (app.platform.instant) FullMode.ask(tr("Downloads")) else app.go(Screen.Downloads) }
             Action(Sym.History, tr("History"), tr("What you watched")) { close(); app.go(Screen.History) }
             Action(Sym.Settings, tr("Settings"), null) { close(); app.go(Screen.Settings) }
             Spacer(Modifier.height(8.dp))

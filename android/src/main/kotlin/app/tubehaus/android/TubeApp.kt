@@ -141,6 +141,10 @@ class AndroidPlatform(private val app: Application) : Platform {
 
     /** set by the activity: runs file pickers and full screen, which need an Activity */
     var activity: MainActivity? = null
+    /** voice search: Android's SpeechRecognizer (AndroidSpeech); none where the phone has no recognition service */
+    override val speech: app.tubehaus.ui.Speech? by lazy {
+        if (android.speech.SpeechRecognizer.isRecognitionAvailable(app)) AndroidSpeech(app) { activity } else null
+    }
 
     override fun share(title: String, url: String): Boolean {
         val send = Intent(Intent.ACTION_SEND).setType("text/plain")

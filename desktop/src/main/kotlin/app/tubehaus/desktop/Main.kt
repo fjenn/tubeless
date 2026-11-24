@@ -280,7 +280,15 @@ private fun startApp() {
             }
         }
         // M3 E2E: minimised while a video plays, the sound goes on (`background`); the QA driver's `window` command
-        app.tubehaus.ui.Parity.window = { a -> if (a == "min") ws.isMinimized = true else { ws.isMinimized = false } }
+        // (and "window 1024x700": that size, for the small-window layout checks)
+        app.tubehaus.ui.Parity.window = { a ->
+            val wh = a.split('x').mapNotNull { it.toIntOrNull() }
+            when {
+                a == "min" -> ws.isMinimized = true
+                wh.size == 2 -> { ws.isMinimized = false; ws.size = DpSize(wh[0].dp, wh[1].dp) }
+                else -> ws.isMinimized = false
+            }
+        }
         androidx.compose.runtime.LaunchedEffect(ws) {
             androidx.compose.runtime.snapshotFlow { ws.isMinimized }.collectLatest { min ->
                 if (!min || !platform.mpv.state.value.playing) return@collectLatest

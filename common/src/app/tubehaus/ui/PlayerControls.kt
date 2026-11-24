@@ -461,8 +461,13 @@ private fun Controls(app: AppState, fullscreen: Boolean, sideGestures: Boolean) 
                         val raw = base + (travel / size.width * span).toLong()
                         val to = raw.coerceIn(0L, maxOf(0L, dur - 500))
                         if (to != raw) travel = (to - base).toFloat() / span * size.width
+                        val prev = scrub?.first ?: base
                         scrub = to to (to - base)
-                        if (abs(to - lastTick) >= 5_000L) { lastTick = to; haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.SegmentFrequentTick) }
+                        // crossing into another chapter: a firmer tick (YouTube's), else one every five seconds
+                        val marks = app.playback.chapters
+                        if (marks.size > 1 && marks.indexOfLast { it.startMs <= prev } != marks.indexOfLast { it.startMs <= to }) {
+                            lastTick = to; haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.SegmentTick)
+                        } else if (abs(to - lastTick) >= 5_000L) { lastTick = to; haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.SegmentFrequentTick) }
                     }
                 }
                 .pointerInput(touch, st.durationMs, w, dtap) {
@@ -625,6 +630,9 @@ private fun Controls(app: AppState, fullscreen: Boolean, sideGestures: Boolean) 
                 horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(durationMs(to), color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 Text((if (by < 0) "-" else "+") + durationMs(abs(by)), color = accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                val ch = app.playback.chapters.takeIf { it.size > 1 }?.lastOrNull { it.startMs <= to }?.title.orEmpty()
+                if (ch.isNotEmpty()) Text("• $ch", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp).widthIn(max = 220.dp))
             }
         }
         // held down: "2x" at the top while the finger stays
@@ -1148,6 +1156,7 @@ internal fun Track(
     var hover by remember { mutableStateOf(false) }
     var held by remember { mutableStateOf<Float?>(null) }
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val marksNow by rememberUpdatedState(marks)
     val active = hover || held != null
     val shown = held ?: value
     BoxWithConstraints(
@@ -1181,8 +1190,12 @@ internal fun Track(
                         val c = e.changes.firstOrNull { it.id == down.id } ?: break
                         if (!c.pressed) break
                         c.consume()
+                        val was = f
                         f = at(c.position.x)
                         held = f; onDrag(f)
+                        // a chapter's start passed under the finger: a tick, as YouTube's app
+                        if (marksNow.isNotEmpty() && marksNow.count { it <= was } != marksNow.count { it <= f })
+                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.SegmentTick)
                     }
                     held = null
                     onDone(f)

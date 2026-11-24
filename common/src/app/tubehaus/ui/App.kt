@@ -241,7 +241,8 @@ fun App(app: AppState) {
                     if (app.casting.picking) CastDialog(app)
                     app.whatsNew?.let { WhatsNewDialog(app, it) }
                     app.reminder?.let { ReminderDialog(app, it) }
-                    app.offline.asking?.let { OfflineDialog(app, it) }
+                    app.offline.asking?.let { if (app.platform.instant) FullModeDialog(app, tr("Downloads")) { app.offline.asking = null } else OfflineDialog(app, it) }
+                    FullMode.asking?.let { FullModeDialog(app, it) { FullMode.asking = null } }
                 }
             }
         }
@@ -339,9 +340,15 @@ private fun Shell(app: AppState) {
         // Shorts has its own player; a video playing in the background stops
         if (now is Screen.Shorts) app.playback.close()
     }
-    Box(Modifier.fillMaxSize()) {
+    // the window's width (a computer): YouTube's guide is full from 1312 px, the mini guide below that, and
+    // below 792 px it is only a drawer from the menu button
+    var winW by remember { mutableStateOf(2000.dp) }
+    val dens = LocalDensity.current
+    val guideDrawer = web && winW < 792.dp
+    val guideMini = railCollapsed || winW < 1312.dp
+    Box(Modifier.fillMaxSize().onSizeChanged { winW = with(dens) { it.width.toDp() } }) {
     Scaffold(
-        topBar = { if (showTop) AnimatedVisibility(navShown || !autoHide, enter = expandVertically(), exit = shrinkVertically()) { TopBar(app, if (web) ({ if (cur is Screen.Watch) drawer = !drawer else app.store.settings.update { it.copy(railCollapsed = !it.railCollapsed) } }) else if (railCollapsed) unfold else if (deskBar) fold else null, page = cur, depth = if (sheet) app.stack.count { it !is Screen.Watch } else app.stack.size) } },
+        topBar = { if (showTop) AnimatedVisibility(navShown || !autoHide, enter = expandVertically(), exit = shrinkVertically()) { TopBar(app, if (web) ({ if (cur is Screen.Watch || guideDrawer || (winW < 1312.dp && !railCollapsed)) drawer = !drawer else app.store.settings.update { it.copy(railCollapsed = !it.railCollapsed) } }) else if (railCollapsed) unfold else if (deskBar) fold else null, page = cur, depth = if (sheet) app.stack.count { it !is Screen.Watch } else app.stack.size) } },
         bottomBar = {
             Column {
                 // the mini player rises from the bottom edge and sinks back into it (phones, tablets, TVs;
@@ -351,8 +358,7 @@ private fun Shell(app: AppState) {
                     enter = slideInVertically(tween(Motion.MEDIUM, easing = Motion.emphasizedIn)) { it } + fadeIn(tween(Motion.SHORT)),
                     exit = slideOutVertically(tween(Motion.SHORT, easing = Motion.emphasizedOut)) { it } + fadeOut(tween(Motion.SHORT)),
                 ) { MiniPlayer(app) }
-                // the sheet's mini player sits here, over this room
-                if (sheet && cur !is Screen.Shorts) Spacer(Modifier.height(66.dp))
+                // (the sheet's mini player floats over the page in a corner: no room is kept for it)
                 Box(Modifier.onSizeChanged { barPx = it.height }) {
                     // the phone's tabs stay put while scrolling, as YouTube's app (only the top bar slides away)
                     if (compact && cur !is Screen.Watch && cur !is Screen.NowPlaying) PhoneTabBar(app, root)
@@ -363,7 +369,7 @@ private fun Shell(app: AppState) {
     ) { pad ->
         Row(Modifier.fillMaxSize().padding(pad).let { if (autoHide) it.nestedScroll(navScroll) else it }) {
             // tablets: the side rail steps aside while watching, so the video gets the room
-            if (web) { if (cur !is Screen.Watch && cur !is Screen.NowPlaying) DeskGuide(app, cur, mini = railCollapsed) }
+            if (web) { if (cur !is Screen.Watch && cur !is Screen.NowPlaying && !guideDrawer) DeskGuide(app, cur, mini = guideMini) }
             else if (!compact && !(cur is Screen.Watch && app.platform.touch) && !railCollapsed) AnimatedVisibility(navShown || !autoHide, enter = expandHorizontally(), exit = shrinkHorizontally()) {
                 NavigationRail(
                     containerColor = MaterialTheme.colorScheme.background,
@@ -648,16 +654,32 @@ fun Logo(modifier: Modifier = Modifier) {
 private fun TopBar(app: AppState, onMenu: (() -> Unit)? = null, page: Screen = app.current, depth: Int = app.stack.size) {
     Column {
         val web = webDesk(app)
-        Row(Modifier.fillMaxWidth().height(if (web) 56.dp else 52.dp).padding(start = 14.dp, end = if (web) 16.dp else 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        // a computer's narrow window (as youtube.com below about 650 px): search is an icon that opens the box over the bar
+        var barW by remember { mutableStateOf(2000.dp) }
+        val dens = LocalDensity.current
+        val narrow = web && barW < 650.dp
+        var searching by remember { mutableStateOf(false) }
+        LaunchedEffect(narrow) { if (!narrow) searching = false }
+        Row(Modifier.fillMaxWidth().height(if (web) 56.dp else 52.dp).onSizeChanged { barW = with(dens) { it.width.toDp() } }
+            .padding(start = if (narrow && searching) 4.dp else 14.dp, end = if (web) 16.dp else 4.dp), verticalAlignment = Alignment.CenterVertically) {
+          if (narrow && searching) {
+            IconButton(onClick = { searching = false }) { Icon(Sym.ArrowBack.fill, tr("Back")) }
+            MastheadSearch(app, Modifier.weight(1f).padding(start = 4.dp), autoFocus = true)
+          } else {
             if (onMenu != null) IconButton(onClick = onMenu) { Icon(Sym.Menu.fill, tr("Menu")) }
             if (depth > 1) {
                 IconButton(onClick = { app.back() }) { Icon(Sym.ArrowBack.fill, tr("Back")) }
             }
             if (!app.store.settings.value.hideLogo) Logo(Modifier.clickable { app.go(Screen.Home) })
             // a computer: a search box in the middle of the bar, as on YouTube's website (a click opens search)
-            if (web) {
+            if (narrow) {
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = { searching = true }) { Icon(Sym.Search.outline, tr("Search")) }
+                MicButton(app, Modifier.padding(horizontal = 4.dp)) { t -> searchFor(app, t) }
+            } else if (web) {
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    MastheadSearch(app, Modifier.widthIn(max = 640.dp).fillMaxWidth().padding(horizontal = 40.dp))
+                    // the gaps beside the box shrink with the window, so the bell and Sign in always fit
+                    MastheadSearch(app, Modifier.widthIn(max = 640.dp).fillMaxWidth().padding(horizontal = if (barW < 900.dp) 12.dp else 40.dp))
                 }
             } else if (!LocalCompact.current && !app.platform.touch && !app.platform.tv) {
                 val c = MaterialTheme.colorScheme
@@ -686,6 +708,7 @@ private fun TopBar(app: AppState, onMenu: (() -> Unit)? = null, page: Screen = a
                 BellSlot(app)
                 AccountSlot(app)
             }
+          }
         }
         // every device: Home, Subscriptions, Music, Live and More under the logo, on those pages themselves
         if (depth == 1 && page.underHome() && !web) TopTabs(app)

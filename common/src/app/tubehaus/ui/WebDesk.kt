@@ -217,7 +217,7 @@ private fun GuideDivider() = HorizontalDivider(Modifier.padding(vertical = 12.dp
 
 /** the search box in the middle of the masthead, with YouTube's suggestions dropping down under it */
 @Composable
-fun MastheadSearch(app: AppState, modifier: Modifier = Modifier) {
+fun MastheadSearch(app: AppState, modifier: Modifier = Modifier, autoFocus: Boolean = false) {
     val c = MaterialTheme.colorScheme
     val q0 = (app.current as? Screen.Search)?.query ?: ""
     var text by remember(q0) { mutableStateOf(TextFieldValue(q0, TextRange(q0.length))) }
@@ -232,6 +232,8 @@ fun MastheadSearch(app: AppState, modifier: Modifier = Modifier) {
     Parity.flags["type"]?.let { t -> LaunchedEffect(t) { Parity.flags.remove("type"); runCatching { fr.requestFocus() }; text = TextFieldValue(t, TextRange(t.length)); open = true } }
     // another page: the suggestions close
     LaunchedEffect(app.current) { open = false }
+    // opened from the narrow window's search icon: ready to type
+    if (autoFocus) LaunchedEffect(Unit) { delay(50); runCatching { fr.requestFocus() } }
     LaunchedEffect(typed, focused) {
         if (!focused) { delay(180); open = false; return@LaunchedEffect }
         pick = -1
@@ -283,6 +285,8 @@ fun MastheadSearch(app: AppState, modifier: Modifier = Modifier) {
                 .border(1.dp, c.outlineVariant, right).clickable { submit(text.text) }, contentAlignment = Alignment.Center) {
                 Icon(Sym.Search.outline, tr("Search"), Modifier.size(22.dp))
             }
+            // "Search with your voice" where the browser or system can listen (youtube.com shows it in Chrome)
+            MicButton(app, Modifier.padding(start = 12.dp)) { t -> submit(t) }
         }
         if (open && sugg.isNotEmpty()) Popup(offset = IntOffset(0, with(androidx.compose.ui.platform.LocalDensity.current) { 44.dp.roundToPx() }),
             properties = PopupProperties(focusable = false)) {

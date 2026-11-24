@@ -22,6 +22,8 @@ interface Platform {
     val weak: Boolean get() = false
     /** videos can be saved to watch without internet (every app does; a platform without it can say so) */
     val canDownload: Boolean get() = true
+    /** the website without the extension (Instant mode): anonymous, no downloads, no sound effects; FullMode prompts instead */
+    val instant: Boolean get() = false
     val player: VideoPlayer
     /** Google Cast: the TVs on this Wi-Fi to send videos to (Android, the desktop); null where there is none */
     val caster: Caster? get() = null
@@ -103,6 +105,9 @@ interface Platform {
     fun pickFolder(start: String, done: (String?) -> Unit) { done(null) }
     /** desktop: shows a folder in the file manager */
     fun openFolder(path: String) {}
+
+    /** speech recognition for voice search (ui/Voice.kt); null where there is none (the mic button is left out) */
+    val speech: Speech? get() = null
 
     /** the device's own translation (iOS 18+, macOS 26+): a "Translate" link under each comment; false hides it */
     val canTranslate: Boolean get() = false

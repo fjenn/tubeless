@@ -274,7 +274,9 @@ fun Thumb(v: Video, app: AppState, modifier: Modifier = Modifier, rounded: Int =
                     .padding(horizontal = 6.dp, vertical = 2.dp),
             )
         }
-        if (pos != null && (pos.getOrNull(1) ?: 0) > 0) {
+        // a phone feed's top card playing muted (FeedPlay)
+        if (app.platform.touch) FeedPlayLayer(app, v)
+        if (pos != null && (pos.getOrNull(1) ?: 0) > 0 && FeedPlay.id != v.id) {
             val f = (pos[0].toFloat() / pos[1]).coerceIn(0f, 1f)
             Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp).background(Color(0x66FFFFFF))) {
                 Box(Modifier.fillMaxWidth(f).height(4.dp).background(Red))
@@ -574,6 +576,11 @@ fun ItemGrid(
         if (list.isNotEmpty() && !focused) { delay(150); focused = runCatching { first.requestFocus() }.isSuccess }
     }
     val big = rows && wideRows
+    // phones: the top card plays muted as YouTube's feeds do (Settings → Playback in feeds)
+    if (LocalCompact.current && app.platform.touch && !tv && !rows && look != 2) {
+        val byId = remember(list) { list.filterIsInstance<Video>().associateBy { it.id } }
+        FeedAutoplay(app, state) { k -> byId[k] }
+    }
     // the cards already shown: those arrive once, not again each time they scroll back into view
     val seen = remember { HashSet<Any>() }
     if (list.isEmpty() && loading && header == null) { Skeleton(rows, wideRows); return }

@@ -120,6 +120,8 @@ fun SearchScreen(app: AppState, initial: String) {
             // a round, filled field (Material 3's search bar), not a boxed outline
             SearchField(text, { text = it; if (it.isEmpty()) runCatching { focus.requestFocus() } }, tr("Search YouTube"),
                 Modifier.weight(1f).padding(end = 8.dp).focusRequester(focus), onSearch = { submit(text) })
+            // YouTube's mic beside the field: speak, and it searches when you stop
+            MicButton(app, Modifier.padding(end = 8.dp)) { t -> text = t; submit(t) }
         }
     }
 

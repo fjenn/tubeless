@@ -185,6 +185,8 @@ data class Settings(
     val ambient: Boolean = true,
     /** computer: a video card shows the video's frames after the pointer rests on it a second */
     val hoverPreview: Boolean = true,
+    /** phones: "Playback in feeds", the top card of a feed plays muted: 0 always, 1 on Wi-Fi only, 2 off (YouTube's setting) */
+    val feedPlayback: Int = 1,
     /** the "Most replayed" wave over the seek bar */
     val heatmap: Boolean = true,
     /** DeArrow: titles (and with [dearrowThumbs] thumbnails) people chose instead of clickbait */

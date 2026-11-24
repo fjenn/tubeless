@@ -493,6 +493,12 @@ object Accounts {
     /** whether the signed-out session is on (the app, not the extension) */
     val visitorSession: Boolean get() = sessionFile != null
 
+    /**
+     * Instant mode (the website without the extension): a visitor without cookies. YouTube's signed-out Home and the
+     * watch-time pings still go out, tied to the visitorData in each request's context (no cookie can be sent from there).
+     */
+    @Volatile var cookielessVisitor = false
+
     /** the signed-out session's Cookie header for www.youtube.com; null when empty or off */
     fun visitorCookie(): String? = if (!visitorSession) null else visitorJar.header(nowS = now()).ifEmpty { null }
 

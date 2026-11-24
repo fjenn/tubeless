@@ -104,7 +104,9 @@ class AccountSync(private val store: Store, private val scope: CoroutineScope) :
     }
 
     override fun playlistRename(id: String, title: String) { remoteList(id)?.takeIf { it != "WL" }?.let { go { YouTubeAccount.renamePlaylist(it, title) } } }
-    override fun playlistDelete(id: String) { remoteList(id)?.takeIf { it != "WL" }?.let { go { YouTubeAccount.deletePlaylist(it) } } }
+    override fun playlistDelete(id: String) {
+        remoteList(id)?.takeIf { it != "WL" }?.let { YouTubeAccount.forgetPlaylist(it); go { YouTubeAccount.deletePlaylist(it) } }
+    }
 }
 
 /** Playback's hooks → WatchTime (signed-in watch-time pings, history off = none). Installed once. */

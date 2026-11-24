@@ -11,6 +11,9 @@ Home feed, subscriptions, history, Watch later, playlists and notifications, or 
 a local library. Ads are left out (in videos, lists and Shorts), sponsor segments are skipped, and
 background play, picture-in-picture and offline downloads work on every platform.
 
+**Try it in your browser, nothing to install:** <https://fjenn.github.io/tubeless-publik/> (Instant mode:
+signed out, no downloads; add the extension or get the app for everything else).
+
 > [!NOTE]
 > **Unofficial.** Tubeless is independent software and is not affiliated with, endorsed by or
 > sponsored by YouTube or Google. "YouTube" is a trademark of Google LLC. Tubeless does not host or
@@ -42,6 +45,7 @@ background play, picture-in-picture and offline downloads work on every platform
 | Android (phone, tablet, TV) | `.apk` | Media3 / ExoPlayer |
 | iPhone / iPad | `.ipa` (sideload with AltStore / SideStore) | AVPlayer |
 | Chrome / Firefox | extension | `<video>` + Shaka Player |
+| Any browser | [website](https://fjenn.github.io/tubeless-publik/) (Instant mode) | `<video>` + `<audio>` in step, native HLS on Safari |
 
 Release files come from [`.github/workflows/release.yml`](.github/workflows/release.yml) and are
 published on the [Releases](../../releases) page.
@@ -57,6 +61,7 @@ You need JDK 21+. Android builds also need the Android SDK; the iOS app needs a 
 ./gradlew :android:assembleDebug            # android/build/outputs/apk/debug
 ./gradlew :web:compileProductionExecutableKotlinWasmJs   # the web (wasm) build
 extension/build.sh                          # Chrome / Firefox extension zips in extension/dist
+node site/build.mjs                         # the website in site/dist (after the web build), any static host
 ```
 
 iPhone / iPad:

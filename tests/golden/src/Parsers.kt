@@ -32,6 +32,19 @@ val PARSERS: Map<String, (JsonElement) -> Any?> = mapOf(
     "accountFeed" to { j -> AccountParse.feed(j) },
     "historyControls" to { j -> AccountParse.historyControls(j).let { it to it.paused } },
     "watchState" to { j -> AccountParse.watch("wwwwwwwwwww", j) },
+    // POLISH: where a video watched on another device picks up. input: {"items": <a signed list>, "next": <a signed next>,
+    // "pct": [[percent, length s], ...]}; output: the items' exact points, the page's own point, the percent estimates
+    "resumeAt" to { j ->
+        mapOf(
+            "items" to AccountParse.actions(j.at("items")).mapValues { (_, a) -> listOf(a.resumePercent, a.resumeSec) },
+            "next" to AccountParse.watch("wwwwwwwwwww", j.at("next")).resumeSec,
+            "fromPercent" to (j.at("pct") as kotlinx.serialization.json.JsonArray).associate { p ->
+                val a = p as kotlinx.serialization.json.JsonArray
+                val pct = (a[0] as JsonPrimitive).content.toInt(); val len = (a[1] as JsonPrimitive).content.toInt()
+                "$pct% of ${len}s" to AccountParse.resumeFromPercent(pct, len)
+            },
+        )
+    },
     "commentSheet" to { j -> AccountParse.comments(j) },
     "notifications" to { j -> Notifications.parse(j) to Notifications.unseenOf(j) },
     "playbackTracking" to { j -> AccountParse.tracking(j) },

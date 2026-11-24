@@ -34,6 +34,20 @@ object WatchTime {
 
     private var cur: Session? = null
 
+    /**
+     * Instant mode (the website without the extension): the pings go without cookies (the browser sends them as
+     * no-cors requests), and their URLs come from the player answer that gave the streams, since the WEB player
+     * answers such a page "unplayable" without them.
+     */
+    private val cookieless get() = Accounts.cookielessVisitor
+    private val known = LinkedHashMap<String, Pair<String, String>>()
+
+    /** a player answer with streams for [id] (YouTube.parse): its tracking URLs, kept for Instant mode */
+    fun seen(id: String, d: kotlinx.serialization.json.JsonElement) {
+        if (!cookieless) return
+        AccountParse.tracking(d)?.let { known[id] = it; if (known.size > 30) known.remove(known.keys.first()) }
+    }
+
     /** a [cpn]: 16 random characters of the URL-safe alphabet */
     fun cpn(rnd: Random = Random): String = buildString { repeat(16) { append(CPN_CHARS[rnd.nextInt(64)]) } }
 
@@ -62,13 +76,13 @@ object WatchTime {
      * [params]: the reel's playerParams for a Short (YouTube then marks the pings el=shortspage).
      */
     fun start(videoId: String, lenSec: Double, params: String? = null) {
-        if (!YouTubeAccount.signedIn && !Accounts.visitorSession) { cur = null; return }
+        if (!cookieless && !YouTubeAccount.signedIn && !Accounts.visitorSession) { cur = null; return }
         if (cur?.id == videoId) return
         cur?.let { end(it.id) }
         val s = Session(videoId, cpn(), Sys.nowMs()).also { it.len = lenSec }
         cur = s
         scope.launch {
-            val urls = try {
+            val urls = (if (cookieless) known[videoId] else null) ?: try {
                 AccountParse.tracking(InnerTube.call("player", mapOf(
                     "videoId" to videoId,
                     "cpn" to s.cpn,
@@ -133,6 +147,7 @@ object WatchTime {
     private fun get(u: String) {
         sent += u.substringAfter('?'); if (sent.size > 20) sent.removeAt(0)
         scope.launch {
+            if (cookieless) { runCatching { Net.get(u) }; return@launch }
             try {
                 // the web player's pings carry the session's cookies only (no Authorization), as a browser's fetch does
                 val cookie = InnerTube.authHeaders?.invoke("https://www.youtube.com")?.get("Cookie") ?: Accounts.visitorCookie() ?: return@launch

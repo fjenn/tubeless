@@ -88,7 +88,8 @@
       "dontRecommendChannel": "TOK_DRC_A",
       "removeFromHistory": null,
       "resumePercent": 42,
-      "setVideoId": null
+      "setVideoId": null,
+      "resumeSec": null
     },
     "bbbbbbbbbbb": {
       "@type": "ItemActions",
@@ -96,7 +97,8 @@
       "dontRecommendChannel": "TOK_DRC_B",
       "removeFromHistory": null,
       "resumePercent": 100,
-      "setVideoId": null
+      "setVideoId": null,
+      "resumeSec": null
     }
   },
   "loggedOut": false

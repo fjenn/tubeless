@@ -47,6 +47,16 @@ private fun trRaw(s: String): String {
 fun textOverride(key: String, lang: String): String = ""
 
 private val KO by lazy { mapOf(
+    "Playback in feeds" to "피드에서 재생",
+    "Always on" to "항상 사용",
+    "Wi-Fi only" to "Wi-Fi에서만",
+    "Search with your voice" to "음성으로 검색",
+    "Listening..." to "듣는 중...",
+    "Tap to stop" to "탭하여 중지",
+    "Tap the microphone to try again" to "마이크를 탭하여 다시 시도",
+    "Didn't hear that. Try again." to "잘 듣지 못했어요. 다시 시도하세요.",
+    "Stop" to "중지",
+    "No speaker or headphones found. The video plays without sound." to "스피커나 헤드폰이 없습니다. 동영상은 소리 없이 재생됩니다.",
     "Yesterday" to "어제", "Earlier" to "이전",
     "Ask who's watching when the app opens" to "앱을 열 때 누가 볼지 묻기",
     "PIN for {n}" to "{n}의 PIN",
@@ -809,6 +819,16 @@ private val KO by lazy { mapOf(
 
 // Español. Machine-made, not yet read by a native speaker: corrections welcome
 private val ES by lazy { mapOf(
+    "Playback in feeds" to "Reproducción en feeds",
+    "Always on" to "Siempre activado",
+    "Wi-Fi only" to "Solo con Wi-Fi",
+    "Search with your voice" to "Buscar con la voz",
+    "Listening..." to "Escuchando...",
+    "Tap to stop" to "Toca para detener",
+    "Tap the microphone to try again" to "Toca el micrófono para volver a intentarlo",
+    "Didn't hear that. Try again." to "No te he oído. Inténtalo de nuevo.",
+    "Stop" to "Detener",
+    "No speaker or headphones found. The video plays without sound." to "No se encontraron altavoces ni auriculares. El vídeo se reproduce sin sonido.",
     "Yesterday" to "Ayer", "Earlier" to "Antes",
     "Ask who's watching when the app opens" to "Preguntar quién está viendo al abrir la app",
     "PIN for {n}" to "PIN de {n}",
@@ -1484,6 +1504,16 @@ private val ES by lazy { mapOf(
 
 // 日本語. Machine-made, not yet read by a native speaker: corrections welcome
 private val JA by lazy { mapOf(
+    "Playback in feeds" to "フィードでの再生",
+    "Always on" to "常にオン",
+    "Wi-Fi only" to "Wi-Fi のみ",
+    "Search with your voice" to "音声で検索",
+    "Listening..." to "聞き取り中...",
+    "Tap to stop" to "タップして停止",
+    "Tap the microphone to try again" to "マイクをタップしてもう一度",
+    "Didn't hear that. Try again." to "聞き取れませんでした。もう一度お試しください。",
+    "Stop" to "停止",
+    "No speaker or headphones found. The video plays without sound." to "スピーカーやヘッドホンが見つかりません。動画は音声なしで再生されます。",
     "Yesterday" to "昨日", "Earlier" to "それ以前",
     "Ask who's watching when the app opens" to "アプリを開くときに誰が見るか聞く",
     "PIN for {n}" to "{n} の PIN",
@@ -2159,6 +2189,16 @@ private val JA by lazy { mapOf(
 
 // Deutsch. Machine-made, not yet read by a native speaker: corrections welcome
 private val DE by lazy { mapOf(
+    "Playback in feeds" to "Wiedergabe in Feeds",
+    "Always on" to "Immer an",
+    "Wi-Fi only" to "Nur über WLAN",
+    "Search with your voice" to "Per Sprache suchen",
+    "Listening..." to "Ich höre zu...",
+    "Tap to stop" to "Zum Beenden tippen",
+    "Tap the microphone to try again" to "Zum erneuten Versuch auf das Mikrofon tippen",
+    "Didn't hear that. Try again." to "Nicht verstanden. Bitte noch einmal.",
+    "Stop" to "Beenden",
+    "No speaker or headphones found. The video plays without sound." to "Kein Lautsprecher oder Kopfhörer gefunden. Das Video läuft ohne Ton.",
     "Yesterday" to "Gestern", "Earlier" to "Früher",
     "Ask who's watching when the app opens" to "Beim Öffnen fragen, wer schaut",
     "PIN for {n}" to "PIN für {n}",
@@ -2834,6 +2874,16 @@ private val DE by lazy { mapOf(
 
 // 简体中文 (Simplified Chinese). Machine-made, not yet read by a native speaker: corrections welcome
 private val ZH by lazy { mapOf(
+    "Playback in feeds" to "在信息流中播放",
+    "Always on" to "始终开启",
+    "Wi-Fi only" to "仅限 Wi-Fi",
+    "Search with your voice" to "语音搜索",
+    "Listening..." to "正在聆听...",
+    "Tap to stop" to "点按即可停止",
+    "Tap the microphone to try again" to "点按麦克风重试",
+    "Didn't hear that. Try again." to "没有听清，请再试一次。",
+    "Stop" to "停止",
+    "No speaker or headphones found. The video plays without sound." to "未找到扬声器或耳机，视频将无声播放。",
     "Yesterday" to "昨天", "Earlier" to "更早",
     "Ask who's watching when the app opens" to "打开应用时询问谁在观看",
     "PIN for {n}" to "{n} 的 PIN",
@@ -3509,6 +3559,16 @@ private val ZH by lazy { mapOf(
 
 // Português (Portuguese). Machine-made, not yet read by a native speaker: corrections welcome
 private val PT by lazy { mapOf(
+    "Playback in feeds" to "Reprodução nos feeds",
+    "Always on" to "Sempre ativada",
+    "Wi-Fi only" to "Só no Wi-Fi",
+    "Search with your voice" to "Pesquisar por voz",
+    "Listening..." to "Ouvindo...",
+    "Tap to stop" to "Toque para parar",
+    "Tap the microphone to try again" to "Toque no microfone para tentar de novo",
+    "Didn't hear that. Try again." to "Não entendi. Tente de novo.",
+    "Stop" to "Parar",
+    "No speaker or headphones found. The video plays without sound." to "Nenhum alto-falante ou fone encontrado. O vídeo toca sem som.",
     "Yesterday" to "Ontem", "Earlier" to "Antes",
     "Ask who's watching when the app opens" to "Perguntar quem está assistindo ao abrir o app",
     "PIN for {n}" to "PIN de {n}",
@@ -4184,6 +4244,16 @@ private val PT by lazy { mapOf(
 
 // Français (French). Machine-made, not yet read by a native speaker: corrections welcome
 private val FR by lazy { mapOf(
+    "Playback in feeds" to "Lecture dans les flux",
+    "Always on" to "Toujours activée",
+    "Wi-Fi only" to "Wi-Fi uniquement",
+    "Search with your voice" to "Rechercher avec la voix",
+    "Listening..." to "Écoute...",
+    "Tap to stop" to "Appuyez pour arrêter",
+    "Tap the microphone to try again" to "Appuyez sur le micro pour réessayer",
+    "Didn't hear that. Try again." to "Je n'ai pas entendu. Réessayez.",
+    "Stop" to "Arrêter",
+    "No speaker or headphones found. The video plays without sound." to "Aucun haut-parleur ni casque trouvé. La vidéo est lue sans son.",
     "Yesterday" to "Hier", "Earlier" to "Plus tôt",
     "Ask who's watching when the app opens" to "Demander qui regarde à l'ouverture",
     "PIN for {n}" to "PIN de {n}",
@@ -4859,6 +4929,16 @@ private val FR by lazy { mapOf(
 
 // Русский (Russian). Machine-made, not yet read by a native speaker: corrections welcome
 private val RU by lazy { mapOf(
+    "Playback in feeds" to "Воспроизведение в лентах",
+    "Always on" to "Всегда",
+    "Wi-Fi only" to "Только по Wi-Fi",
+    "Search with your voice" to "Голосовой поиск",
+    "Listening..." to "Слушаю...",
+    "Tap to stop" to "Нажмите, чтобы остановить",
+    "Tap the microphone to try again" to "Нажмите на микрофон, чтобы повторить",
+    "Didn't hear that. Try again." to "Не расслышал. Попробуйте ещё раз.",
+    "Stop" to "Остановить",
+    "No speaker or headphones found. The video plays without sound." to "Динамики или наушники не найдены. Видео воспроизводится без звука.",
     "Yesterday" to "Вчера", "Earlier" to "Ранее",
     "Ask who's watching when the app opens" to "Спрашивать, кто смотрит, при открытии",
     "PIN for {n}" to "PIN для {n}",
@@ -5534,6 +5614,16 @@ private val RU by lazy { mapOf(
 
 // हिन्दी (Hindi). Machine-made, not yet read by a native speaker: corrections welcome
 private val HI by lazy { mapOf(
+    "Playback in feeds" to "फ़ीड में प्लेबैक",
+    "Always on" to "हमेशा चालू",
+    "Wi-Fi only" to "केवल वाई-फ़ाई पर",
+    "Search with your voice" to "आवाज़ से खोजें",
+    "Listening..." to "सुन रहा है...",
+    "Tap to stop" to "रोकने के लिए टैप करें",
+    "Tap the microphone to try again" to "फिर से कोशिश करने के लिए माइक टैप करें",
+    "Didn't hear that. Try again." to "सुनाई नहीं दिया। फिर से कोशिश करें।",
+    "Stop" to "रोकें",
+    "No speaker or headphones found. The video plays without sound." to "कोई स्पीकर या हेडफ़ोन नहीं मिला। वीडियो बिना आवाज़ के चलेगा।",
     "Yesterday" to "कल", "Earlier" to "पहले",
     "Ask who's watching when the app opens" to "ऐप खोलते समय पूछें कि कौन देख रहा है",
     "PIN for {n}" to "{n} का PIN",
@@ -6209,6 +6299,16 @@ private val HI by lazy { mapOf(
 
 // Bahasa Indonesia (Indonesian). Machine-made, not yet read by a native speaker: corrections welcome
 private val ID by lazy { mapOf(
+    "Playback in feeds" to "Pemutaran di feed",
+    "Always on" to "Selalu aktif",
+    "Wi-Fi only" to "Hanya Wi-Fi",
+    "Search with your voice" to "Telusuri dengan suara",
+    "Listening..." to "Mendengarkan...",
+    "Tap to stop" to "Ketuk untuk berhenti",
+    "Tap the microphone to try again" to "Ketuk mikrofon untuk mencoba lagi",
+    "Didn't hear that. Try again." to "Tidak terdengar. Coba lagi.",
+    "Stop" to "Berhenti",
+    "No speaker or headphones found. The video plays without sound." to "Speaker atau headphone tidak ditemukan. Video diputar tanpa suara.",
     "Yesterday" to "Kemarin", "Earlier" to "Sebelumnya",
     "Ask who's watching when the app opens" to "Tanyakan siapa yang menonton saat aplikasi dibuka",
     "PIN for {n}" to "PIN untuk {n}",
@@ -6884,6 +6984,16 @@ private val ID by lazy { mapOf(
 
 // Türkçe (Turkish). Machine-made, not yet read by a native speaker: corrections welcome
 private val TR by lazy { mapOf(
+    "Playback in feeds" to "Akışlarda oynatma",
+    "Always on" to "Her zaman açık",
+    "Wi-Fi only" to "Yalnızca kablosuz",
+    "Search with your voice" to "Sesle ara",
+    "Listening..." to "Dinleniyor...",
+    "Tap to stop" to "Durdurmak için dokunun",
+    "Tap the microphone to try again" to "Tekrar denemek için mikrofona dokunun",
+    "Didn't hear that. Try again." to "Duyamadım. Tekrar deneyin.",
+    "Stop" to "Durdur",
+    "No speaker or headphones found. The video plays without sound." to "Hoparlör veya kulaklık bulunamadı. Video sessiz oynatılır.",
     "Yesterday" to "Dün", "Earlier" to "Daha önce",
     "Ask who's watching when the app opens" to "Uygulama açılınca kimin izlediğini sor",
     "PIN for {n}" to "{n} için PIN",
@@ -7559,6 +7669,16 @@ private val TR by lazy { mapOf(
 
 // বাংলা (Bengali). Machine-made, not yet read by a native speaker: corrections welcome
 private val BN by lazy { mapOf(
+    "Playback in feeds" to "ফিডে প্লেব্যাক",
+    "Always on" to "সবসময় চালু",
+    "Wi-Fi only" to "শুধু ওয়াই-ফাইতে",
+    "Search with your voice" to "ভয়েস দিয়ে খুঁজুন",
+    "Listening..." to "শুনছে...",
+    "Tap to stop" to "থামাতে ট্যাপ করুন",
+    "Tap the microphone to try again" to "আবার চেষ্টা করতে মাইকে ট্যাপ করুন",
+    "Didn't hear that. Try again." to "শুনতে পাইনি। আবার চেষ্টা করুন।",
+    "Stop" to "থামান",
+    "No speaker or headphones found. The video plays without sound." to "কোনো স্পিকার বা হেডফোন পাওয়া যায়নি। ভিডিও শব্দ ছাড়াই চলবে।",
     "Yesterday" to "গতকাল", "Earlier" to "আগে",
     "Ask who's watching when the app opens" to "অ্যাপ খুললে কে দেখছেন জিজ্ঞেস করুন",
     "PIN for {n}" to "{n}-এর PIN",

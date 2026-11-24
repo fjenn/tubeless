@@ -1,5 +1,6 @@
 package app.tubehaus.engine
 
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -34,6 +35,8 @@ data class ItemActions(
     val resumePercent: Int? = null,
     /** its place in a playlist (to move or remove that one entry) */
     val setVideoId: String? = null,
+    /** the exact resume point in seconds, from the item's own link (`watchEndpoint.startTimeSeconds`, youtube.com's `&t=`) */
+    val resumeSec: Int? = null,
 )
 
 /** One page of a signed-in list. [shelves]: titled rows ("Most relevant", Shorts, a history day). */
@@ -76,6 +79,8 @@ data class WatchState(
     val upNextToken: String? = null,
     val actions: Map<String, ItemActions> = emptyMap(),
     val loggedOut: Boolean = false,
+    /** the account's exact resume point for this video, when the signed answer carries one */
+    val resumeSec: Int? = null,
 )
 
 /** What can be done with one comment when signed in. */
@@ -176,6 +181,7 @@ object AccountParse {
     private fun merge(a: ItemActions, b: ItemActions) = ItemActions(
         a.notInterested ?: b.notInterested, a.dontRecommendChannel ?: b.dontRecommendChannel,
         a.removeFromHistory ?: b.removeFromHistory, a.resumePercent ?: b.resumePercent, a.setVideoId ?: b.setVideoId,
+        a.resumeSec ?: b.resumeSec,
     )
 
     /** what one item's menu and overlays hold; null when nothing */
@@ -197,12 +203,41 @@ object AccountParse {
         val pct = (v.findAll("percentDurationWatched", emptySet()).firstOrNull()
             ?: v.findAll("startPercent", emptySet()).firstOrNull()).int
         val set = v.at("setVideoId").str
+        // only a watched item's link carries a start time (the resume point, in whole seconds)
+        val at = if (pct != null && pct > 0) resumeSeconds(v) else null
         if (notInterested == null && channel == null && history == null && pct == null && set == null) {
             // a menu with tokens but no telling labels: a history page's only token is its "remove"
             if (tokens.size == 1) return ItemActions(removeFromHistory = tokens[0].second)
             return null
         }
-        return ItemActions(notInterested, channel, history, pct?.coerceIn(0, 100), set)
+        return ItemActions(notInterested, channel, history, pct?.coerceIn(0, 100), set, at)
+    }
+
+    /**
+     * An exact resume point below [d] (an item, or a signed `next` / `player` answer): the start time
+     * YouTube writes into the watch link (`watchEndpoint.startTimeSeconds`) or the player's start
+     * (`playbackStartConfig.startSeconds`); null when there is none
+     */
+    fun resumeSeconds(d: JsonElement?): Int? {
+        if (d == null) return null
+        d.findAll("playbackStartConfig", emptySet(), 1).firstOrNull()?.let { c ->
+            (c.at("startSeconds").int ?: c.at("startSeconds").str?.toDoubleOrNull()?.toInt())?.takeIf { it > 0 }?.let { return it }
+        }
+        return d.findAll("startTimeSeconds", emptySet(), 4).firstNotNullOfOrNull { it.int ?: it.str?.toIntOrNull() }?.takeIf { it > 0 }
+    }
+
+    /**
+     * Where to resume a video of [lengthSec] watched elsewhere, when only YouTube's red-bar percent is
+     * known. The percent is coarse (2 min of a 3 h video showed as 10 %), so this aims at the start of
+     * the percent's step rather than its middle (a little early beats skipping what wasn't seen; at or
+     * under 10 % only 1 % in, as that is where YouTube's bar floors), never 0
+     * while YouTube shows progress, and nothing once the video is finished (≥ 95 %: start over, as YouTube)
+     */
+    fun resumeFromPercent(pct: Int?, lengthSec: Int): Long? {
+        if (pct == null || pct <= 0 || lengthSec <= 0 || pct >= 95) return null
+        // up to 10 %, YouTube's bar sits at a floor (10 % for 2 min of 3 h): the low end of it, just past the start
+        val at = if (pct <= 10) lengthSec.toLong() / 100 else lengthSec.toLong() * (pct - 1) / 100
+        return at.coerceIn(minOf(10L, lengthSec / 20L), maxOf(0L, lengthSec - 15L)).takeIf { it > 0 }
     }
 
     /** Every feedbackEndpoint below [root], with the label (icon|text) of the nearest menu entry or button around it. */
@@ -281,6 +316,8 @@ object AccountParse {
             upNextToken = continuationOf(related),
             actions = actions(related),
             loggedOut = loggedOut(d),
+            // the page's own endpoint (not Up Next's links): YouTube puts the resume point on it
+            resumeSec = resumeSeconds(d.at("currentVideoEndpoint")),
         )
     }
 
@@ -441,6 +478,30 @@ object YouTubeAccount {
     /** "how much of it was watched" from the account's lists, by video id */
     fun resumePercent(videoId: String): Int? = seen[videoId]?.resumePercent
 
+    /**
+     * Where to pick up [videoId] watched on another device (seconds; null: from the start). Exact when
+     * YouTube gives the point: the item's own link in a list seen, else the signed `next` / `player`
+     * answers; otherwise worked out from the red bar's percent ([AccountParse.resumeFromPercent]).
+     */
+    suspend fun resumeAt(videoId: String, lengthSec: Int): Long? {
+        if (!signedIn) return null
+        val known = seen[videoId]
+        known?.resumeSec?.let { return it.toLong() }
+        // asked only for a video the account's lists show as partly watched (no wait before every other start)
+        if ((known?.resumePercent ?: 0) <= 0) return null
+        val exact = kotlinx.coroutines.withTimeoutOrNull(2500) {
+            kotlinx.coroutines.coroutineScope {
+                val next = async { runCatching { read("next", mapOf("videoId" to videoId)) }.getOrNull() }
+                val player = async { runCatching { read("player", mapOf("videoId" to videoId)) }.getOrNull() }
+                val n = next.await()
+                n?.let { d -> AccountParse.watch(videoId, d).also { w -> for ((k, v) in w.actions) if (k != videoId) seen[k] = v } }?.resumeSec
+                    ?: player.await()?.at("playerConfig.playbackStartConfig")?.let { AccountParse.resumeSeconds(buildJsonObject { put("playbackStartConfig", it) }) }
+            }
+        }
+        exact?.let { return it.toLong() }
+        return AccountParse.resumeFromPercent(known?.resumePercent, lengthSec)
+    }
+
     private fun remember(f: AccountFeed): AccountFeed {
         if (f.loggedOut && signedIn) expired = true else if (!f.loggedOut) expired = false
         for ((k, v) in f.actions) seen[k] = v
@@ -455,7 +516,7 @@ object YouTubeAccount {
 
     /** Home and its pages also signed out: the visitor session's own Home (YouTube's signed-out suggestions) */
     private suspend fun readHome(body: Map<String, Any?>): AccountFeed? {
-        if (!signedIn && !Accounts.visitorSession) return null
+        if (!signedIn && !Accounts.visitorSession && !Accounts.cookielessVisitor) return null
         return remember(AccountParse.feed(InnerTube.call("browse", body)))
     }
 
@@ -497,7 +558,20 @@ object YouTubeAccount {
         val all = AccountParse.allPlaylists(agg).takeIf { l -> l.any { it.id != "WL" && it.id != "LL" } }
             ?: read("browse", mapOf("browseId" to "FElibrary"))?.let(AccountParse::allPlaylists) ?: return null
         systemLists = all.filter { it.id == "WL" || it.id == "LL" }.associateBy { it.id }
-        return all.filter { it.id != "WL" && it.id != "LL" }
+        // a playlist just deleted here stays out, also while YouTube's own lists still show it
+        return all.filter { it.id != "WL" && it.id != "LL" && it.id !in deleted }.also { lastPlaylists = it }
+    }
+
+    /** the account's playlists as last loaded (the You page shows them at once, then refreshes) */
+    @Volatile var lastPlaylists: List<AccountPlaylist> = emptyList()
+        private set
+    private val deleted = Sys.concurrentMap<String, Boolean>()
+    fun isDeleted(id: String) = deleted.containsKey(id)
+
+    /** a playlist deleted here: gone from [playlists] and [lastPlaylists] at once, before YouTube is told */
+    fun forgetPlaylist(id: String) {
+        deleted[id] = true
+        lastPlaylists = lastPlaylists.filter { it.id != id }
     }
 
     /** Watch later and Liked videos as the playlists page last showed them (count, picture), by "WL" / "LL" */

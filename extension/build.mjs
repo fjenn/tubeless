@@ -27,6 +27,9 @@ function skikoJar() {
   return jars.sort().pop();
 }
 
+// where the Tubeless website is served (site/); SITE_MATCHES="pattern,pattern" adds more (a test server, a custom domain)
+const SITE_MATCHES = ["https://fjenn.github.io/tubeless-publik/*", ...(process.env.SITE_MATCHES || "").split(",").filter(Boolean)];
+
 const manifest = (browser) => ({
   manifest_version: 3,
   name: "Tubeless",
@@ -39,7 +42,9 @@ const manifest = (browser) => ({
     "https://*.googleusercontent.com/*", "https://youtubei.googleapis.com/*"],
   // the hidden SABR frame: our script in YouTube's page world, only on robots.txt?tubeless, only inside our page
   content_scripts: [{ matches: ["https://www.youtube.com/robots.txt?tubeless*"], js: ["sabr-page.js", "sabr-frame.js"], all_frames: true,
-    run_at: "document_end", world: "MAIN" }],
+    run_at: "document_end", world: "MAIN" },
+    // the Tubeless website: the page learns the extension is here and hands over to app.html (Full mode)
+    { matches: SITE_MATCHES, js: ["site.js"], run_at: "document_start" }],
   content_security_policy: { extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'" },
   ...(browser === "chrome"
     ? { background: { service_worker: "background.js" }, minimum_chrome_version: "120" }

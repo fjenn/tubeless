@@ -1,0 +1,18 @@
+{
+  "items": { "contents": [
+    { "videoRenderer": { "videoId": "aaaaaaaaaaa", "title": { "runs": [ { "text": "Watched part way, link has t" } ] },
+      "lengthText": { "simpleText": "3:00:00" },
+      "navigationEndpoint": { "watchEndpoint": { "videoId": "aaaaaaaaaaa", "startTimeSeconds": 135 } },
+      "thumbnailOverlays": [ { "thumbnailOverlayResumePlaybackRenderer": { "percentDurationWatched": 10 } } ] } },
+    { "lockupViewModel": { "contentId": "bbbbbbbbbbb", "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+      "metadata": { "lockupMetadataViewModel": { "title": { "content": "A lockup with only the bar" } } },
+      "contentImage": { "thumbnailViewModel": { "overlays": [ { "thumbnailBottomOverlayViewModel": {
+        "progressBar": { "thumbnailOverlayProgressBarViewModel": { "startPercent": 42 } } } } ] } },
+      "rendererContext": { "commandContext": { "onTap": { "innertubeCommand": { "watchEndpoint": { "videoId": "bbbbbbbbbbb" } } } } } } },
+    { "videoRenderer": { "videoId": "ccccccccccc", "title": { "runs": [ { "text": "Not watched: its t is a chapter link, not a resume point" } ] },
+      "navigationEndpoint": { "watchEndpoint": { "videoId": "ccccccccccc", "startTimeSeconds": 600 } } } }
+  ] },
+  "next": { "currentVideoEndpoint": { "watchEndpoint": { "videoId": "wwwwwwwwwww", "startTimeSeconds": 754 } },
+    "contents": { "twoColumnWatchNextResults": { "results": { "results": { "contents": [] } } } } },
+  "pct": [[10, 10800], [42, 600], [1, 300], [97, 600], [50, 20], [0, 600]]
+}

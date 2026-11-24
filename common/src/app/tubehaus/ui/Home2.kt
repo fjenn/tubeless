@@ -149,6 +149,11 @@ private fun Home2(app: AppState, items: List<Item>, loading: Boolean, onEnd: sus
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val edge = if (phone) 16.dp else 28.dp
         val cols = if (phone) 1 else ((maxWidth - edge * 2) / 320.dp).toInt().coerceAtLeast(1)
+        // phones: the top card plays muted (Settings → Playback in feeds)
+        if (phone && app.platform.touch) {
+            val byRow = remember(rest) { rest.associateBy { "row:" + it.id } }
+            FeedAutoplay(app, list) { k -> if (cols == 1) byRow[k] else null }
+        }
         LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(bottom = 32.dp)) {
             item(key = "head") { Column(Modifier.padding(horizontal = if (phone) 0.dp else edge - 12.dp)) { header() } }
             if (app.platform.touch || app.platform.tv) item(key = "hello") { Greeting(app, edge) }

@@ -66,6 +66,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.zIndex
@@ -332,8 +333,24 @@ private fun PlayerBox(
 private fun PlayerNotes(app: AppState) {
     val st by app.player.state.collectAsState()
     st.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(12.dp)) }
-    st.soundIssue?.let { Text(tr(it), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) }
+    // no sound (no speaker, a device that won't open, muted in the mixer): a calm note at the bottom of the
+    // window, once per kind of problem, not red text by the video
+    val issue = st.soundIssue
+    LaunchedEffect(issue) {
+        if (issue == null || !SoundNote.told.add(issue)) return@LaunchedEffect
+        val devices = runCatching { app.player.audioDevices() }.getOrDefault(emptyList())
+        val noDevice = devices.isEmpty() && "wouldn't open" in issue
+        val r = app.snackbar.showSnackbar(
+            tr(if (noDevice) "No speaker or headphones found. The video plays without sound." else issue),
+            actionLabel = if (!noDevice && "Sound output" in issue && devices.isNotEmpty()) tr("Sound output") else null,
+            withDismissAction = true, duration = androidx.compose.material3.SnackbarDuration.Long,
+        )
+        if (r == androidx.compose.material3.SnackbarResult.ActionPerformed) app.go(Screen.SettingsPage("player"))
+    }
 }
+
+/** the sound problems already told about in this run (each once, not again with every video) */
+private object SoundNote { val told = HashSet<String>() }
 
 /**
  * Draws [frame] (a small blurred picture of the video) stretched past the edges of what follows,
@@ -955,17 +972,17 @@ private fun CommentView(app: AppState, c: Comment, reply: Boolean = false) {
 
 // ---------------------------------------------------------------------- the phone's watch sheet
 
-private val MINI_H = 60.dp
-/** the mini player floats: this far in from the sides and up from the tabs, its corners this round */
-private val MINI_SIDE = 8.dp
-private val MINI_GAP = 6.dp
-private val MINI_R = 14.dp
+/** the floating mini player (YouTube's 2025 one): this share of the screen's width, 16:9, this far from the edges, these corners */
+private const val MINI_SHARE = 0.45f
+private val MINI_MARGIN = 12.dp
+private val MINI_R = 12.dp
 
 /**
  * Phones: the video page as a sheet over the app, as in YouTube's app. The page under it
- * stays where it was. Pull the video down and it shrinks toward the bottom, following the finger, into
- * the mini player above the tabs; let go and it settles the way it was flung. Tap the mini player or
- * pull it up and it grows back; swipe it sideways and it closes.
+ * stays where it was. Pull the video down and it shrinks, following the finger, into the floating
+ * mini player: a rounded card with just the video (play/pause top left, ✕ top right, a red line of
+ * how far it got). Drag the card and it follows the finger, then springs to the nearest of the four
+ * corners (flung past the side of the screen it closes); tap it and it grows back into the page.
  *
  * The video is laid out each frame at its in-between size (not scaled as a picture), so the video
  * surface underneath, a native view on every system, follows it exactly.
@@ -980,8 +997,13 @@ fun WatchSheet(app: AppState, expanded: Boolean, barPx: Int) {
     var held by remember { mutableStateOf(false) }
     val settle = androidx.compose.animation.core.spring<Float>(dampingRatio = 0.9f, stiffness = 420f)
     LaunchedEffect(expanded) { if (!held) f.animateTo(if (expanded) 0f else 1f, settle) }
-    // the mini player swiped sideways
-    val swipe = remember(v.id) { Animatable(0f) }
+    // the corner the card rests in (0 top left, 1 top right, 2 bottom left, 3 bottom right) and, while
+    // it is dragged or springing there, how far it is from that corner
+    var corner by remember { mutableStateOf(3) }
+    val shift = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
+    val gone = remember(v.id) { Animatable(1f) }
+    // a new video (or the last one closed off the side) starts in its corner
+    LaunchedEffect(v.id) { shift.snapTo(Offset.Zero) }
     val list = remember(v.id) { androidx.compose.foundation.lazy.LazyListState() }
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     val d = androidx.compose.ui.platform.LocalDensity.current
@@ -994,13 +1016,17 @@ fun WatchSheet(app: AppState, expanded: Boolean, barPx: Int) {
     val mini by remember { androidx.compose.runtime.derivedStateOf { f.value > 0.98f } }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val w = constraints.maxWidth.toFloat()
-        val miniH = with(d) { MINI_H.toPx() }
-        val miniW = miniH * 16f / 9f
+        val h = constraints.maxHeight.toFloat()
         val videoH = w * 9f / 16f
-        val side = with(d) { MINI_SIDE.toPx() }
+        val margin = with(d) { MINI_MARGIN.toPx() }
+        val miniW = (w * MINI_SHARE).coerceIn(with(d) { 168.dp.toPx() }, with(d) { 300.dp.toPx() })
+        val miniH = miniW * 9f / 16f
         val radius = with(d) { MINI_R.toPx() }
-        val miniTop = constraints.maxHeight - maxOf(barPx, nav) - miniH - with(d) { MINI_GAP.toPx() }
-        val range = (miniTop - top).coerceAtLeast(1f)
+        // the corners: under the top bar at the top, above the tabs at the bottom
+        val yTop = top + with(d) { 64.dp.toPx() }
+        val yBottom = h - maxOf(barPx, nav) - miniH - margin
+        fun cornerAt(k: Int) = Offset(if (k % 2 == 0) margin else w - miniW - margin, if (k < 2) yTop else yBottom)
+        val range = (yBottom - top).coerceAtLeast(1f)
         val fling = with(d) { 900.dp.toPx() }
 
         fun land(velocity: Float) {
@@ -1016,53 +1042,74 @@ fun WatchSheet(app: AppState, expanded: Boolean, barPx: Int) {
             else if (!toMini && app.current !is Screen.Watch) app.go(Screen.Watch(v.id))
         }
 
+        /** the card let go at [shift] from its corner with [vel]: the nearest corner where it would come to rest, or off the side */
+        fun drop(vel: Offset) {
+            val now = cornerAt(corner) + shift.value
+            // where the throw would carry it (a short glide), then the corner nearest that
+            val aim = now + vel * 0.18f
+            val cx = aim.x + miniW / 2
+            if (cx < -miniW * 0.1f || cx > w + miniW * 0.1f) {
+                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.GestureThresholdActivate)
+                scope.launch {
+                    val out = Offset(if (cx < w / 2) -miniW - margin * 2 - cornerAt(corner).x else w + margin - cornerAt(corner).x, shift.value.y)
+                    launch { gone.animateTo(0f, tween(Motion.SHORT)) }
+                    shift.animateTo(out, tween(Motion.SHORT, easing = Motion.emphasizedOut))
+                    pb.close()
+                }
+                return
+            }
+            val k = (if (aim.y + miniH / 2 < (yTop + yBottom + miniH) / 2) 0 else 2) + (if (cx < w / 2) 0 else 1)
+            if (k != corner) haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.SegmentTick)
+            val keep = now - cornerAt(k)
+            corner = k
+            scope.launch {
+                shift.snapTo(keep)
+                shift.animateTo(Offset.Zero, androidx.compose.animation.core.spring(dampingRatio = 0.72f, stiffness = 380f), initialVelocity = vel)
+            }
+        }
+
         /**
          * One handler for the whole sheet, so a drag that starts on the open page and ends in the
-         * mini player (or the other way) is one gesture: up and down the sheet follows the finger;
-         * sideways, from the mini player only, it slides away and closes
+         * mini player (or the other way) is one gesture: on the page it follows the finger up and down;
+         * the card follows it anywhere and snaps to a corner
          */
-        fun Modifier.drag(): Modifier = pointerInput(range, v.id) {
+        fun Modifier.drag(): Modifier = pointerInput(range, v.id, w, h) {
             val track = androidx.compose.ui.input.pointer.util.VelocityTracker()
             var acc = Offset.Zero
-            var sideways: Boolean? = null
             var fromMini = false
             detectDragGestures(
-                onDragStart = { acc = Offset.Zero; sideways = null; fromMini = f.value > 0.98f; track.resetTracking() },
+                onDragStart = { acc = Offset.Zero; fromMini = f.value > 0.98f; if (!fromMini) held = true; track.resetTracking() },
                 onDrag = { ch, delta ->
                     ch.consume()
                     acc += delta
-                    if (sideways == null) {
-                        sideways = fromMini && kotlin.math.abs(acc.x) > kotlin.math.abs(acc.y)
-                        if (sideways == false) held = true
-                    }
                     track.addPosition(ch.uptimeMillis, acc)
                     scope.launch {
-                        if (sideways == true) swipe.snapTo(swipe.value + delta.x)
+                        if (fromMini) shift.snapTo(shift.value + delta)
                         else f.snapTo((f.value + delta.y / range).coerceIn(0f, 1f))
                     }
                 },
-                onDragCancel = { if (sideways == true) scope.launch { swipe.animateTo(0f) } else land(0f) },
+                onDragCancel = { if (fromMini) drop(Offset.Zero) else land(0f) },
                 onDragEnd = {
                     val vel = track.calculateVelocity()
                     when {
-                        sideways == true -> scope.launch {
-                            if (kotlin.math.abs(swipe.value) > w * 0.35f || kotlin.math.abs(vel.x) > fling) {
-                                val dir = if (swipe.value + vel.x * 0.1f > 0) 1f else -1f
-                                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.GestureThresholdActivate)
-                                swipe.animateTo(dir * w, tween(Motion.SHORT, easing = Motion.emphasizedOut), initialVelocity = vel.x)
-                                pb.close()
-                            } else swipe.animateTo(0f, androidx.compose.animation.core.spring(dampingRatio = 0.8f, stiffness = 600f), initialVelocity = vel.x)
-                        }
+                        fromMini -> drop(Offset(vel.x, vel.y))
                         // pushed up on the open page: full screen, as before (#64)
-                        !fromMini && f.value < 0.01f && acc.y < -60.dp.toPx() -> { held = false; app.setFull(true) }
+                        f.value < 0.01f && acc.y < -60.dp.toPx() -> { held = false; app.setFull(true) }
                         else -> land(vel.y)
                     }
                 },
             )
         }
 
+        // QA driver: "set minidrag -600,-900" moves the card that far (px) and lets go, as a finger would
+        Parity.flags["minidrag"]?.let { a ->
+            LaunchedEffect(a) {
+                Parity.flags.remove("minidrag")
+                val (dx, dy) = a.split(',').map { it.trim().toFloat() }
+                shift.snapTo(Offset(dx, dy)); drop(Offset.Zero)
+            }
+        }
         val c = MaterialTheme.colorScheme
-        val fade = { 1f - kotlin.math.abs(swipe.value) / w * 0.9f }
         // the page behind the video: fades as the sheet folds away, and holds the touches while open
         if (!mini) Box(
             Modifier.fillMaxSize().graphicsLayer { alpha = (1f - f.value * 1.15f).coerceIn(0f, 1f) }.background(c.background)
@@ -1075,52 +1122,55 @@ fun WatchSheet(app: AppState, expanded: Boolean, barPx: Int) {
             Modifier.fillMaxSize().padding(top = with(d) { (top + videoH).toDp() })
                 .graphicsLayer { translationY = f.value * range; alpha = (1f - f.value * 2.5f).coerceIn(0f, 1f) },
         ) { PhoneBody(app, v, list) }
-        // the mini player's bar; the video sits on its left end
-        if (!full) Column(
-            Modifier.fillMaxWidth().padding(horizontal = MINI_SIDE).height(MINI_H)
-                .graphicsLayer {
-                    translationY = miniTop
-                    translationX = swipe.value
-                    alpha = ((f.value - 0.6f) / 0.4f).coerceIn(0f, 1f) * fade()
-                    shadowElevation = 6.dp.toPx() * alpha
-                    shape = RoundedCornerShape(MINI_R); clip = true
-                }
-                .background(c.surfaceContainerHigh)
-                .drag().clickable(enabled = mini) { app.go(Screen.Watch(v.id)) },
-        ) {
-            val st by app.player.state.collectAsState()
-            Row(Modifier.weight(1f).fillMaxWidth().padding(start = with(d) { miniW.toDp() }, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                    Text(v.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(v.author, style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                IconButton(onClick = { if (st.playing) app.player.pause() else app.player.play() }) {
-                    Icon(if (st.playing) Sym.Pause.fill else Sym.PlayArrow.fill, tr(if (st.playing) "Pause" else "Play"))
-                }
-                IconButton(onClick = { pb.close() }) { Icon(Sym.Close.fill, tr("Close")) }
-            }
-            if (st.durationMs > 0) Box(Modifier.fillMaxWidth().height(2.dp).background(c.outlineVariant)) {
-                Box(Modifier.fillMaxWidth((st.positionMs.toFloat() / st.durationMs).coerceIn(0f, 1f)).height(2.dp).background(Red))
-            }
-        }
         // the video: its size and place for this frame, worked out while laying out (nothing recomposes)
         val box = Modifier.layout { m, _ ->
             val k = f.value
+            val at = cornerAt(corner) + shift.value * k
             val bw = (w + (miniW - w) * k).toInt().coerceAtLeast(1)
-            val bh = (videoH + (miniH - 2.dp.toPx() - videoH) * k).toInt().coerceAtLeast(1)
+            val bh = (videoH + (miniH - videoH) * k).toInt().coerceAtLeast(1)
             val p = m.measure(androidx.compose.ui.unit.Constraints.fixed(bw, bh))
             layout(p.width, p.height) {
-                // in from the side and its left corners rounding as it folds into the floating card
-                p.placeWithLayer((side * k).toInt(), (top + (miniTop - top) * k).toInt()) {
-                    translationX = swipe.value; alpha = fade()
-                    if (k > 0f) { shape = RoundedCornerShape(topStart = radius * k, bottomStart = radius * k); clip = true }
+                p.placeWithLayer((at.x * k).toInt(), (top + (at.y - top) * k).toInt()) {
+                    alpha = gone.value
+                    if (k > 0f) {
+                        shape = RoundedCornerShape(radius * k); clip = true
+                        shadowElevation = 8.dp.toPx() * k
+                    }
                 }
             }
         }
         Box(box.drag()) {
             PlayerBox(app, sheet = Modifier.fillMaxSize(), controls = full)
-            // folded away: the picture is part of the mini player (a tap opens it)
-            if (!full) Box(Modifier.fillMaxSize().clickable(enabled = mini) { app.go(Screen.Watch(v.id)) })
+            // folded away: the card's own controls over the picture (a tap elsewhere opens the page)
+            if (!full) MiniCard(app, mini, alpha = ((f.value - 0.7f) / 0.3f).coerceIn(0f, 1f)) { app.go(Screen.Watch(v.id)) }
+        }
+    }
+}
+
+/** the floating mini player's face: play/pause top left, ✕ top right, the red line along the bottom; a tap opens the page */
+@Composable
+private fun MiniCard(app: AppState, mini: Boolean, alpha: Float, open: () -> Unit) {
+    val st by app.player.state.collectAsState()
+    Box(Modifier.fillMaxSize().clickable(enabled = mini, onClick = open).graphicsLayer { this.alpha = alpha }) {
+        if (alpha > 0f) {
+            Box(Modifier.fillMaxSize().background(Color(0x26000000)))
+            // the round backdrop fades after a moment, the icon stays (YouTube's)
+            var fresh by remember { mutableStateOf(true) }
+            LaunchedEffect(st.playing) { fresh = true; kotlinx.coroutines.delay(2000); fresh = false }
+            val back by androidx.compose.animation.core.animateFloatAsState(if (fresh || !st.playing) 0.55f else 0f, tween(400))
+            Box(Modifier.align(Alignment.TopStart).padding(6.dp).size(36.dp).clip(CircleShape).background(Color.Black.copy(alpha = back))
+                .clickable(enabled = mini) { if (st.ended) app.player.seekTo(0) else if (st.playing) app.player.pause() else app.player.play() },
+                contentAlignment = Alignment.Center) {
+                Icon(if (st.ended) Sym.Replay.fill else if (st.playing) Sym.Pause.fill else Sym.PlayArrow.fill,
+                    tr(if (st.ended) "Replay" else if (st.playing) "Pause" else "Play"), Modifier.size(24.dp), tint = Color.White)
+            }
+            Box(Modifier.align(Alignment.TopEnd).padding(6.dp).size(36.dp).clip(CircleShape).clickable(enabled = mini) { app.playback.close() },
+                contentAlignment = Alignment.Center) {
+                Icon(Sym.Close.fill, tr("Close"), Modifier.size(22.dp), tint = Color.White)
+            }
+            if (st.durationMs > 0) Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp).background(Color(0x55FFFFFF))) {
+                Box(Modifier.fillMaxWidth((st.positionMs.toFloat() / st.durationMs).coerceIn(0f, 1f)).height(3.dp).background(Red))
+            }
         }
     }
 }

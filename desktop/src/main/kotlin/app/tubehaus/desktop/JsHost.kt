@@ -233,7 +233,12 @@ object JsHost {
         val d = CompletableDeferred<String?>()
         replies[id] = d
         post { r -> r.globalObject.use { g -> g.invokeVoid("__thAsk", id, path, *args) } }
-        return withTimeoutOrNull(timeoutMs) { d.await() }.also { replies.remove(id) }
+        return withTimeoutOrNull(timeoutMs) { d.await() }.also {
+            replies.remove(id)
+            // a video's start (BotGuard's mint, the player script) leaves a heap of garbage: V8 collects it
+            // at once and the freed pages go back to the system, instead of the peak lingering for a while
+            if (path == "__thSabr.prepare" && env("TUBELESS_NO_TRIM") == null) post { r -> runCatching { r.lowMemoryNotification() }; MemoryTrim.now() }
+        }
     }
 
     /** calls [path] with [args] and doesn't wait for it */

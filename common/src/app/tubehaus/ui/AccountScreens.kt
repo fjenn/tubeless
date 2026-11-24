@@ -96,6 +96,7 @@ private fun CoroutineScope.run(app: AppState, block: suspend () -> Unit) = launc
 private var signInJob: kotlinx.coroutines.Job? = null
 
 private fun signIn(app: AppState, scope: CoroutineScope, add: Boolean = false) {
+    if (app.platform.instant) { FullMode.ask(tr("Sign in")); return }
     if (Accounts.launcher?.available != true) { importCookies(app, scope); return }
     // the app's own scope: the menu that started it closes at once (its scope would cancel the sign-in)
     signInJob = app.scope.run(app) {

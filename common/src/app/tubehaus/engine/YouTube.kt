@@ -222,6 +222,7 @@ object YouTube {
             }
             throw YtError(reason, kind)
         }
+        WatchTime.seen(id, d)
         val vd = d.at("videoDetails")
         val sd = d.at("streamingData")
         val formats = sd.at("adaptiveFormats").arr.mapIndexedNotNull { i, f -> format(f, unlocked(i)) }.filter { !it.drc }

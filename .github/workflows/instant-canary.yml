@@ -1,0 +1,41 @@
+name: Instant canary
+
+# Every day: does Instant mode (the website without the extension) still work? site/canary.sh checks
+# the two YouTube behaviours it rests on: InnerTube answering Origin "null" (the sandboxed bridge) and a
+# direct stream URL from the first player client in clients.json. Broken → an issue is opened (or the
+# open one gets a comment). Bot-walled from this runner's address → a warning only, nothing is opened.
+# Anonymous on purpose: no cookies or secrets. Runs only in the public repo.
+on:
+  schedule:
+    - cron: "30 5 * * *"   # 05:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  canary:
+    if: github.repository == 'fjenn/tubeless-publik'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the null-origin bridge and a stream URL
+        id: check
+        run: |
+          set +e
+          site/canary.sh 2>&1 | tee canary.txt
+          code=${PIPESTATUS[0]}
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" = 2 ]; then echo "::warning::Instant canary inconclusive: this runner's address is bot-walled"; fi
+          [ "$code" != 1 ]
+      - name: Open or update the issue
+        if: failure() && steps.check.outputs.code == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Instant mode is broken (canary)"
+          body="$(printf 'The daily Instant canary failed (%s):\n\n```\n%s\n```\n\nRun: %s/%s/actions/runs/%s\n\nWhat breaks: the website without the extension. Videos fall back to YouTube'"'"'s embedded player (site/instant.js), the extension and the apps are not affected. Check docs/research/NO-EXTENSION-A.md; if only the player client changed, update clients.json.' "$(date -u +%F)" "$(cat canary.txt)" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID")"
+          n="$(gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[0].number')"
+          if [ -n "$n" ]; then gh issue comment "$n" --body "$body"; else gh issue create --title "$title" --body "$body"; fi

@@ -159,6 +159,8 @@ class IosPlatform : Platform {
         platform.Network.nw_path_monitor_start(m)
     }
     override val knowsMetered = true
+    /** voice search: Apple's Speech framework (IosSpeech) */
+    override val speech: app.tubehaus.ui.Speech = IosSpeech
     override fun metered() = expensive
 
     /**

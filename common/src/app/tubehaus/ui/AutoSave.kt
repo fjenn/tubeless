@@ -33,7 +33,7 @@ fun AppState.setAutoSave(cid: String, on: Boolean) = store.settings.update { s -
 /** at the top of the app: the half-hourly look */
 @Composable
 fun AutoSaveRunner(app: AppState) {
-    if (!app.platform.canDownload) return
+    if (!app.platform.canDownload || app.platform.instant) return
     val any = app.store.settings.state.collectAsState().value.autoSave.isNotEmpty()
     LaunchedEffect(any) {
         if (!any) return@LaunchedEffect
@@ -61,7 +61,7 @@ private suspend fun autoSaveOnce(app: AppState) {
 /** on a channel's page, beside Subscribe */
 @Composable
 fun AutoSaveButton(app: AppState, cid: String) {
-    if (!app.platform.canDownload || cid.isEmpty()) return
+    if (!app.platform.canDownload || app.platform.instant || cid.isEmpty()) return
     val on = cid in app.store.settings.state.collectAsState().value.autoSave
     val content: @Composable () -> Unit = {
         Icon(if (on) Sym.DownloadDone.outline else Sym.DownloadForOffline.outline, null, Modifier.size(18.dp))

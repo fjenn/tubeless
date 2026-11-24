@@ -60,7 +60,8 @@
       "dontRecommendChannel": null,
       "removeFromHistory": "TOK_HIST_1",
       "resumePercent": 37,
-      "setVideoId": null
+      "setVideoId": null,
+      "resumeSec": null
     },
     "hhhhhhhhhh2": {
       "@type": "ItemActions",
@@ -68,7 +69,8 @@
       "dontRecommendChannel": null,
       "removeFromHistory": "TOK_HIST_2",
       "resumePercent": null,
-      "setVideoId": null
+      "setVideoId": null,
+      "resumeSec": null
     }
   },
   "loggedOut": false

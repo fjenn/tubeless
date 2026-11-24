@@ -350,7 +350,7 @@ fun LibraryScreen(app: AppState) {
     val saved by app.offline.saved.collectAsState()
     val busy = app.offline.progress.size
     fun videos(n: Int) = if (n == 1) tr("1 video") else tr("{n} videos").replace("{n}", "$n")
-    var accountLists by remember(app.account) { mutableStateOf<List<AccountPlaylist>>(emptyList()) }
+    var accountLists by remember(app.account) { mutableStateOf(if (app.feedSource.signedIn) YouTubeAccount.lastPlaylists else emptyList()) }
     // signed in: the account's own History row and its Watch later / Liked videos (count, picture), as YouTube's You page
     var accountHist by remember(app.account) { mutableStateOf<List<Video>?>(null) }
     if (app.feedSource.signedIn) LaunchedEffect(app.account) {
@@ -384,7 +384,8 @@ fun LibraryScreen(app: AppState) {
                 add(Tile(tr("Liked videos"), ll?.countText?.ifEmpty { null } ?: videos(lib.likes.size), ll?.thumb?.ifEmpty { null } ?: lib.likes.firstOrNull()?.video()?.thumb) { app.go(Screen.Local("likes")) })
                 for ((id, p) in lib.playlists.entries.sortedByDescending { it.value.updated })
                     add(Tile(p.title, videos(p.items.size), p.items.firstOrNull()?.video()?.thumb) { app.go(Screen.Local(id)) })
-                for (p in accountLists.filter { it.id !in lib.playlists })
+                // (a playlist deleted a moment ago is left out at once: YouTubeAccount.forgetPlaylist)
+                for (p in accountLists.filter { it.id !in lib.playlists && !YouTubeAccount.isDeleted(it.id) })
                     add(Tile(p.title, p.countText, p.thumb.ifEmpty { null }) { app.go(Screen.Playlist(p.id, p.title)) })
             }
             LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -403,7 +404,7 @@ fun LibraryScreen(app: AppState) {
         }
         item { androidx.compose.material3.HorizontalDivider(Modifier.padding(top = 16.dp, bottom = 4.dp)) }
         if (app.platform.canDownload) item {
-            LibRow(Sym.Download.outline, tr("Downloads"), videos(saved.items.size) + if (busy > 0) " (+$busy)" else "") { app.go(Screen.Downloads) }
+            LibRow(Sym.Download.outline, tr("Downloads"), videos(saved.items.size) + if (busy > 0) " (+$busy)" else "") { if (app.platform.instant) FullMode.ask(tr("Downloads")) else app.go(Screen.Downloads) }
         }
         item { LibRow(Sym.BarChart.outline, tr("Recap") + " · " + monthName(Sys.today().take(7)), "") { app.go(Screen.Stats) } }
         item { LibRow(Sym.Psychology.outline, tr("What TubeHaus learned about you"), "") { app.go(Screen.Learned) } }

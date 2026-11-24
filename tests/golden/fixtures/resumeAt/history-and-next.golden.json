@@ -1,0 +1,21 @@
+{
+  "items": {
+    "aaaaaaaaaaa": [
+      10,
+      135
+    ],
+    "bbbbbbbbbbb": [
+      42,
+      null
+    ]
+  },
+  "next": 754,
+  "fromPercent": {
+    "10% of 10800s": 108,
+    "42% of 600s": 246,
+    "1% of 300s": 10,
+    "97% of 600s": null,
+    "50% of 20s": 5,
+    "0% of 600s": null
+  }
+}

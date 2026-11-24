@@ -506,6 +506,12 @@ class AndroidPlayer(private val ctx: Context) : VideoPlayer {
         return b.build()
     }
 
+    /** a feed card's muted autoplay (FeedPlay); the phone's own volume stays the system's */
+    override fun setMuted(on: Boolean) {
+        exo.volume = if (on) 0f else 1f
+        st.update { it.copy(muted = on) }
+    }
+
     override fun setLoop(on: Boolean) {
         exo.repeatMode = if (on) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
     }

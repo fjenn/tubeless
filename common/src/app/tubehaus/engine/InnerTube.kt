@@ -231,7 +231,7 @@ object InnerTube {
             Backoff.retry { Net.post("https://${client.host}/youtubei/v1/$endpoint?prettyPrint=false", payload.toString(), headers) }
         } catch (e: HttpError) {
             if (signed && e.code == 401) Accounts.sessionRejected()
-            throw YtError("YouTube answered ${e.code}", YtError.Kind.NETWORK)
+            throw YtError("YouTube answered ${e.code}", YtError.Kind.NETWORK, e.code)
         } catch (e: okio.IOException) {
             throw YtError("No connection to YouTube", YtError.Kind.NETWORK)
         }
@@ -253,7 +253,7 @@ object InnerTube {
         val text = try {
             Net.post("https://${client.host}/youtubei/v1/$endpoint?prettyPrint=false", payload.toString(), headers(client, null) + extra)
         } catch (e: HttpError) {
-            throw YtError("YouTube answered ${e.code}", YtError.Kind.NETWORK)
+            throw YtError("YouTube answered ${e.code}", YtError.Kind.NETWORK, e.code)
         } catch (e: okio.IOException) {
             throw YtError("No connection to YouTube", YtError.Kind.NETWORK)
         }

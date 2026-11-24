@@ -427,6 +427,11 @@ private fun SettingsRows(
         if (!touch && !app.platform.tv) r.row("display", tr("Preview on hover") + " hover thumbnail inline playback") {
             Toggle(tr("Preview on hover"), tr("Resting the pointer on a video shows its frames"), s.hoverPreview) { b -> set { it.copy(hoverPreview = b) } }
         }
+        // phones and tablets: YouTube's "Playback in feeds" (the top card plays muted as you scroll)
+        if (touch && !app.platform.tv) r.row("display", tr("Playback in feeds") + " inline autoplay muted feed preview") {
+            Choice(tr("Playback in feeds"), tr(listOf("Always on", "Wi-Fi only", "Off")[s.feedPlayback.coerceIn(0, 2)]),
+                listOf("0" to tr("Always on"), "1" to tr("Wi-Fi only"), "2" to tr("Off"))) { c -> set { it.copy(feedPlayback = c.toInt()) } }
+        }
         // Shorts on or off, in one switch (#FIX2): off, no Shorts tab and no Shorts anywhere (AppState.noShorts)
         val shortsRow: @Composable () -> Unit = {
             Toggle(tr("Shorts"), if (s.calm || s.kids) tr("Off while calm mode or kids mode is on") else tr("The Shorts tab, and Shorts in Home, search and subscriptions"),

@@ -13,6 +13,7 @@ import app.tubehaus.engine.Details
 import app.tubehaus.engine.Stream
 import app.tubehaus.engine.Video
 import app.tubehaus.engine.YouTube
+import app.tubehaus.engine.YouTubeAccount
 import app.tubehaus.engine.YtError
 import app.tubehaus.rec.Learn
 import app.tubehaus.data.SongMeta
@@ -294,6 +295,8 @@ class Playback(private val app: AppState) {
         loop = false
         segments = emptyList(); skippable = null; justSkipped = null; skipped.clear()
         job?.cancel()
+        // a feed card playing muted hands over (with sound), at the point it reached when it is this video
+        val inlineAt = FeedPlay.handOver(app, v.id)
         job = app.scope.launch {
             if (store.settings.value.sponsor) launch {
                 val s = SponsorBlock.segments(v.id, store.settings.value.sponsorCats)
@@ -334,8 +337,16 @@ class Playback(private val app: AppState) {
                     views = if (s.views > 0) s.views else v.views, live = s.live,
                 )
                 // songs start from the top; a video where you left it
-                start(s, startSec ?: if (asSong) null else store.position(v.id))
+                // where its card in the feed got to (muted autoplay); where it was left here; else, signed in,
+                // where the account left it on another device
+                val at = startSec ?: inlineAt?.let { it / 1000 } ?: if (asSong || s.live) null else store.position(v.id)
+                    ?: if (app.feedSource.signedIn) runCatching { YouTubeAccount.resumeAt(v.id, s.lengthSec.takeIf { it > 0 } ?: v.lengthSec) }.getOrNull() else null
+                if (video?.id != v.id) return@launch
+                start(s, at)
             } catch (e: YtError) {
+                // Instant mode (the website without the extension): what the token-free clients can't play goes to
+                // YouTube's own embedded player (WebPlayer says so on screen: ads are possible there)
+                if (app.platform.instant && (e.kind != YtError.Kind.NETWORK || e.http > 0) && video?.id == v.id) { embed(v, startSec); return@launch }
                 errorAge = e.kind == YtError.Kind.AGE
                 error = when (e.kind) {
                     YtError.Kind.LOGIN -> tr(BOT_CHECK)
@@ -343,6 +354,7 @@ class Playback(private val app: AppState) {
                     else -> e.message
                 }
             } catch (e: Exception) {
+                if (app.platform.instant && e !is kotlinx.coroutines.CancellationException && video?.id == v.id && (e !is okio.IOException || e is app.tubehaus.engine.HttpError)) { embed(v, startSec); return@launch }
                 error = e.message ?: e.toString()
             } finally {
                 loading = false
@@ -370,6 +382,14 @@ class Playback(private val app: AppState) {
         val s = stream ?: return
         endHandled = false
         start(s, posMs / 1000, autoplay)
+    }
+
+    /** Instant mode: [v] in YouTube's embedded player (a Stream without formats, client EMBED) */
+    private fun embed(v: Video, startSec: Long?) {
+        val s = Stream(v.id, v.title, v.author, v.channelId, v.lengthSec, v.views, "", emptyList(), false, null,
+            emptyList(), emptyList(), emptyList(), Sys.nowMs() / 1000 + 6 * 3600, "EMBED")
+        stream = s
+        start(s, startSec ?: store.position(v.id))
     }
 
     private fun start(s: Stream, startSec: Long?, autoplay: Boolean = true) {

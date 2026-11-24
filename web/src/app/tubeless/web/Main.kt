@@ -24,7 +24,7 @@ import okio.Path.Companion.toPath
 import org.khronos.webgl.ArrayBuffer
 import org.w3c.fetch.Response
 
-/** The extension's main page: the whole shared app (common/src) in a Compose canvas. */
+/** The extension's main page and the website (site/): the whole shared app (common/src) in a Compose canvas. */
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     MainScope().launch {
@@ -37,17 +37,34 @@ fun main() {
         bytes("PretendardVariable.ttf")?.let { WebFonts.fallback("pretendard", it) }
         val platform = WebPlatform(font)
         val state = AppState(platform, Store(platform.dataDir))
-        WebAuth.onChange = { state.accountChanged() }
-        WebAuth.watch()
-        WebAuth.refresh()
-        WebSettings.register(state)
-        WebSabrHost.install()
+        val instant = platform.instant
+        if (instant) {
+            // Instant mode (site/: the website without the extension): anonymous, no SABR frame, pings without cookies
+            WebSettings.registerInstant()
+            app.tubehaus.engine.Accounts.cookielessVisitor = true
+            // straight to Home: the "bring your subscriptions" page stays in Settings → Import and export
+            if (!state.store.settings.value.welcomed) state.store.settings.update { it.copy(welcomed = true) }
+        } else {
+            WebAuth.onChange = { state.accountChanged() }
+            WebAuth.watch()
+            WebAuth.refresh()
+            WebSettings.register(state)
+            WebSabrHost.install()
+        }
         jsLog("app state ready")
         // test hooks: ?lang=en skips the first-run language picker, ?v=<id> opens a video,
         // ?sabr=1 plays every video the SABR way, ?signin=1 turns signed-in mode on
         if (jsQuery("sabr") == "1") app.tubehaus.engine.Sabr.only = true
         if (jsQuery("signin") == "1") WebAuth.on = true
         jsQuery("lang")?.takeIf { it.isNotEmpty() }?.let { l -> state.store.settings.update { it.copy(lang = l) } }
+        // links into the site (and test hooks): ?q=<search>, ?go=shorts|subs|library|settings
+        jsQuery("q")?.takeIf { it.isNotBlank() }?.let { app.tubehaus.ui.searchFor(state, it) }
+        when (jsQuery("go")) {
+            "shorts" -> state.go(app.tubehaus.ui.Screen.Shorts)
+            "subs" -> state.go(app.tubehaus.ui.Screen.Subs)
+            "library" -> state.go(app.tubehaus.ui.Screen.Library)
+            "settings" -> state.go(app.tubehaus.ui.Screen.Settings)
+        }
         jsQuery("v")?.takeIf { it.isNotEmpty() }?.let { state.watch(Video(it, "", "", "", 0)) }
         ComposeViewport(document.body!!) {
             val resolver = LocalFontFamilyResolver.current

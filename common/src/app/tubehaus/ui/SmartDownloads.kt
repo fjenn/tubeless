@@ -28,7 +28,7 @@ object SmartDownloads {
     private var hooked = false
 
     fun attach(app: AppState) {
-        if (!app.platform.canDownload || job != null) return
+        if (!app.platform.canDownload || app.platform.instant || job != null) return
         if (!hooked) {
             hooked = true
             // a smart download watched to the end has done its job: it goes at the next round

@@ -66,6 +66,15 @@ class MainActivity : ComponentActivity() {
         })
     }
     private val askNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    private var pendingMic: ((Boolean) -> Unit)? = null
+    private val askMic = registerForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> pendingMic?.invoke(ok); pendingMic = null }
+
+    /** voice search: the microphone, asked for once */
+    fun requestMic(done: (Boolean) -> Unit) {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) return done(true)
+        pendingMic = done
+        askMic.launch(Manifest.permission.RECORD_AUDIO)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -273,6 +282,8 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         state.store.flush()
+        // a feed card playing muted stops with the app out of sight
+        if (!isChangingConfigurations) app.tubehaus.ui.FeedPlay.stop(state)
         // background play (Settings: Always, Headphones, Off): pause when the app goes away unless it
         // allows sound now (not when it went into picture-in-picture; music always keeps playing)
         if (!state.pip && !isChangingConfigurations && !app.tubehaus.ui.MobilePrefs.mayPlayInBackground(state, externalAudio())) state.platform.player.pause()

@@ -5,6 +5,7 @@ import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.Font
 import app.tubehaus.ui.Platform
+import app.tubehaus.ui.Speech
 import app.tubehaus.ui.VideoPlayer
 import app.tubehaus.web.WebFs
 import app.tubehaus.web.toArrayBuffer
@@ -22,6 +23,7 @@ class WebPlatform(fontData: ByteArray?) : Platform {
     override val dataDir: Path = WebFs.KEEP.toPath()
     override val cacheDir: Path = "/tubeless/cache".toPath()
     override val touch = jsTouch()
+    override val instant = jsInstant()
     private val web = WebPlayer()
     override val player: VideoPlayer = web
     override val font: FontFamily? = fontData?.let { data ->
@@ -47,8 +49,31 @@ class WebPlatform(fontData: ByteArray?) : Platform {
     override fun setFullscreen(on: Boolean) = jsFullscreen(on)
     override val knowsMetered = true
     override fun metered(): Boolean = jsMetered()
+    /** the browser's Web Speech API (Chrome, Edge, Safari); none in Firefox: no mic button there, as on youtube.com */
+    override val speech: Speech? = if (jsCanListen()) WebSpeech else null
 }
 
+private object WebSpeech : Speech {
+    override fun start(lang: String, partial: (String) -> Unit, ended: (text: String?, error: String?) -> Unit) {
+        jsListen(lang, { p -> partial(p) }) { t, e -> ended(t.ifEmpty { null }, e.ifEmpty { null }) }
+    }
+    override fun stop() = jsListenStop()
+}
+
+private fun jsCanListen(): Boolean = js("!!(window.SpeechRecognition || window.webkitSpeechRecognition)")
+private fun jsListen(lang: String, partial: (String) -> Unit, ended: (String, String) -> Unit): Unit = js("""{
+  var R = window.SpeechRecognition || window.webkitSpeechRecognition; var r = new R(); window.__tlRec = r;
+  r.lang = lang; r.interimResults = true; r.continuous = false; var last = ''; var err = ''; var done = false;
+  r.onresult = function(e){ var t = ''; for (var i = 0; i < e.results.length; i++) t += e.results[i][0].transcript; last = t; partial(t) };
+  r.onerror = function(e){ err = (e.error == 'not-allowed' || e.error == 'service-not-allowed') ? 'The microphone is blocked for this page.' : (e.error == 'no-speech' ? '' : 'Voice search failed: ' + e.error) };
+  r.onstart = function(){ partial('') };
+  r.onend = function(){ if (!done) { done = true; ended(last, err) } };
+  try { r.start() } catch (x) { done = true; ended('', 'Voice search failed.') }
+}""")
+private fun jsListenStop(): Unit = js("{ if (window.__tlRec) window.__tlRec.stop() }")
+
+/** the website without the extension (site/instant.js sets tubeless.instant) */
+fun jsInstant(): Boolean = js("!!tubeless.instant")
 private fun jsTouch(): Boolean = js("matchMedia('(pointer: coarse)').matches")
 private fun jsShare(title: String, url: String): Boolean =
     js("(function(){ if (navigator.share) { navigator.share({ title: title, url: url }).catch(function(){}); return true } navigator.clipboard && navigator.clipboard.writeText(url); return false })()")

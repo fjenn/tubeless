@@ -46,7 +46,7 @@ fun appState(): AppState = shared ?: run {
     DownloadProgress.watch(state)
     val center = NSNotificationCenter.defaultCenter
     // written to disk before iOS may end the app; synced when it comes back
-    center.addObserverForName(UIApplicationDidEnterBackgroundNotification, null, NSOperationQueue.mainQueue) { _ -> state.store.flush() }
+    center.addObserverForName(UIApplicationDidEnterBackgroundNotification, null, NSOperationQueue.mainQueue) { _ -> state.store.flush(); app.tubehaus.ui.FeedPlay.stop(state) }
     center.addObserverForName(UIApplicationWillEnterForegroundNotification, null, NSOperationQueue.mainQueue) { _ ->
         state.sync.refreshSoon()
     }

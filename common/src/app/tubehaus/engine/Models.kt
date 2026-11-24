@@ -232,6 +232,7 @@ data class PlaylistPage(
     val items: Page<Item>,
 )
 
-class YtError(message: String, val kind: Kind = Kind.OTHER) : Exception(message) {
+/** [http]: the HTTP status YouTube answered with when that was the trouble (0: none, or no connection at all) */
+class YtError(message: String, val kind: Kind = Kind.OTHER, val http: Int = 0) : Exception(message) {
     enum class Kind { UNAVAILABLE, AGE, LOGIN, NETWORK, OTHER }
 }

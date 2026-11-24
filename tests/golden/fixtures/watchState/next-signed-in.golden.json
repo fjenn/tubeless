@@ -39,8 +39,10 @@
       "dontRecommendChannel": null,
       "removeFromHistory": null,
       "resumePercent": null,
-      "setVideoId": null
+      "setVideoId": null,
+      "resumeSec": null
     }
   },
-  "loggedOut": false
+  "loggedOut": false,
+  "resumeSec": null
 }

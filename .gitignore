@@ -23,3 +23,6 @@ packaging/snap/app/
 desktop/resources/macos/
 desktop/resources/linux/
 desktop/resources/windows/signin-helper.exe
+
+# the website build (site/build.mjs)
+site/dist/

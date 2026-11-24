@@ -25,6 +25,9 @@ object MemoryTrim {
         }
     }.getOrNull()
 
+    /** gives freed memory back to the system now (after a burst such as a BotGuard mint) */
+    fun now() { trim?.takeIf { env("TUBELESS_NO_TRIM") == null }?.let { runCatching { it() } } }
+
     /** [busy]: true while something runs that frees a lot (a video plays) */
     fun start(busy: () -> Boolean) {
         val t = trim?.takeIf { env("TUBELESS_NO_TRIM") == null } ?: return

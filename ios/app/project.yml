@@ -33,6 +33,8 @@ targets:
       # where this framework is missing or has no TranslationSession
       - sdk: Translation.framework
         weak: true
+      # voice search (IosSpeech)
+      - sdk: Speech.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.tubeless.app
