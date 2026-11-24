@@ -30,7 +30,7 @@ const server = createServer((req, res) => {
   res.end(readFileSync(f));
 });
 await new Promise((r) => server.listen(+process.env.PORT || 0, "127.0.0.1", r));
-const base = `http://127.0.0.1:${server.address().port}/tubeless-publik/`;
+const base = process.env.LIVE || `http://127.0.0.1:${server.address().port}/tubeless-publik/`;
 console.log("serving", dist, "at", base);
 
 // ------------------------------------------------------------------ browser drivers: open(url), eval(expr), shot(file), click(x,y), key(k), type(s), wheel(x,y,dy)
