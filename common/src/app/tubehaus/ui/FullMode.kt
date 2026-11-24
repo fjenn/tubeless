@@ -44,7 +44,7 @@ fun FullModeDialog(app: AppState, feature: String, close: () -> Unit) {
         title = { Text(feature) },
         text = {
             Text(
-                tr("This needs the Tubeless app or the browser extension. The website plays videos without either, but your browser keeps it from saving videos in HD or changing the sound."),
+                tr("This needs the Tubeless app or the browser extension. The website plays videos without either, but your browser keeps it from signing in, saving videos in HD or changing the sound."),
                 style = MaterialTheme.typography.bodyMedium,
             )
         },

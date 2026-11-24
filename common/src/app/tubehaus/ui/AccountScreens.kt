@@ -97,7 +97,9 @@ private fun CoroutineScope.run(app: AppState, block: suspend () -> Unit) = launc
 private var signInJob: kotlinx.coroutines.Job? = null
 
 private fun signIn(app: AppState, scope: CoroutineScope, add: Boolean = false) {
-    if (app.platform.instant) { if (TvSignIn.available) CodeSignIn.begin(app) else FullMode.ask(tr("Sign in")); return }
+    // the website alone can't sign in: YouTube takes a signed-in call only with an Authorization header, which it
+    // refuses to other sites (CORS preflight 403), and ignores the token anywhere else (tested 2026-11-24)
+    if (app.platform.instant) { FullMode.ask(tr("Sign in")); return }
     if (Accounts.launcher?.available != true) { importCookies(app, scope); return }
     // the app's own scope: the menu that started it closes at once (its scope would cancel the sign-in)
     signInJob = app.scope.run(app) {

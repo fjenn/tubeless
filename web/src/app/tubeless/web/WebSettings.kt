@@ -1,5 +1,7 @@
 package app.tubeless.web
 
+import app.tubehaus.ui.FullMode
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -42,7 +44,7 @@ object WebSettings {
     /** Instant mode (no extension): sign in with a code (TvSignIn), or keep the data in this browser */
     fun registerInstant() {
         SettingsSections.add(SettingsSections.Section(
-            key = "web-account", icon = Sym.Person, title = "Account", sub = "Sign in with a code, or keep your data in this browser",
+            key = "web-account", icon = Sym.Person, title = "Account", sub = "Sign in with the extension or the app, or keep your data in this browser",
             rows = listOf(
                 SettingsSections.Row("sign in out youtube google account signed code") { app -> CodeAccount(app) },
                 SettingsSections.Row("data subscriptions history playlists import export browser") { app -> LocalData(app) },
@@ -56,13 +58,13 @@ object WebSettings {
         // app.account is read so this recomposes on signing in or out
         val signedIn = app.account >= 0 && Accounts.tokenSession
         val scope = rememberCoroutineScope()
-        Row(Modifier.fillMaxWidth().clickable { if (!signedIn) CodeSignIn.begin(app) }.padding(horizontal = 16.dp, vertical = 12.dp),
+        Row(Modifier.fillMaxWidth().clickable { if (!signedIn) FullMode.ask(tr("Sign in")) }.padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(tr(if (signedIn) "Signed in with your Google account" else "Sign in"), style = MaterialTheme.typography.bodyLarge)
                 Text(
                     tr(if (signedIn) "Home, subscriptions, history, Watch Later and likes come from your YouTube account."
-                       else "With a code at google.com/device, as on a TV: your Home, subscriptions, history, Watch Later and likes. Videos still play without it."),
+                       else "Your Home, subscriptions, history, Watch Later and likes need the Tubeless extension or app. Videos play without signing in."),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

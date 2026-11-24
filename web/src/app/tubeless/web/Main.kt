@@ -48,6 +48,8 @@ fun main() {
             app.tubehaus.engine.TvSignIn.setup(WebSecrets) { url, form ->
                 app.tubehaus.engine.Net.raw("POST", url, mapOf("Content-Type" to "application/x-www-form-urlencoded"), form)
             }
+            // a code sign-in kept from the 2026-11 test build can't reach YouTube from here: let Google forget it
+            if (app.tubehaus.engine.TvSignIn.signedIn) kotlinx.coroutines.MainScope().launch { app.tubehaus.engine.TvSignIn.signOut() }
             // straight to Home: the "bring your subscriptions" page stays in Settings → Import and export
             if (!state.store.settings.value.welcomed) state.store.settings.update { it.copy(welcomed = true) }
         } else {
