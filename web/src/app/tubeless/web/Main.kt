@@ -42,6 +42,12 @@ fun main() {
             // Instant mode (site/: the website without the extension): anonymous, no SABR frame, pings without cookies
             WebSettings.registerInstant()
             app.tubehaus.engine.Accounts.cookielessVisitor = true
+            // signing in with a code (google.com/device), as on a TV: the account's Home, feeds and library
+            app.tubehaus.engine.Accounts.onChange += { state.accountChanged() }
+            app.tubehaus.ui.TopBarSlots.account = { app.tubehaus.ui.AccountButton(it) }
+            app.tubehaus.engine.TvSignIn.setup(WebSecrets) { url, form ->
+                app.tubehaus.engine.Net.raw("POST", url, mapOf("Content-Type" to "application/x-www-form-urlencoded"), form)
+            }
             // straight to Home: the "bring your subscriptions" page stays in Settings → Import and export
             if (!state.store.settings.value.welcomed) state.store.settings.update { it.copy(welcomed = true) }
         } else {

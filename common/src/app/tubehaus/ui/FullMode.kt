@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 
 /**
  * Instant mode (the website without the extension, Platform.instant): what only the app or the
- * extension can do (sign-in, downloads, stable volume, voice boost) asks calmly for one of them
+ * extension can do (downloads, stable volume, voice boost) asks calmly for one of them
  * instead of offering a button that can't work.
  */
 object FullMode {
@@ -41,7 +41,7 @@ fun FullModeDialog(app: AppState, feature: String, close: () -> Unit) {
         title = { Text(feature) },
         text = {
             Text(
-                tr("This needs the Tubeless app or the browser extension. The website plays videos without either, but your browser keeps it from signing in, saving videos or changing the sound."),
+                tr("This needs the Tubeless app or the browser extension. The website plays videos without either, but your browser keeps it from saving videos or changing the sound."),
                 style = MaterialTheme.typography.bodyMedium,
             )
         },

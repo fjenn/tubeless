@@ -243,6 +243,7 @@ fun App(app: AppState) {
                     app.reminder?.let { ReminderDialog(app, it) }
                     app.offline.asking?.let { if (app.platform.instant) FullModeDialog(app, tr("Downloads")) { app.offline.asking = null } else OfflineDialog(app, it) }
                     FullMode.asking?.let { FullModeDialog(app, it) { FullMode.asking = null } }
+                    if (app.platform.instant) CodeSignInDialog(app)
                 }
             }
         }

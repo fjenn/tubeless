@@ -140,6 +140,17 @@ parent.postMessage({ k: "tl-ready", origin: self.origin }, "*");
       setTimeout(() => window[name] && done([q, []]), 5000);
     });
   }
+  // Signed in with a code (TvSignIn.kt): the app hands "Authorization: Bearer …"; a real header would need a
+  // preflight YouTube refuses, so it rides Google's $httpHeaders query parameter instead (still a simple request)
+  function withToken(url, headerList) {
+    const parts = headerList ? headerList.split("\u0000") : [];
+    for (let i = 0; i + 1 < parts.length; i += 2) {
+      if (parts[i].toLowerCase() === "authorization" && parts[i + 1].startsWith("Bearer ")) {
+        return url + (url.includes("?") ? "&" : "?") + "%24httpHeaders=" + encodeURIComponent("Authorization: " + parts[i + 1] + "\r\n");
+      }
+    }
+    return url;
+  }
   const empty = (binary, status) => (binary ? { status, bytes: new ArrayBuffer(0) } : { status, text: "" });
   const net = {
     async fetch(method, url, headerList, body, binary) {
@@ -149,16 +160,17 @@ parent.postMessage({ k: "tl-ready", origin: self.origin }, "*");
       const host = u.hostname;
       // watch-time and playback pings: fire and forget (no-cors, the answer is never read)
       if ((isYt(host) && /^\/(api\/stats\/|ptracking)/.test(u.pathname)) || host === "s.youtube.com") {
-        fetch(url, { mode: "no-cors", credentials: "omit", keepalive: true, referrerPolicy: "no-referrer" }).catch(() => {});
+        fetch(withToken(url, headerList), { mode: "no-cors", credentials: "omit", keepalive: true, referrerPolicy: "no-referrer" }).catch(() => {});
         return empty(binary, 204);
       }
       if (host.startsWith("suggestqueries")) return suggest(u);
       // googlevideo's bytes are not readable from a page (no ACAO): only <video>/<audio> may use them
       if (host.endsWith("googlevideo.com")) return empty(binary, 0);
-      if (isYt(host)) {
+      // Google's sign-in endpoints answer any origin (CORS): straight from the page, as a form
+      if (isYt(host) && host !== "oauth2.googleapis.com") {
         const inner = u.pathname.startsWith("/youtubei/");
         // ?simulate=broken: YouTube refusing the bridge, as it would after an allow-list change (tests the fallback)
-        const r = inner && params.get("simulate") === "broken" ? { status: 403, text: "" } : await bridge.fetch(method, url, method === "GET" ? null : body ?? "");
+        const r = inner && params.get("simulate") === "broken" ? { status: 403, text: "" } : await bridge.fetch(method, inner ? withToken(url, headerList) : url, method === "GET" ? null : body ?? "");
         if (inner) { health.seen(!r.error && r.status !== 403 && r.status !== 0); health.calls[u.pathname.split("/").pop()] = r.error ? "error" : r.status; }
         if (r.error) throw new Error(r.error);
         fonts.scan(r.text);

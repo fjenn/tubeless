@@ -140,3 +140,11 @@ jobs:
           name: extension
           path: extension/dist/*.zip
           retention-days: 7
+      # the website (site/dist) from the same release wasm, for checking a branch's site before it reaches Pages
+      - name: Build the site
+        run: node site/build.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: site/dist
+          retention-days: 7

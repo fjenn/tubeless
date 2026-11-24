@@ -20,7 +20,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.tubehaus.ui.AppState
-import app.tubehaus.ui.FullModeRow
+import app.tubehaus.ui.CodeSignIn
+import app.tubehaus.engine.Accounts
+import app.tubehaus.engine.TvSignIn
+import androidx.compose.foundation.clickable
 import app.tubehaus.ui.Screen
 import app.tubehaus.ui.tr
 import app.tubehaus.ui.SettingsSections
@@ -36,17 +39,35 @@ object WebSettings {
         ))
     }
 
-    /** Instant mode (no extension): signing in needs the app or the extension; the data lives in this browser */
+    /** Instant mode (no extension): sign in with a code (TvSignIn), or keep the data in this browser */
     fun registerInstant() {
         SettingsSections.add(SettingsSections.Section(
-            key = "web-account", icon = Sym.Person, title = "Account", sub = "Instant mode: no sign-in, your data stays in this browser",
+            key = "web-account", icon = Sym.Person, title = "Account", sub = "Sign in with a code, or keep your data in this browser",
             rows = listOf(
-                SettingsSections.Row("sign in youtube google account signed") { _ ->
-                    FullModeRow(tr("Sign in"), tr("Needs the Tubeless app or the browser extension"))
-                },
+                SettingsSections.Row("sign in out youtube google account signed code") { app -> CodeAccount(app) },
                 SettingsSections.Row("data subscriptions history playlists import export browser") { app -> LocalData(app) },
             ),
         ))
+    }
+
+    /** Instant mode: signed in with a code (TvSignIn) or not */
+    @Composable
+    private fun CodeAccount(app: AppState) {
+        // app.account is read so this recomposes on signing in or out
+        val signedIn = app.account >= 0 && Accounts.tokenSession
+        val scope = rememberCoroutineScope()
+        Row(Modifier.fillMaxWidth().clickable { if (!signedIn) CodeSignIn.begin(app) }.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(tr(if (signedIn) "Signed in with your Google account" else "Sign in"), style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    tr(if (signedIn) "Home, subscriptions, history, Watch Later and likes come from your YouTube account."
+                       else "With a code at google.com/device, as on a TV: your Home, subscriptions, history, Watch Later and likes. Videos still play without it."),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (signedIn) TextButton(onClick = { scope.launch { TvSignIn.signOut() } }) { Text(tr("Sign out")) }
+        }
     }
 
     @Composable

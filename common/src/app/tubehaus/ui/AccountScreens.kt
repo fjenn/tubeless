@@ -57,6 +57,7 @@ import app.tubehaus.engine.Accounts
 import app.tubehaus.engine.Identity
 import app.tubehaus.engine.SecretStore
 import app.tubehaus.engine.Session
+import app.tubehaus.engine.TvSignIn
 import app.tubehaus.engine.SignInLauncher
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.CoroutineScope
@@ -96,7 +97,7 @@ private fun CoroutineScope.run(app: AppState, block: suspend () -> Unit) = launc
 private var signInJob: kotlinx.coroutines.Job? = null
 
 private fun signIn(app: AppState, scope: CoroutineScope, add: Boolean = false) {
-    if (app.platform.instant) { FullMode.ask(tr("Sign in")); return }
+    if (app.platform.instant) { if (TvSignIn.available) CodeSignIn.begin(app) else FullMode.ask(tr("Sign in")); return }
     if (Accounts.launcher?.available != true) { importCookies(app, scope); return }
     // the app's own scope: the menu that started it closes at once (its scope would cancel the sign-in)
     signInJob = app.scope.run(app) {
@@ -187,6 +188,8 @@ fun AccountButton(app: AppState) {
     val scope = rememberCoroutineScope()
     var open by remember { mutableStateOf(false) }
     val id = data.sessions.firstOrNull { it.key == data.current }?.identity
+    // app.account changes on every sign-in and sign-out (the browser's and the code's sessions are no Compose state)
+    val browser = app.account >= 0 && Accounts.browserSession
     if (Parity.on("acctmenu") && !open) androidx.compose.runtime.LaunchedEffect(Unit) { open = true; Parity.flags.remove("acctmenu") }
     pending?.let { ChannelPicker(app, it) }
     val inApp by Accounts.signInScreen.collectAsState()
@@ -196,7 +199,7 @@ fun AccountButton(app: AppState) {
         when {
             busy -> CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
             id != null -> Box(Modifier.clip(CircleShape).clickable { open = true }.padding(4.dp)) { Avatar(id.photo, id.name, 30.dp) }
-            Accounts.browserSession -> Box(Modifier.clip(CircleShape).clickable { open = true }.padding(4.dp)) { Avatar(null, "Y", 30.dp) }
+            browser -> Box(Modifier.clip(CircleShape).clickable { open = true }.padding(4.dp)) { Avatar(null, "Y", 30.dp) }
             // a phone's top bar has no room for the pill (it wrapped to "Sig / n in"): the person icon alone, as YouTube's app
             app.platform.touch -> Box(Modifier.size(40.dp).clip(CircleShape).clickable { signIn(app, scope) }, contentAlignment = Alignment.Center) {
                 Icon(Sym.Person.outline, tr("Sign in"), Modifier.size(24.dp), tint = accent)
@@ -236,6 +239,9 @@ private fun AccountMenu(app: AppState, sessions: List<Session>, current: String?
                 }
             }
             HorizontalDivider()
+        } else if (Accounts.tokenSession) {
+            MenuLine(tr("Signed in with your Google account"), null) {}
+            HorizontalDivider()
         } else if (Accounts.browserSession) {
             MenuLine(tr("Signed in with this browser's YouTube session"), null) {}
             HorizontalDivider()
@@ -253,7 +259,8 @@ private fun AccountMenu(app: AppState, sessions: List<Session>, current: String?
             for ((ss, i) in others) IdentityLine(i) { close(); app.scope.run(app) { Accounts.choose(ss.key, i.key) } }
             HorizontalDivider()
         }
-        MenuLine(tr("Add account"), Sym.Add) { close(); signIn(app, scope, add = true) }
+        if (Accounts.tokenSession) MenuLine(tr("Sign out"), Sym.Close) { close(); app.scope.run(app) { TvSignIn.signOut() } }
+        else MenuLine(tr("Add account"), Sym.Add) { close(); signIn(app, scope, add = true) }
         if (s != null) MenuLine(tr("Sign out"), Sym.Close) { close(); app.scope.run(app) { Accounts.signOut() } }
         MenuLine(tr("Settings"), Sym.Settings) { close(); app.go(Screen.Settings) }
     }
@@ -366,7 +373,7 @@ fun YouHeader(app: AppState) {
     val s = data.sessions.firstOrNull { it.key == data.current }
     val id = s?.identity
     val c = MaterialTheme.colorScheme
-    if (id == null && !Accounts.browserSession) {
+    if (id == null && !(app.account >= 0 && Accounts.browserSession)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(56.dp).clip(CircleShape).background(c.surfaceVariant), contentAlignment = Alignment.Center) {
                 Icon(Sym.Person.outline, null, Modifier.size(32.dp))
@@ -393,7 +400,7 @@ fun YouHeader(app: AppState) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Avatar(id?.photo, id?.name ?: "Y", 64.dp)
         Column(Modifier.weight(1f).padding(start = 16.dp)) {
-            Text(id?.name ?: tr("Signed in with this browser's YouTube session"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
+            Text(id?.name ?: tr(if (Accounts.tokenSession) "Signed in with your Google account" else "Signed in with this browser's YouTube session"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             (id?.handle ?: id?.email)?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant, maxLines = 1) }
         }
@@ -404,7 +411,8 @@ fun YouHeader(app: AppState) {
             YouPill(Sym.Person, tr("Switch account")) { menu = true }
             DropdownMenu(menu, { menu = false }) { AccountMenu(app, data.sessions, data.current) { menu = false } }
         }
-        YouPill(Sym.Add, tr("Add account")) { signIn(app, scope, add = true) }
+        if (Accounts.tokenSession) YouPill(Sym.Close, tr("Sign out")) { app.scope.run(app) { TvSignIn.signOut() } }
+        else YouPill(Sym.Add, tr("Add account")) { signIn(app, scope, add = true) }
         if (s != null) YouPill(Sym.Close, tr("Sign out")) { app.scope.run(app) { Accounts.signOut() } }
     }
 }
@@ -419,4 +427,62 @@ private fun YouPill(icon: Symbol, label: String, onClick: () -> Unit) {
         Icon(icon.outline, null, Modifier.size(18.dp))
         Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 6.dp), maxLines = 1)
     }
+}
+
+// ------------------------------------------------------------------ Instant mode: sign in with a code (TvSignIn)
+
+/**
+ * The website's sign-in (no cookies can reach YouTube from a page): a code from Google, entered at
+ * google.com/device on any phone or computer, as on a TV. The dialog waits for it and closes signed in.
+ */
+object CodeSignIn {
+    var code by mutableStateOf<TvSignIn.Code?>(null)
+    var error by mutableStateOf<String?>(null)
+    private var job: kotlinx.coroutines.Job? = null
+
+    fun begin(app: AppState) {
+        job?.cancel()
+        error = null
+        job = app.scope.launch {
+            try {
+                val c = TvSignIn.start()
+                code = c
+                if (TvSignIn.await(c)) { code = null; app.toast(tr("Signed in")) }
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) {
+                error = e.message ?: tr("Couldn't sign in")
+            }
+        }
+    }
+
+    fun cancel() { job?.cancel(); job = null; code = null; error = null }
+}
+
+@Composable
+fun CodeSignInDialog(app: AppState) {
+    val c = CodeSignIn.code
+    val err = CodeSignIn.error
+    if (c == null && err == null) return
+    AlertDialog(
+        onDismissRequest = {},
+        title = { Text(tr("Sign in")) },
+        text = {
+            Column {
+                if (err != null) Text(err, style = MaterialTheme.typography.bodyMedium)
+                else if (c != null) {
+                    Text(tr("On this or any other device, go to {u} and enter this code:").replace("{u}", c.url.removePrefix("https://")), style = MaterialTheme.typography.bodyMedium)
+                    Text(c.user, Modifier.padding(vertical = 16.dp), fontSize = 32.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text(tr("Waiting for you to allow it…"), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (err != null) TextButton(onClick = { CodeSignIn.begin(app) }) { Text(tr("Try again")) }
+            else if (c != null) TextButton(onClick = { app.platform.openExternal(c.url) }) { Text(tr("Open {u}").replace("{u}", c.url.removePrefix("https://"))) }
+        },
+        dismissButton = { TextButton(onClick = { CodeSignIn.cancel() }) { Text(tr("Cancel")) } },
+    )
 }

@@ -82,7 +82,8 @@ object WatchTime {
         val s = Session(videoId, cpn(), Sys.nowMs()).also { it.len = lenSec }
         cur = s
         scope.launch {
-            val urls = (if (cookieless) known[videoId] else null) ?: try {
+            // Instant mode signed in (TvSignIn): the signed player's URLs first, so the pings land in the account's history
+            val urls = (if (cookieless && !YouTubeAccount.signedIn) known[videoId] else null) ?: try {
                 AccountParse.tracking(InnerTube.call("player", mapOf(
                     "videoId" to videoId,
                     "cpn" to s.cpn,
@@ -95,7 +96,7 @@ object WatchTime {
                         })
                     },
                 )))
-            } catch (e: Exception) { null } ?: return@launch
+            } catch (e: Exception) { null } ?: known[videoId] ?: return@launch
             s.urls = urls
             if (cur !== s) return@launch
             s.started = true
@@ -147,7 +148,8 @@ object WatchTime {
     private fun get(u: String) {
         sent += u.substringAfter('?'); if (sent.size > 20) sent.removeAt(0)
         scope.launch {
-            if (cookieless) { runCatching { Net.get(u) }; return@launch }
+            // Instant mode: signed in, the token goes along (site/instant.js puts it in the URL; no cookie can)
+            if (cookieless) { runCatching { Net.get(u, InnerTube.authHeaders?.invoke("https://www.youtube.com") ?: emptyMap()) }; return@launch }
             try {
                 // the web player's pings carry the session's cookies only (no Authorization), as a browser's fetch does
                 val cookie = InnerTube.authHeaders?.invoke("https://www.youtube.com")?.get("Cookie") ?: Accounts.visitorCookie() ?: return@launch

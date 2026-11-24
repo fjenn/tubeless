@@ -373,7 +373,7 @@ object Accounts {
     private fun activate() {
         val s = current
         jar = CookieJar(s?.cookies ?: emptyList())
-        val browserOn = browserSapisid?.invoke() != null
+        val browserOn = browserSession
         when {
             browserOn -> {
                 InnerTube.authHeaders = ::browserHeaders
@@ -403,7 +403,18 @@ object Accounts {
 
     /** S8 (web/extension): reads the browser's youtube.com SAPISID; the browser sends the cookies itself */
     @Volatile private var browserSapisid: (() -> String?)? = null
-    val browserSession: Boolean get() = browserSapisid?.invoke() != null
+    val browserSession: Boolean get() = browserSapisid?.invoke() != null || tokenSession
+
+    /** Instant mode (the website): signed in with a code ([TvSignIn]); [token] is its current access token */
+    @Volatile private var token: (() -> String?)? = null
+    val tokenSession: Boolean get() = token != null
+
+    /** [TvSignIn]'s session on (its access token) or off (null); the same signed-in rule as the browser's session */
+    fun useToken(t: (() -> String?)?) {
+        if ((t == null) == (token == null) && t != null) { token = t; return }
+        token = t
+        activate()
+    }
 
     /**
      * The extension's sign-in (PLAN §1.3 web column): no web view and no stored cookies, the user is signed in
@@ -419,6 +430,7 @@ object Accounts {
     fun browserCookiesChanged() = activate()
 
     private fun browserHeaders(origin: String): Map<String, String> {
+        token?.let { t -> return t()?.let { mapOf("Authorization" to "Bearer $it") } ?: emptyMap() }
         val sid = browserSapisid?.invoke() ?: return emptyMap()
         val auth = SapisidHash.authorization(mapOf("SAPISID" to sid), origin, now()) ?: return emptyMap()
         return mapOf("Authorization" to auth, "X-Goog-AuthUser" to "0", "X-Origin" to origin)
@@ -646,6 +658,7 @@ object Accounts {
      * in the session's own web view so Google rotates the cookies, at most once every five minutes.
      */
     fun sessionRejected() {
+        if (tokenSession) { TvSignIn.rejected(); return }
         val s = current ?: return
         if (s.source != "webview") return
         val t = now()
