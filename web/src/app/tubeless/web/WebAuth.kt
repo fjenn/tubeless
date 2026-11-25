@@ -11,7 +11,7 @@ import kotlin.js.Promise
  * user is signed in on youtube.com in this browser, the extension reads the SAPISID cookie
  * (cookies permission) and InnerTube.authHeaders adds SAPISIDHASH to www.youtube.com calls only;
  * tubeless.js then sends those calls with the browser's cookies. Stream clients stay anonymous.
- * Off by default (Settings → Account), kept in localStorage.
+ * On by default (a real YouTube session, as the owner wants); Settings → Account turns it off, kept in localStorage.
  */
 object WebAuth {
     var on: Boolean
@@ -52,6 +52,6 @@ object WebAuth {
 private fun jsSapisid(): String? = js("tubeless.auth.sapisid")
 private fun jsRefresh(): Promise<JsAny?> = js("tubeless.auth.refresh()")
 private fun jsOpenSignIn(): Unit = js("tubeless.auth.openSignIn()")
-private fun jsGetFlag(): Boolean = js("(function(){ try { return localStorage.getItem('tubeless.signedIn') === '1' } catch (e) { return false } })()")
+private fun jsGetFlag(): Boolean = js("(function(){ try { return localStorage.getItem('tubeless.signedIn') !== '0' } catch (e) { return false } })()")
 private fun jsSetFlag(v: Boolean): Unit = js("{ try { localStorage.setItem('tubeless.signedIn', v ? '1' : '0') } catch (e) {} }")
 private fun jsOnCookies(f: () -> Unit): Unit = js("{ tubeless.auth.onChange = f }")

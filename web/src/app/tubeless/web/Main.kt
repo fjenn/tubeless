@@ -60,6 +60,12 @@ fun main() {
             WebSabrHost.install()
             WebFx.install()
         }
+        // like youtube.com: straight to Home in the browser's language (no picker, no import page; both stay in Settings)
+        if (state.store.settings.value.lang.isEmpty()) {
+            val l = jsBrowserLang().substringBefore('-')
+            state.store.settings.update { it.copy(lang = app.tubehaus.ui.LANGS.firstOrNull { (c, _) -> c == l }?.first ?: "en") }
+        }
+        if (!state.store.settings.value.welcomed) state.store.settings.update { it.copy(welcomed = true) }
         jsLog("app state ready")
         // test hooks: ?lang=en skips the first-run language picker, ?v=<id> opens a video,
         // ?sabr=1 plays every video the SABR way, ?signin=1 turns signed-in mode on
@@ -88,3 +94,5 @@ fun main() {
         jsLog("composed")
     }
 }
+
+private fun jsBrowserLang(): String = js("(navigator.language || 'en')")
