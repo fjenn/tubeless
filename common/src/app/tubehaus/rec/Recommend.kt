@@ -340,6 +340,20 @@ class Recommender(private val store: Store) {
         list
     }
 
+    /**
+     * What Home shows while YouTube's own Home is empty (a new visitor, history paused): popular videos from
+     * YouTube's destination channels for the region. Its Shorts go to the Shorts row ([homeShorts]) when
+     * [shorts] is on; none at all when off. Hidden videos and channels stay out. Throws when YouTube can't be reached.
+     */
+    suspend fun popular(shorts: Boolean): List<Video> = withContext(Dispatchers.Default) {
+        val t = store.taste.value
+        val hidden = t.hiddenVideos.toHashSet()
+        val all = app.tubehaus.engine.YouTube.popular(shorts)
+            .filter { it.id !in hidden && it.channelId !in t.hiddenChannels }
+        if (shorts && homeShorts.isEmpty()) all.filter { it.short }.takeIf { it.isNotEmpty() }?.let { homeShorts = it }
+        all.filter { !it.short }
+    }
+
     private fun shortsOf(f: app.tubehaus.engine.AccountFeed): List<Video>? =
         f.shelves.map { sh -> sh.items.filterIsInstance<Video>().filter { it.short } }.firstOrNull { it.isNotEmpty() }
 

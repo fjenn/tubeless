@@ -203,7 +203,7 @@ fun TvHome(app: AppState) {
                 val topics = listOf("Music", "Live", "Gaming").map { k ->
                     async { k to runCatching { YouTube.channel(TOPICS[k]!!, null as String?).items.items.filterIsInstance<Video>() }.getOrDefault(emptyList()) }
                 }
-                val got = app.rec.home(48)
+                val got = app.rec.home(48).ifEmpty { app.rec.popular(!noShorts) }   // YouTube's Home empty: popular instead
                 TvHomeCache.rec.clear(); TvHomeCache.rec.addAll(got.filter { !(noShorts && it.short) })
                 TvHomeCache.topics.clear()
                 TvHomeCache.topics.addAll(topics.map { it.await() }.map { (k, l) -> k to l.filter { !it.short && !it.members } }.filter { it.second.isNotEmpty() })

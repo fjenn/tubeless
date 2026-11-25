@@ -1,5 +1,7 @@
 package app.tubehaus.engine
 
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonElement
 import app.tubehaus.engine.Volatile
@@ -539,6 +541,47 @@ object YouTube {
         return c.items.items.filterIsInstance<Video>().filter { !it.members }.map { v ->
             v.copy(author = v.author.ifEmpty { c.name }, channelId = channelId, publishedAt = ago(v.publishedText)?.let { now - it } ?: 0)
         }
+    }
+
+    // ------------------------------------------------------------------ popular (signed-out fallback Home)
+    /**
+     * YouTube's own destination channels (Music, Gaming, Sports, News, Live, Learning). Their Home tabs are
+     * YouTube's popular picks for the request's region (gl); FEtrending and FEexplore are gone (400, 2026-11).
+     */
+    val POPULAR_SOURCES = listOf(
+        "UC-9-kyTW8ZkZNDHQJ6FgpwQ",   // Music
+        "UCOpNcN46UbXVtpKMrmU4Abg",   // Gaming
+        "UCEgdi0XIXXZ-qJOFPf4JSKw",   // Sports
+        "UCYfdidRxbB8Qhf0Nx7ioOYw",   // News
+        "UC4R8DWoMoI7CAwX8_LjQHig",   // Live
+        "UCtFRv9O2AHqOZjjynzrv-xg",   // Learning
+    )
+
+    /**
+     * Popular on YouTube: the destination channels' Home tabs fetched together, taken in turn (one from each,
+     * at most [perSource] from one, so News doesn't fill the page), without duplicates, ads (parseItems drops
+     * them), members-only videos, or Shorts unless [shorts]. Throws only when no source answered.
+     */
+    suspend fun popular(shorts: Boolean, perSource: Int = 30): List<Video> {
+        val got = kotlinx.coroutines.coroutineScope {
+            POPULAR_SOURCES.map { id ->
+                async {
+                    runCatching {
+                        channel(id, null as String?).items.items.filterIsInstance<Video>()
+                            .filter { !it.members && !Ads.isAd(it.id) && (shorts || !it.short) }
+                    }
+                }
+            }.awaitAll()
+        }
+        if (got.all { it.isFailure }) throw got.firstNotNullOf { it.exceptionOrNull() }
+        val lists = got.map { r -> r.getOrDefault(emptyList()).let { l -> l.filter { !it.short }.take(perSource) + l.filter { it.short } } }
+        val out = LinkedHashMap<String, Video>()
+        var i = 0
+        while (lists.any { i < it.size }) {
+            for (l in lists) l.getOrNull(i)?.let { v -> if (v.id !in out) out[v.id] = v }
+            i++
+        }
+        return out.values.toList()
     }
 
     /** "3 days ago" / "3일 전" → seconds; null when it can't be read */

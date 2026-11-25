@@ -190,11 +190,9 @@ async function ytOpen(q = "") {
   await waitFor(`location.pathname === '/robots.txt' && document.readyState === 'complete'`, 40, "youtube.com/robots.txt");
   await drv.bookmark(bookmarklet());
   await waitFor(`!!window.tubeless && !!document.querySelector('canvas') && !document.getElementById('tubeless-loading')`, 120, "Tubeless in youtube.com");
+  // no welcome page on the web (web/Main.kt marks it seen): no click here, it would open whatever Home shows there
   await sleep(2500);
-  // first start in this profile: the extension's welcome page ("Bring your subscriptions") → Skip for now
-  if (!ytWelcomed) { ytWelcomed = true; await drv.click(640, 593); await sleep(1500); }
 }
-let ytWelcomed = false;
 const yv = () => drv.eval(`JSON.stringify((() => { const v = tubeless.player.video; return { t: v.currentTime, p: v.paused, w: v.videoWidth, h: v.videoHeight, rs: v.readyState } })())`).then((x) => JSON.parse(x || "{}"));
 async function ytPlaying(minT = 3, secs = 90) { return waitFor(`(() => { const v = tubeless.player.video; return v.currentTime > ${minT} && !v.paused })()`, secs, "playback in youtube.com"); }
 
@@ -207,11 +205,13 @@ const S = {
     // Home has loaded when YouTube's /browse answered through the bridge (a brand-new visitor may get YouTube's
     // own empty "Try searching to get started" Home, as on youtube.com)
     await waitFor(`tubeless.health.calls.browse === 200`, 60, "browse through the bridge");
+    await waitFor(`performance.getEntriesByType('resource').filter(e => e.name.includes('i.ytimg.com/vi')).length > 0`, 60, "home thumbnails").catch(() => {});
     await sleep(5000);
     await shot("home");
     const calls = await drv.eval(`JSON.stringify(tubeless.health.calls)`);
     const thumbs = await drv.eval(`performance.getEntriesByType('resource').filter(e => e.name.includes('i.ytimg.com/vi')).length`);
-    ok("home (signed out)", !(await drv.eval(`tubeless.health.broken`)), `InnerTube answers ${calls}; ${thumbs} thumbnails`);
+    // signed out, Home is never empty: YouTube's own Home, or popular videos from its destination channels when that is empty
+    ok("home (signed out)", !(await drv.eval(`tubeless.health.broken`)) && thumbs > 0, `InnerTube answers ${calls}; ${thumbs} thumbnails`);
   },
   async search() {
     await drv.open(base + "?lang=en&q=" + encodeURIComponent("big buck bunny"));
@@ -410,8 +410,10 @@ const S = {
   async ythome() {
     drv.net.length = 0;
     await ytOpen();
+    await waitFor(`performance.getEntriesByType('resource').filter(e => e.name.includes('i.ytimg.com/vi')).length > 0`, 60, "home thumbnails").catch(() => {});
     await sleep(6000);
     await shot("yt-home");
+    const homeThumbs = await drv.eval(`performance.getEntriesByType('resource').filter(e => e.name.includes('i.ytimg.com/vi')).length`);
     const env = JSON.parse(await drv.eval(`JSON.stringify({ origin: location.origin, cookies: document.cookie.split(';').filter(Boolean).length, sapisid: tubeless.auth.sapisid != null })`));
     const cred = await drv.eval(`fetch('https://www.youtube.com/youtubei/v1/browse?prettyPrint=false', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', 'X-Origin': location.origin },
       body: JSON.stringify({ context: { client: { clientName: 'WEB', clientVersion: '2.20251120.01.00', hl: 'en' } }, browseId: 'FEwhat_to_watch' }) })
@@ -422,8 +424,8 @@ const S = {
     await sleep(3000);
     await shot("yt-search");
     const thumbs = await drv.eval(`performance.getEntriesByType('resource').filter(e => e.name.includes('i.ytimg.com/vi')).length`);
-    ok("bookmark: Home + search in youtube.com", env.origin === "https://www.youtube.com" && thumbs >= 4 && /^200/.test(cred),
-      `origin ${env.origin}; Home shown (screenshot; a new anonymous visitor's Home is empty, as in the extension); search: ${thumbs} thumbnails; document.cookie readable (${env.cookies} cookies, values not printed); SAPISID ${env.sapisid ? "present" : "absent (signed out)"}; credentialed /browse ${cred}`);
+    ok("bookmark: Home + search in youtube.com", env.origin === "https://www.youtube.com" && homeThumbs > 0 && thumbs >= 4 && /^200/.test(cred),
+      `origin ${env.origin}; Home: ${homeThumbs} thumbnails (an empty YouTube Home shows popular videos); search: ${thumbs} thumbnails; document.cookie readable (${env.cookies} cookies, values not printed); SAPISID ${env.sapisid ? "present" : "absent (signed out)"}; credentialed /browse ${cred}`);
   },
   async ywatch() {
     drv.net.length = 0;

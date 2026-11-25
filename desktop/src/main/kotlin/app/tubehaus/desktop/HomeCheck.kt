@@ -20,6 +20,12 @@ fun main(args: Array<String>) = runBlocking {
     val items = parseItems(d)
     println("browse FEwhat_to_watch ${System.currentTimeMillis() - t}ms loggedOut=$loggedOut items=${items.size}")
     items.take(8).forEach { println("  - $it".take(160)) }
+    // the stand-in for an empty Home: popular videos from YouTube's destination channels
+    val t2 = System.currentTimeMillis()
+    val pop = app.tubehaus.engine.YouTube.popular(shorts = true)
+    val noShorts = app.tubehaus.engine.YouTube.popular(shorts = false)
+    println("popular ${System.currentTimeMillis() - t2}ms: ${pop.size} videos (${pop.count { it.short }} Shorts); Shorts off: ${noShorts.size} (${noShorts.count { it.short }} Shorts); ads seen ${app.tubehaus.engine.Ads.count}")
+    pop.take(12).forEach { println("  - ${it.author} | ${it.title}".take(120)) }
     account()
 }
 

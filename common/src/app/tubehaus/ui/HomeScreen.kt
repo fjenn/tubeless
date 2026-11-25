@@ -53,6 +53,8 @@ import kotlinx.coroutines.launch
 internal object HomeCache {
     val items = mutableStateListOf<Item>()
     var at = 0L
+    /** YouTube's own Home was empty: [items] are popular videos instead (one page, nothing more to load) */
+    var popular by mutableStateOf(false)
 }
 
 /** what the chips over the home feed (drawn with the top tabs, one row) ask the feed to do */
@@ -81,9 +83,16 @@ fun HomeScreen(app: AppState) {
         if (loading) return
         loading = true; error = null
         try {
+            // the popular stand-in is one page: nothing further to ask YouTube's (empty) Home for
+            if (more && HomeCache.popular) return
             val skip = if (more) HomeCache.items.map { it.id }.toSet() else emptySet()
-            val got = app.rec.home(40, skip)
+            var got: List<Item> = app.rec.home(40, skip)
+            // YouTube's Home came back empty (a new visitor): popular videos instead, until it has its own
+            val popular = !more && got.isEmpty()
+            if (popular) got = app.rec.popular(!app.noShorts)
             if (!more) {
+                HomeCache.popular = popular
+                if (popular) E2E.log("feed_popular", "items" to got.size)
                 HomeCache.items.clear()
                 // M3 E2E: Home loaded; signed out it is YouTube's Home for the remembered visitor (FIX1)
                 val signed = YouTubeAccount.signedIn
@@ -98,7 +107,9 @@ fun HomeScreen(app: AppState) {
         } finally { loading = false }
     }
     LaunchedEffect(Unit) {
-        if (HomeCache.items.isEmpty() || Sys.nowMs() - HomeCache.at > 30 * 60_000) load(false)
+        // the popular stand-in is asked again sooner: after a few videos YouTube's own Home may have something
+        val age = Sys.nowMs() - HomeCache.at
+        if (HomeCache.items.isEmpty() || age > 30 * 60_000 || (HomeCache.popular && age > 3 * 60_000)) load(false)
     }
     // the chip already chosen tapped again, or a Refresh button: to the top, a spinner, a fresh feed from YouTube
     HomeCtl.fresh = {
@@ -125,12 +136,23 @@ fun HomeScreen(app: AppState) {
             // a new request to YouTube in the same session (nothing cached), the chosen chip kept
             refresh = { while (loading) kotlinx.coroutines.delay(50); app.rec.clearCache(); load(false) },
             header = {
+                if (HomeCache.popular) PopularNote()
                 // the chips (All, Discover, the region...) are in the one row of tabs above the page
                 if (LocalLook.current == 1) Column { ContinueRow(app) }
                 NearbyBanner(app)
             },
         )
     }
+}
+
+/** one quiet line over the popular stand-in for an empty Home */
+@Composable
+private fun PopularNote() {
+    Text(
+        tr("Popular on YouTube. Watch a few videos and your Home becomes yours."),
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+    )
 }
 
 fun profileLabel(name: String) = name.ifEmpty { tr("Main") }
