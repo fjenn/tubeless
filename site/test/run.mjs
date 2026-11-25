@@ -1,6 +1,8 @@
 // Drives the built website (site/dist) in a throwaway headless Chrome or Firefox (own temporary profile; the
 // user's browsers, settings and YouTube session are never touched) and checks Instant mode end to end.
 //   node site/test/run.mjs chrome|firefox <scenario...>    scenarios: home search watch seek shorts sponsor drift save
+//   Tubeless on youtube.com (the bookmark): ythome ywatch yfx ydl yover; build the site with SITE_URL=http://127.0.0.1:<PORT>/tubeless-publik/
+//   and pass the same PORT (the bookmark loads yt.js from there into www.youtube.com, as from GitHub Pages)
 // env: BIN=<browser binary>, DIST=<site dir> (site/dist), SHOTS=<dir for screenshots>, DRIFT_S=<seconds> (600),
 //      EXT=<unpacked Chrome extension dir> (Full-mode hand-over check, chrome only), PORT
 import { spawn, execFileSync } from "node:child_process";
@@ -20,13 +22,14 @@ const results = [];
 const ok = (name, pass, detail) => { results.push({ name, pass, detail }); console.log(`${pass ? "PASS" : "FAIL"} ${browser} ${name}: ${detail}`); };
 
 // ------------------------------------------------------------------ a static server, as GitHub Pages would be
-const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".wasm": "application/wasm",
+const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8", ".wasm": "application/wasm",
   ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".ttf": "font/ttf", ".txt": "text/plain" };
 const server = createServer((req, res) => {
   const p = decodeURIComponent(new URL(req.url, "http://x").pathname).replace(/^\/tubeless-publik/, "");
   let f = join(dist, p.endsWith("/") ? p + "index.html" : p);
   if (!f.startsWith(dist) || !existsSync(f) || statSync(f).isDirectory()) { res.writeHead(404); return res.end("not found"); }
-  res.writeHead(200, { "Content-Type": TYPES[extname(f)] || "application/octet-stream", "Cache-Control": "no-cache" });
+  // GitHub Pages answers with ACAO *: the bookmark loads the app's modules and wasm from youtube.com
+  res.writeHead(200, { "Content-Type": TYPES[extname(f)] || "application/octet-stream", "Cache-Control": "no-cache", "Access-Control-Allow-Origin": "*" });
   res.end(readFileSync(f));
 });
 await new Promise((r) => server.listen(+process.env.PORT || 0, "127.0.0.1", r));
@@ -44,7 +47,9 @@ else drv = await firefox();
 async function chrome() {
   const bin = process.env.BIN || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
   const proc = spawn(bin, ["--headless=new", `--user-data-dir=${profile}`, "--remote-debugging-pipe", "--enable-unsafe-extension-debugging",
-    "--no-first-run", "--no-default-browser-check", "--window-size=1280,800", "--autoplay-policy=no-user-gesture-required", "--mute-audio", "about:blank"],
+    "--no-first-run", "--no-default-browser-check", "--window-size=1280,800", "--autoplay-policy=no-user-gesture-required", "--mute-audio",
+    // the bookmark scenarios load the app from this test server (127.0.0.1) into youtube.com, as from GitHub Pages
+    "--disable-features=LocalNetworkAccessChecks,PrivateNetworkAccessRespectPreflightResults", "about:blank"],
     { stdio: ["ignore", "ignore", "pipe", "pipe", "pipe"] });
   const [, , , to, from] = proc.stdio;
   let seq = 0, buf = "";
@@ -55,7 +60,7 @@ async function chrome() {
     while ((i = buf.indexOf("\0")) >= 0) {
       const m = JSON.parse(buf.slice(0, i)); buf = buf.slice(i + 1);
       if (m.id && waiting.has(m.id)) { waiting.get(m.id)(m); waiting.delete(m.id); }
-      if (m.method === "Runtime.consoleAPICalled") { const t = m.params.args.map((a) => a.value ?? a.description).join(" "); if (/\[tubeless\]/.test(t)) console.log("  console:", t.slice(0, 240)); }
+      if (m.method === "Runtime.consoleAPICalled") { const t = m.params.args.map((a) => a.value ?? a.description).join(" "); if (/\[tubeless\]/.test(t) || process.env.VERBOSE) console.log("  console:", t.slice(0, 240)); }
       if (m.method === "Runtime.exceptionThrown") console.log("  exception:", JSON.stringify(m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text).slice(0, 300));
       if (m.method === "Network.requestWillBeSent") net.push({ url: m.params.request.url, method: m.params.request.method, headers: m.params.request.headers, type: m.params.type });
     }
@@ -75,6 +80,8 @@ async function chrome() {
   return {
     net,
     async open(url) { await send("Page.navigate", { url }, s); },
+    // a bookmark click: a browser-initiated javascript: navigation (page CSP does not apply, as for a real bookmark)
+    async bookmark(url) { await send("Page.navigate", { url }, s); },
     async eval(expr) { const r = await send("Runtime.evaluate", { expression: expr, returnByValue: true, awaitPromise: true, userGesture: true }, s); return r.result.value; },
     async shot(file) { const r = await send("Page.captureScreenshot", { format: "png" }, s); writeFileSync(file, Buffer.from(r.data, "base64")); },
     async click(x, y) { await mouse("mouseMoved", x, y); await mouse("mousePressed", x, y); await sleep(60); await mouse("mouseReleased", x, y); },
@@ -95,7 +102,7 @@ async function firefox() {
     `user_pref("media.volume_scale", "0.0");`,
     `user_pref("browser.download.dir", ${JSON.stringify(dlDir)});`, `user_pref("browser.download.folderList", 2);`,
     `user_pref("browser.download.useDownloadDir", true);`, `user_pref("browser.download.always_ask_before_handling_new_types", false);`,
-    `user_pref("dom.disable_open_during_load", false);`,
+    `user_pref("dom.disable_open_during_load", false);`, `user_pref("network.lna.enabled", false);`,
   ].join("\n") + "\n");
   const proc = spawn(bin, ["--headless", "--profile", profile, "--remote-debugging-port", "0", "--no-remote", "--window-size", "1280,800"],
     { stdio: ["ignore", "pipe", "pipe"] });
@@ -128,6 +135,9 @@ async function firefox() {
   return {
     net,
     async open(url) { await send("browsingContext.navigate", { context: ctx, url, wait: "none" }); },
+    // a bookmark click: the bookmark's script in the page (a real bookmark click is the browser's openTrustedLinkIn,
+    // checked in docs/BUILD-STATUS.md BOOKMARKLET; it is exempt from the page's CSP just like this evaluation)
+    async bookmark(url) { await send("script.evaluate", { expression: decodeURIComponent(url.slice("javascript:".length)), target: { context: ctx }, awaitPromise: false }); },
     async eval(expr) {
       const r = await send("script.evaluate", { expression: `(async () => (${expr}))()`, target: { context: ctx }, awaitPromise: true, resultOwnership: "none" });
       const v = r.result;
@@ -172,6 +182,22 @@ async function playing(minT = 3, secs = 60) {
 
 // ------------------------------------------------------------------ scenarios
 const VIDEO = process.env.VIDEO || "aqz-KE-bpKQ";  // Big Buck Bunny 60fps 4K (Blender, CC-BY)
+// ------------------------------------------------------------------ Tubeless on youtube.com (the bookmark, site/bookmarklet.js)
+// dist must be built with SITE_URL=http://127.0.0.1:<PORT>/tubeless-publik/ (and PORT set here) so the bookmark loads from this server
+const bookmarklet = () => readFileSync(join(dist, "bookmarklet.txt"), "utf8").trim();
+async function ytOpen(q = "") {
+  await drv.open("https://www.youtube.com/robots.txt?tubeless&lang=en" + q);
+  await waitFor(`location.pathname === '/robots.txt' && document.readyState === 'complete'`, 40, "youtube.com/robots.txt");
+  await drv.bookmark(bookmarklet());
+  await waitFor(`!!window.tubeless && !!document.querySelector('canvas') && !document.getElementById('tubeless-loading')`, 120, "Tubeless in youtube.com");
+  await sleep(2500);
+  // first start in this profile: the extension's welcome page ("Bring your subscriptions") → Skip for now
+  if (!ytWelcomed) { ytWelcomed = true; await drv.click(640, 593); await sleep(1500); }
+}
+let ytWelcomed = false;
+const yv = () => drv.eval(`JSON.stringify((() => { const v = tubeless.player.video; return { t: v.currentTime, p: v.paused, w: v.videoWidth, h: v.videoHeight, rs: v.readyState } })())`).then((x) => JSON.parse(x || "{}"));
+async function ytPlaying(minT = 3, secs = 90) { return waitFor(`(() => { const v = tubeless.player.video; return v.currentTime > ${minT} && !v.paused })()`, secs, "playback in youtube.com"); }
+
 const S = {
   async home() {
     await drv.open(base + "?lang=en");
@@ -380,6 +406,127 @@ const S = {
     await sleep(3000);
     const how2 = await drv.eval(`tubeless.save.go('${gir}', 'x').catch((e) => 'error:' + e.message)`);
     ok("save (no attachment header)", how2 === "tab" || how2 === "saved", `${gir}: ${how2}`);
+  },
+  async ythome() {
+    drv.net.length = 0;
+    await ytOpen();
+    await sleep(6000);
+    await shot("yt-home");
+    const env = JSON.parse(await drv.eval(`JSON.stringify({ origin: location.origin, cookies: document.cookie.split(';').filter(Boolean).length, sapisid: tubeless.auth.sapisid != null })`));
+    const cred = await drv.eval(`fetch('https://www.youtube.com/youtubei/v1/browse?prettyPrint=false', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', 'X-Origin': location.origin },
+      body: JSON.stringify({ context: { client: { clientName: 'WEB', clientVersion: '2.20251120.01.00', hl: 'en' } }, browseId: 'FEwhat_to_watch' }) })
+      .then(async (r) => { const t = await r.text(); return r.status + (t.includes('"logged_in","value":"1"') ? ' logged_in=1' : t.includes('"logged_in","value":"0"') ? ' logged_in=0' : ''); }).catch((e) => 'ERR ' + e)`);
+    // a brand-new anonymous visitor gets YouTube's own empty Home ("Try searching to get started"), as on youtube.com: search fills the page
+    await ytOpen("&q=" + encodeURIComponent("big buck bunny"));
+    await waitFor(`performance.getEntriesByType('resource').filter(e => e.name.includes('i.ytimg.com/vi')).length >= 4`, 90, "search thumbnails");
+    await sleep(3000);
+    await shot("yt-search");
+    const thumbs = await drv.eval(`performance.getEntriesByType('resource').filter(e => e.name.includes('i.ytimg.com/vi')).length`);
+    ok("bookmark: Home + search in youtube.com", env.origin === "https://www.youtube.com" && thumbs >= 4 && /^200/.test(cred),
+      `origin ${env.origin}; Home shown (screenshot; a new anonymous visitor's Home is empty, as in the extension); search: ${thumbs} thumbnails; document.cookie readable (${env.cookies} cookies, values not printed); SAPISID ${env.sapisid ? "present" : "absent (signed out)"}; credentialed /browse ${cred}`);
+  },
+  async ywatch() {
+    drv.net.length = 0;
+    await ytOpen(`&v=${VIDEO}`);
+    await ytPlaying(4, 120);
+    const heights = JSON.parse(await drv.eval(`tubeless.player.tracks()`)).heights;
+    const top = heights.find((h) => h >= 1080 && h <= 2160) || heights[0];
+    await drv.eval(`(tubeless.player.setHeight(${top}), 1)`);
+    let st;
+    for (let i = 0; i < 40; i++) { await sleep(1000); st = await yv(); if (st.h >= top && !st.p) break; }
+    await sleep(3000); st = await yv();
+    await shot("yt-watch");
+    const gv = drv.net.filter((r) => /googlevideo\.com/.test(r.url));
+    const sabr = await drv.eval(`!!document.getElementById('tubeless-sabr')`);
+    ok("bookmark: play", st.t > 4 && !st.p, `video at ${st.t.toFixed(1)} s, playing; ${gv.length} googlevideo requests (read by the page: Shaka/MSE${sabr ? ", SABR frame up" : ""})`);
+    ok("bookmark: 1080p+", st.h >= 1080, `${st.w}x${st.h} (offered: ${heights.join("/")})`);
+    const ads = adHosts();
+    ok("bookmark: ad-free", ads.length === 0, `ad requests: ${ads.length}`);
+  },
+  // stable volume + voice boost (Web Audio on the MSE video): the speech band against the low band, effect off vs on
+  async yfx() {
+    if (!(await drv.eval(`!!(window.tubeless && tubeless.player.video.currentTime > 1)`))) { await ytOpen(`&v=${VIDEO}`); await ytPlaying(4, 120); }
+    // the effect itself: the speech band (2.5–3.8 kHz) against the low band (60–200 Hz), after the effects minus before
+    // them (the same sound at the same moment, so the music doesn't change the answer)
+    const measure = `(async () => { const n = tubeless.player.fxState.n; if (!n) return null;
+      const one = (an) => { an.fftSize = 4096; const f = new Float32Array(an.frequencyBinCount), hz = an.context.sampleRate / an.fftSize;
+        an.getFloatFrequencyData(f); const band = (a, b) => { let s = 0, c = 0; for (let i = Math.floor(a / hz); i <= b / hz; i++) { s += Math.pow(10, f[i] / 10); c++; } return s / c; };
+        const td = new Float32Array(an.fftSize); an.getFloatTimeDomainData(td); return [band(60, 200), band(2500, 3800), Math.sqrt(td.reduce((a, x) => a + x * x, 0) / td.length)]; };
+      let pl = 0, pm = 0, ql = 0, qm = 0, rms = 0;
+      for (let k = 0; k < 30; k++) { await new Promise((r) => setTimeout(r, 100)); const a = one(n.pre), b = one(n.out); pl += a[0]; pm += a[1]; ql += b[0]; qm += b[1]; rms += b[2]; }
+      return JSON.stringify({ lift: 10 * Math.log10(qm / ql) - 10 * Math.log10(pm / pl), rms: rms / 30 }) })()`;
+    await drv.eval(`(tubeless.player.fx(false, false), 1)`); await sleep(800);
+    const off = JSON.parse((await drv.eval(measure)) || "null");
+    await drv.eval(`(tubeless.player.fx(false, true), 1)`); await sleep(800);
+    const on = JSON.parse((await drv.eval(measure)) || "null");
+    await drv.eval(`(tubeless.player.fx(true, true), 1)`); await sleep(800);
+    const both = JSON.parse((await drv.eval(measure)) || "null");
+    const ctx = await drv.eval(`tubeless.player.fxState.ctx && tubeless.player.fxState.ctx.state`);
+    const st = await yv();
+    ok("bookmark: voice boost audible", !!on && on.rms > 0.001 && on.lift - off.lift >= 6 && !st.p,
+      on && off ? `AudioContext ${ctx}, video playing at ${st.t.toFixed(0)} s; speech band vs low band after the effects: off ${off.lift.toFixed(1)} dB, voice boost +${on.lift.toFixed(1)} dB, + stable volume +${both.lift.toFixed(1)} dB; output RMS ${off.rms.toFixed(3)} / ${on.rms.toFixed(3)} / ${both.rms.toFixed(3)}` : `no Web Audio graph (AudioContext ${ctx})`);
+  },
+  // HD download through the app's own Download (Full mode: googlevideo → OPFS, joined by Mediabunny, handed to the
+  // browser's downloads); DL_CLICKS="x,y;x,y": the Download chip, then the quality and the dialog's buttons (1280x800)
+  async ydl() {
+    await ytOpen(`&v=${VIDEO}`);
+    await ytPlaying(2, 120);
+    const clicks = (process.env.DL_CLICKS || "780,603;408,256;852,718").split(";").map((c) => c.split(",").map(Number));
+    for (const [i, [x, y]] of clicks.entries()) { await drv.click(x, y); await sleep(2500); await shot(`yt-dl-${i}`); }
+    // the app fetches picture then sound into OPFS (offline/<id>/video.*, audio.*); done when both stop growing
+    const sizes = `(async () => { const out = {}; try { const d = await (await (await navigator.storage.getDirectory()).getDirectoryHandle('offline')).getDirectoryHandle('${VIDEO}');
+      for await (const [n, h] of d.entries()) if (h.kind === 'file') out[n] = (await h.getFile()).size; } catch (e) {} return JSON.stringify(out) })()`;
+    let last = "", same = 0, opfs = {};
+    for (let i = 0; i < +(process.env.DL_WAIT || 600) / 5 && same < 4; i++) {
+      await sleep(5000);
+      const now = await drv.eval(sizes); opfs = JSON.parse(now || "{}");
+      const has = Object.keys(opfs).some((n) => n.startsWith("audio.")) && Object.keys(opfs).some((n) => n.startsWith("video."));
+      same = has && now === last ? same + 1 : 0; last = now;
+      if (i % 6 === 0) console.log("  OPFS:", now);
+    }
+    // the Downloads page's "Save to device" (OfflineWeb.export): picture and sound joined into one file for the browser's downloads
+    const vName = Object.keys(opfs).find((n) => n.startsWith("video.")), aName = Object.keys(opfs).find((n) => n.startsWith("audio."));
+    if (vName && aName) console.log("  exported", await drv.eval(`tubeless.dl.exportJoined('offline/${VIDEO}/${vName}', 'offline/${VIDEO}/${aName}', 'Tubeless HD test').then(String).catch((e) => 'ERR ' + e.message)`), "bytes");
+    let file = null;
+    for (let i = 0; i < 120 && !file; i++) {
+      await sleep(1000);
+      const done = readdirSync(dlDir).filter((f) => /\.(mp4|webm)$/.test(f));
+      if (done.length && !readdirSync(dlDir).some((f) => /\.(crdownload|part)$/.test(f))) file = join(dlDir, done[0]);
+    }
+    await shot("yt-dl-end");
+    let probe = "", plays = "";
+    if (file) {
+      try { probe = execFileSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_type,codec_name,width,height:format=duration", "-of", "compact", file]).toString().trim().replace(/\n/g, " | "); } catch (e) { probe = "ffprobe: " + e.message; }
+      // the whole file decodes (picture and sound), as a player would play it
+      try { execFileSync("ffmpeg", ["-v", "error", "-xerror", "-i", file, "-f", "null", "-"], { timeout: 600000 }); plays = "decodes cleanly end to end"; } catch (e) { plays = "decode error: " + String(e.stderr || e.message).slice(0, 200); }
+      if (process.env.KEEP_SAVED) cpSync(file, join(process.env.KEEP_SAVED, `yt-${browser}-${VIDEO}${extname(file)}`));
+    }
+    const h = +((/height=(\d+)/.exec(probe) || [])[1] || 0);
+    ok("bookmark: HD download", !!file && h >= 1080 && /codec_type=audio/.test(probe) && plays.startsWith("decodes"),
+      file ? `${file.split("/").pop()} ${statSync(file).size} bytes; ${probe}; ${plays}` : "no file");
+  },
+  // the bookmark pressed on youtube.com's own Home: Tubeless opens in a robots.txt frame over the page (same origin)
+  async yover() {
+    await drv.open("https://www.youtube.com/");
+    await waitFor(`document.readyState === 'complete' && location.hostname === 'www.youtube.com'`, 40, "youtube.com");
+    await sleep(3000);
+    await drv.bookmark(bookmarklet());
+    await waitFor(`(() => { const f = document.getElementById('tubeless-over'); const w = f && f.contentWindow; return !!(w && w.tubeless && w.document.querySelector('canvas') && !w.document.getElementById('tubeless-loading')) })()`, 120, "Tubeless over YouTube");
+    await sleep(6000);
+    await shot("yt-over");
+    const where = await drv.eval(`location.href + ' / frame ' + document.getElementById('tubeless-over').contentWindow.location.href`);
+    const yt = await drv.eval(`document.querySelectorAll('ytd-app, video').length`);
+    ok("bookmark on youtube.com Home", /frame https:\/\/www\.youtube\.com\/robots\.txt/.test(where) && yt === 0, `app composed in a frame over YouTube (${where}); YouTube's own app and video removed underneath (screenshot)`);
+  },
+  // Instant mode's Sign in: the prompt offers Tubeless on youtube.com, the extension and the app (screenshot)
+  async prompt() {
+    await drv.open(base + "?lang=en");
+    await appReady();
+    await sleep(3000);
+    const [x, y] = (process.env.CLICK || "1200,28").split(",").map(Number);
+    await drv.click(x, y); await sleep(2000);
+    await shot("prompt");
+    ok("prompt", true, "screenshot");
   },
   async fallback() {
     // the null-origin trick failing: the bridge answers 403 → notice + YouTube's embedded player

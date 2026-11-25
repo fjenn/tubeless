@@ -58,6 +58,7 @@ fun main() {
             WebAuth.refresh()
             WebSettings.register(state)
             WebSabrHost.install()
+            WebFx.install()
         }
         jsLog("app state ready")
         // test hooks: ?lang=en skips the first-run language picker, ?v=<id> opens a video,

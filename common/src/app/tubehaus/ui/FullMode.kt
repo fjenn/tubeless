@@ -29,6 +29,8 @@ import app.tubehaus.engine.Video
 object FullMode {
     const val APP_URL = "https://github.com/fjenn/tubeless-publik/releases"
     const val EXTENSION_URL = "https://github.com/fjenn/tubeless-publik/releases"
+    /** Tubeless on youtube.com: the bookmark that runs this same app inside youtube.com (site/youtube.html) */
+    const val BOOKMARK_URL = "https://fjenn.github.io/tubeless-publik/youtube.html"
 
     /** the feature someone reached for ("Downloads"); null: no prompt */
     var asking by mutableStateOf<String?>(null)
@@ -44,12 +46,13 @@ fun FullModeDialog(app: AppState, feature: String, close: () -> Unit) {
         title = { Text(feature) },
         text = {
             Text(
-                tr("This needs the Tubeless app or the browser extension. The website plays videos without either, but your browser keeps it from signing in, saving videos in HD or changing the sound."),
+                tr("This needs Tubeless on youtube.com (one bookmark, nothing to install), the browser extension or the Tubeless app. This website plays videos without them, but your browser keeps it from signing in, saving videos in HD or changing the sound."),
                 style = MaterialTheme.typography.bodyMedium,
             )
         },
         confirmButton = {
-            Row {
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End) {
+                TextButton(onClick = { app.platform.openExternal(FullMode.BOOKMARK_URL); close() }) { Text(tr("Use on youtube.com")) }
                 TextButton(onClick = { app.platform.openExternal(FullMode.EXTENSION_URL); close() }) { Text(tr("Add the extension")) }
                 TextButton(onClick = { app.platform.openExternal(FullMode.APP_URL); close() }) { Text(tr("Get the app")) }
             }
@@ -91,15 +94,15 @@ fun WebSaveDialog(app: AppState, v: Video, close: () -> Unit) {
                     state == "saved" -> tr("Saving to your browser's downloads (360p MP4, picture and sound).")
                     state == "tab" -> tr("The video opened in a new tab. Save it from there: in Chrome with ⋮ → Download, in Firefox with right-click → Save Video As.")
                     state.startsWith("error:") -> tr("This video can't be saved from the website.") + " " + state.removePrefix("error:")
-                    else -> tr("The website saves videos at 360p, picture and sound in one MP4, into your browser's downloads. The Tubeless app and the extension save up to 4K.")
+                    else -> tr("The website saves videos at 360p, picture and sound in one MP4, into your browser's downloads. Tubeless on youtube.com (one bookmark), the extension and the app save up to 4K.")
                 },
                 style = MaterialTheme.typography.bodyMedium,
             )
         },
         confirmButton = {
-            Row {
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End) {
                 if (state == "" || state == "busy") {
-                    TextButton(onClick = { app.platform.openExternal(FullMode.APP_URL); close() }) { Text(tr("Get the app")) }
+                    TextButton(onClick = { app.platform.openExternal(FullMode.BOOKMARK_URL); close() }) { Text(tr("HD on youtube.com")) }
                     TextButton(enabled = state == "", onClick = { state = "busy"; app.platform.webSave(v.id, v.title) { state = it } }) { Text(tr("Save 360p")) }
                 } else TextButton(onClick = close) { Text(tr("Done")) }
             }

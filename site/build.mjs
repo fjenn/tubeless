@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "..");
 const kind = process.env.KIND || "production";
-const wasmDir = kind === "production"
+const wasmDir = process.env.WASM_DIR ? resolve(process.env.WASM_DIR) : kind === "production"
   ? join(root, "web/build/compileSync/wasmJs/main/productionExecutable/optimized")
   : join(root, "web/build/compileSync/wasmJs/main/developmentExecutable/kotlin");
 if (!existsSync(join(wasmDir, "tubeless.wasm"))) throw new Error("no wasm build at " + wasmDir + ": build :web first");
@@ -42,6 +42,17 @@ writeFileSync(join(out, "tubeless.mjs"), readFileSync(join(wasmDir, "tubeless.mj
 execFileSync("unzip", ["-q", "-o", skikoJar(), "skiko.mjs", "skiko.wasm", "-d", out]);
 cpSync(join(root, "common/fonts/RobotoVariable.ttf"), join(out, "RobotoVariable.ttf"));
 cpSync(join(root, "common/fonts/PretendardVariable.ttf"), join(out, "PretendardVariable.ttf"));
+// Tubeless on youtube.com (the bookmark, youtube.html): yt.js loads the extension's own host code and the same app there
+const SITE_URL = process.env.SITE_URL || "https://fjenn.github.io/tubeless-publik/";
+cpSync(join(here, "yt.js"), join(out, "yt.js"));
+for (const f of ["tubeless.js", "sabr-frame.js"]) cpSync(join(root, "extension/src", f), join(out, f));
+for (const f of ["shaka-player.compiled.js", "mediabunny.min.mjs"]) cpSync(join(root, "extension/vendor", f), join(out, "vendor", f));
+cpSync(join(root, "common/sabr/sabr-page.js"), join(out, "sabr-page.js"));
+writeFileSync(join(out, "yt-solver.txt"), ["yt.solver.lib.min.js", "yt.solver.core.min.js"].map((f) => readFileSync(join(root, "common/ejs", f), "utf8")).join("\n;var meriyah=lib.meriyah,astring=lib.astring;\n"));
+const bookmarklet = "javascript:" + encodeURIComponent(readFileSync(join(here, "bookmarklet.js"), "utf8").split("\n")
+  .map((l) => l.trim()).filter((l) => l && !l.startsWith("//")).join(" ").replace("__BASE__", SITE_URL));
+writeFileSync(join(out, "youtube.html"), readFileSync(join(here, "youtube.html"), "utf8").replace("__BOOKMARKLET__", bookmarklet));
+writeFileSync(join(out, "bookmarklet.txt"), bookmarklet + "\n");
 // the files change with each build, the page doesn't: a version query keeps caches honest
 const html = readFileSync(join(out, "index.html"), "utf8").replace(/src="(instant|app)\.js"/g, `src="$1.js?v=${version}-${Date.now().toString(36)}"`);
 writeFileSync(join(out, "index.html"), html);

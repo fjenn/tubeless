@@ -3,7 +3,8 @@
 // stay on this side, Kotlin gets text and small files.
 "use strict";
 (() => {
-  const api = globalThis.browser ?? globalThis.chrome;
+  // the extension's APIs, or the stand-ins of yt-host.js when Tubeless runs inside youtube.com (the bookmark, site/)
+  const api = globalThis.tubelessHost ?? globalThis.browser ?? globalThis.chrome;
   // our own requests only: the extension page's host (Chrome: the extension id, Firefox: its uuid)
   const SELF = location.hostname;
   const YT = ["youtube.com", "googleapis.com"];
@@ -170,7 +171,45 @@
     sp.addEventListener("adaptation", tick);
     sp.addEventListener("error", (e) => console.log("[tubeless] shaka", e.detail && e.detail.code, e.detail && e.detail.data && String(e.detail.data[0]).slice(0, 200)));
     let lastUrl = null;
+
+    // stable volume and voice boost: Web Audio on the video's own sound (MSE bytes are this page's, so they can be
+    // read). The graph is built only once the AudioContext runs (after a click): a suspended context would mute the video.
+    const fx = { want: [false, false], ctx: null, n: null };
+    async function fxEnsure() {
+      if (!fx.want[0] && !fx.want[1] && !fx.n) return;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      try {
+        fx.ctx ||= new AC();
+        if (fx.ctx.state !== "running") await Promise.race([fx.ctx.resume(), new Promise((r) => setTimeout(r, 300))]);
+        if (fx.ctx.state !== "running") return;
+        if (!fx.n) {
+          const c = fx.ctx;
+          const n = { src: c.createMediaElementSource(v), hp: c.createBiquadFilter(), low: c.createBiquadFilter(), mid: c.createBiquadFilter(),
+            comp: c.createDynamicsCompressor(), gain: c.createGain(), out: c.createAnalyser(), pre: c.createAnalyser() };
+          n.hp.type = "highpass"; n.low.type = "lowshelf"; n.mid.type = "peaking";
+          n.src.connect(n.hp); n.hp.connect(n.low); n.low.connect(n.mid); n.mid.connect(n.comp); n.comp.connect(n.gain); n.gain.connect(n.out); n.out.connect(c.destination);
+          n.src.connect(n.pre);   // the sound before the effects (tests compare the two)
+          fx.n = n;
+        }
+        const [stable, voice] = fx.want, n = fx.n, t = fx.ctx.currentTime;
+        // voice: rumble and boom down, the speech band (2–4 kHz) up; off: every filter flat
+        n.hp.frequency.setValueAtTime(voice ? 110 : 10, t);
+        n.low.frequency.setValueAtTime(220, t); n.low.gain.setValueAtTime(voice ? -6 : 0, t);
+        n.mid.frequency.setValueAtTime(3000, t); n.mid.Q.setValueAtTime(0.8, t); n.mid.gain.setValueAtTime(voice ? 7 : 0, t);
+        // stable: loud parts held down, the whole lifted back (as YouTube's "Stable volume"); off: ratio 1, no lift
+        n.comp.threshold.setValueAtTime(stable ? -30 : 0, t); n.comp.knee.setValueAtTime(stable ? 12 : 0, t);
+        n.comp.ratio.setValueAtTime(stable ? 6 : 1, t); n.comp.attack.setValueAtTime(0.004, t); n.comp.release.setValueAtTime(0.25, t);
+        n.gain.gain.setValueAtTime(stable ? 1.9 : 1, t);
+      } catch (e) { console.log("[tubeless] fx", e.message); }
+    }
+    v.addEventListener("play", fxEnsure);
+    for (const e of ["pointerdown", "keydown"]) document.addEventListener(e, () => { if (!fx.n || fx.ctx?.state !== "running") fxEnsure(); }, true);
+
     return {
+      // the sound effects (Perks.fx on the web); applied now if the page may play sound, else on the next click or play
+      fx(stable, voice) { fx.want = [!!stable, !!voice]; fxEnsure(); },
+      fxState: fx,
       supports(type) { return MediaSource.isTypeSupported(type); },
       onTime(f) { onState = f; },
       async load(manifest, isHls, start, autoplay, maxHeight) {
@@ -270,6 +309,7 @@
       frame = document.createElement("iframe");
       frame.id = "tubeless-sabr";
       frame.src = "https://www.youtube.com/robots.txt?tubeless";
+      api.sabrFrame?.(frame);   // the bookmark: no content scripts, so its host puts sabr-page.js in the frame
       document.body.appendChild(frame);
       return ready;
     }

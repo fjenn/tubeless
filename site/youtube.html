@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tubeless on youtube.com</title>
+<meta name="description" content="One bookmark: Tubeless runs inside youtube.com with your YouTube account, HD downloads and sound effects. No extension.">
+<meta name="theme-color" content="#0f0f0f">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="icon-128.png">
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; background: #0f0f0f; color: #f1f1f1; font: 15px/1.55 Roboto, system-ui, -apple-system, sans-serif; }
+  main { max-width: 680px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 8px 0 4px; } h2 { font-size: 17px; margin: 28px 0 6px; }
+  p, li { color: #d0d0d0; } a { color: #3ea6ff; text-decoration: none; }
+  .mark { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 20px; background: #f1f1f1; color: #0f0f0f;
+    font-weight: 600; cursor: grab; user-select: none; }
+  .mark img { width: 20px; height: 20px; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 16px 0; }
+  button { font: inherit; background: #272727; color: #f1f1f1; border: 0; border-radius: 18px; padding: 8px 16px; cursor: pointer; }
+  textarea { width: 100%; box-sizing: border-box; height: 72px; background: #1f1f1f; color: #aaa; border: 1px solid #333; border-radius: 8px; font: 12px ui-monospace, monospace; }
+  .note { font-size: 13px; color: #aaa; }
+  ol { padding-left: 22px; }
+</style>
+<main>
+  <a href="./">&larr; Tubeless</a>
+  <h1>Tubeless on youtube.com</h1>
+  <p>One bookmark, no extension. Open youtube.com, press the bookmark, and that tab becomes Tubeless: with your own YouTube account,
+    HD and 4K downloads, stable volume and voice boost. It runs in your browser as part of youtube.com; nothing goes through us.</p>
+
+  <h2>Computer: Chrome, Edge, Firefox, Brave</h2>
+  <ol>
+    <li>Show the bookmarks bar (<b>Ctrl+Shift+B</b>, on a Mac <b>&#8984;+Shift+B</b>).</li>
+    <li>Drag this button onto it:</li>
+  </ol>
+  <div class="row"><a class="mark" id="mark" href="#" title="Drag me to your bookmarks bar"><img src="icon-128.png" alt="">Tubeless</a>
+    <span class="note">(Clicking it here does nothing: it works on youtube.com.)</span></div>
+  <ol start="3">
+    <li>Open <a href="https://www.youtube.com/">youtube.com</a> and press <b>Tubeless</b> in the bookmarks bar. Use it again on each visit; your library and downloads stay.</li>
+  </ol>
+
+  <h2>Safari (Mac, iPhone, iPad) and phones</h2>
+  <ol>
+    <li><button id="copy">Copy the bookmark</button> <span class="note" id="copied"></span></li>
+    <li>Bookmark this page (Share &rarr; Add Bookmark, or &#8984;D), name it <b>Tubeless</b>.</li>
+    <li>Edit that bookmark (Bookmarks &rarr; Edit) and paste the copied text as its address.</li>
+    <li>Open <a href="https://www.youtube.com/robots.txt?tubeless">www.youtube.com/robots.txt?tubeless</a> (a plain youtube.com page; bookmark it too),
+      then open the <b>Tubeless</b> bookmark. On a phone: tap the address bar, type <b>Tubeless</b> and tap the bookmark.</li>
+  </ol>
+  <p class="note">Why that page: Safari doesn't let bookmarks run on youtube.com's normal pages, only on pages like this one. Chrome and Firefox
+    run it anywhere on www.youtube.com; from any other site it first takes you to that page (press it once more there).</p>
+  <textarea id="code" readonly aria-label="The bookmark's address"></textarea>
+
+  <h2>What it can see</h2>
+  <p class="note">The bookmark loads Tubeless from this site into youtube.com. Like youtube.com itself, it uses your YouTube sign-in in this browser to show your
+    Home, subscriptions and library (turn it on in Settings &rarr; Account). Nothing is sent anywhere but YouTube and the services the app already uses
+    (SponsorBlock, Return YouTube Dislike). The source is public.</p>
+</main>
+<script>
+  const code = "__BOOKMARKLET__";
+  document.getElementById("mark").href = code;
+  document.getElementById("mark").addEventListener("click", (e) => { e.preventDefault(); });
+  document.getElementById("code").value = code;
+  document.getElementById("copy").onclick = async () => {
+    try { await navigator.clipboard.writeText(code); document.getElementById("copied").textContent = "Copied."; }
+    catch (e) { const t = document.getElementById("code"); t.select(); document.execCommand("copy"); document.getElementById("copied").textContent = "Copied."; }
+  };
+</script>
+</html>
