@@ -224,7 +224,9 @@ class IosPlayer : VideoPlayer {
         val headers = ServerVideo.headersFor(hls)
         val item = if (headers == null) AVPlayerItem(uRL = NSURL(string = hls))
             else AVPlayerItem(asset = AVURLAsset(uRL = NSURL(string = hls), options = mapOf<Any?, Any>("AVURLAssetHTTPHeaderFieldsKey" to headers)))
-        limit(item, o.maxHeight)
+        // a download plays the quality that was saved: a cap (e.g. the mobile-data one, which applies as soon as Wi-Fi is
+        // gone) would make AVPlayer want a variant that isn't in the package and go to the network for it
+        if (s.client != "offline") limit(item, o.maxHeight)
         // speeds up to 4x (S5): the spectral time-pitch keeps voices natural over the whole range (the default stops sounding right past 2x)
         item.audioTimePitchAlgorithm = platform.AVFoundation.AVAudioTimePitchAlgorithmSpectral
         if (readAhead) item.preferredForwardBufferDuration = 1200.0
@@ -244,6 +246,7 @@ class IosPlayer : VideoPlayer {
         // the qualities on offer, from the HLS master list
         heightsJob?.cancel()
         heightsJob = scope.launch {
+            if (s.client == "offline") return@launch
             val text = runCatching { Net.get(hls) }.getOrNull() ?: return@launch
             val heights = Regex("RESOLUTION=\\d+x(\\d+)").findAll(text).mapNotNull { it.groupValues[1].toIntOrNull() }.distinct().sorted().toList()
             st.update { it.copy(heights = heights) }
@@ -329,7 +332,7 @@ class IosPlayer : VideoPlayer {
     }
 
     override fun setHeight(h: Int) {
-        av.currentItem?.let { limit(it, if (h == 0) opts.maxHeight else h) }
+        if (stream?.client != "offline") av.currentItem?.let { limit(it, if (h == 0) opts.maxHeight else h) }
         st.update { it.copy(height = h) }
     }
 

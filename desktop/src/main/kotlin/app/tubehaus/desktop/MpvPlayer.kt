@@ -117,7 +117,10 @@ class MpvPlayer : VideoPlayer {
      * each a few MB: they piled up until the computer ran out of memory. Past a few, frames are dropped.
      */
     private val unfreed = java.util.concurrent.atomic.AtomicInteger(0)
-    private val sampling = FilterMipmap(FilterMode.LINEAR, MipmapMode.NONE)
+    // Mitchell cubic: the last stretch to the view is sharp, without the softness of plain linear filtering
+    private val sampling = org.jetbrains.skia.CubicResampler(1f / 3, 1f / 3)
+    @Volatile private var videoW = 0
+    @Volatile private var videoH = 0
     /** bumped for every new frame: the Canvas reads it, so Compose repaints (only repaints) */
     private val frames = mutableIntStateOf(0)
     @Volatile private var view = IntSize.Zero
@@ -146,6 +149,10 @@ class MpvPlayer : VideoPlayer {
             o("demuxer-max-bytes", "64MiB"); o("demuxer-max-back-bytes", "24MiB")
             // fewer decoded frames held by the GPU decoder (each a 1080p-4K surface)
             o("hwdec-extra-frames", "2")
+            // the frames are converted and scaled on the CPU (render API "sw"): no random dither (it reads as grain on
+            // screen), a sharp scaler, every core
+            o("zimg-dither", "no"); o("dither-depth", "no")
+            o("zimg-scaler", "spline36"); o("zimg-scaler-chroma", "spline36"); o("zimg-threads", "auto")
             o("sub-auto", "no"); o("sub-font-size", "42")
             // captions as on YouTube: white on a see-through black box behind each line (mpv 0.38+; before that, an outline)
             box = o("sub-border-style", "opaque-box") >= 0
@@ -197,13 +204,18 @@ class MpvPlayer : VideoPlayer {
     }
 
     /**
-     * The size mpv draws at: the view's, but at most 1920x1080 (mpv scales on the CPU here,
-     * and Compose stretches the last bit smoothly). mpv keeps the video's shape itself.
+     * The size mpv draws at: the view's (in screen pixels, so Retina gets its full sharpness), but never more
+     * than the video itself (no point scaling up on the CPU: Compose does that last step on the GPU) and at most
+     * 3840x2160. mpv keeps the video's shape itself.
      */
     private fun target(): Pair<Int, Int>? {
         val v = view
         if (v.width < 2 || v.height < 2) return null
-        val s = min(1.0, min(1920.0 / v.width, 1080.0 / v.height))
+        val vw = videoW.takeIf { it > 0 } ?: 3840
+        val vh = videoH.takeIf { it > 0 } ?: 2160
+        // the video's size in the view's shape: the frame fits the view, so the larger of the two ratios
+        val fit = maxOf(vw.toDouble() / v.width, vh.toDouble() / v.height)
+        val s = min(fit, min(3840.0 / v.width, 2160.0 / v.height)).coerceAtMost(1.0)
         return (v.width * s).roundToInt().coerceAtLeast(2) to (v.height * s).roundToInt().coerceAtLeast(2)
     }
 
@@ -366,6 +378,10 @@ class MpvPlayer : VideoPlayer {
             val waiting = str(l, p, "paused-for-cache") == "yes" || str(l, p, "seeking") == "yes"
             val speed = num(l, p, "speed")
             val cached = num(l, p, "demuxer-cache-time")
+            // the decoded picture's size (its display shape), so frames are drawn at the video's own sharpness
+            val dw = num(l, p, "dwidth")?.toInt() ?: 0
+            val dh = num(l, p, "dheight")?.toInt() ?: 0
+            if (dw > 0 && dh > 0 && (dw != videoW || dh != videoH)) { videoW = dw; videoH = dh; redraw = true; wake.release() }
             val sound = soundProblem(l, p, playing = pos != null && !paused && !idle)
             st.update {
                 it.copy(
