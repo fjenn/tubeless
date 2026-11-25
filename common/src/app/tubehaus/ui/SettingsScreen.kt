@@ -139,7 +139,18 @@ private fun catTitle(key: String): String = when (key) {
 @Composable
 fun SettingsScreen(app: AppState) {
     if (app.store.settings.state.collectAsState().value.kids) { KidsLock(app); return }
-    if (!app.platform.tv) SettingsHome(app, null) else TvSettingsScreen(app)
+    // phones, as YouTube's app: a list of the categories, each opening a page of its own (as on a TV)
+    if (!app.platform.tv && !LocalCompact.current) SettingsHome(app, null) else TvSettingsScreen(app)
+}
+
+/** a phone's settings pages: YouTube's plain header, a back arrow and the page's name (no app top bar) */
+@Composable
+private fun PhoneSettingsHeader(app: AppState, title: String) {
+    Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = { app.back() }) { Icon(Sym.ArrowBack.fill, tr("Back")) }
+        Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 8.dp))
+    }
 }
 
 @Composable
@@ -147,6 +158,7 @@ private fun TvSettingsScreen(app: AppState) {
     var q by remember { mutableStateOf("") }
     Narrow {
         Column(Modifier.fillMaxSize()) {
+            if (LocalCompact.current) PhoneSettingsHeader(app, tr("Settings"))
             OutlinedTextField(
                 q, { q = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 singleLine = true, shape = RoundedCornerShape(26.dp),
@@ -156,8 +168,9 @@ private fun TvSettingsScreen(app: AppState) {
             )
             if (q.isBlank()) {
                 val today = app.store.stats.state.collectAsState().value.days[Sys.today()]
+                val phone = LocalCompact.current
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    verticalArrangement = Arrangement.spacedBy(if (phone) 0.dp else 8.dp)) {
                     items(cats(app), key = { it.key }) { c ->
                         val sub = if (c.key == "wellbeing" && today != null && today.video + today.music >= 60)
                             tr("Today: {t}").replace("{t}", minutesText((today.video + today.music) / 60)) else tr(c.sub)
@@ -173,10 +186,12 @@ private fun TvSettingsScreen(app: AppState) {
 @Composable
 fun SettingsPageScreen(app: AppState, key: String) {
     if (app.store.settings.state.collectAsState().value.kids) { KidsLock(app); return }
-    if (!app.platform.tv) { SettingsHome(app, key); return }
+    val paged = app.platform.tv || LocalCompact.current
+    if (!paged) { SettingsHome(app, key); return }
     Narrow {
         Column(Modifier.fillMaxSize()) {
-            if (!app.platform.tv) SectionTitle(catTitle(key))
+            if (LocalCompact.current) PhoneSettingsHeader(app, catTitle(key))
+            else if (!app.platform.tv) SectionTitle(catTitle(key))
             SettingsRows(app, key, "")
         }
     }
@@ -281,6 +296,18 @@ private fun NavButton(k: Cat, on: Boolean, pill: Boolean, onClick: () -> Unit) {
 @Composable
 private fun CatCard(icon: Symbol, title: String, sub: String, onClick: () -> Unit) {
     val c = MaterialTheme.colorScheme
+    // a phone: YouTube's plain settings list (a row per category, no card)
+    if (LocalCompact.current) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable(onClick = onClick).padding(horizontal = 4.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon.outline, null, Modifier.size(24.dp), tint = c.onSurface)
+            Column(Modifier.weight(1f).padding(start = 20.dp)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge)
+                Text(sub, style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant, maxLines = 2)
+            }
+        }
+        return
+    }
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.surfaceContainer)
             .tvClickable(RoundedCornerShape(16.dp), onClick = onClick).padding(horizontal = 14.dp, vertical = 14.dp),
@@ -355,7 +382,9 @@ private class Rows(val scope: LazyListScope, val cat: String?, val q: String, va
 @Composable
 private fun Piece(tv: Boolean, first: Boolean, last: Boolean, content: @Composable () -> Unit) {
     if (tv) { content(); return }
-    Segment(first, last, Modifier.padding(horizontal = if (LocalCompact.current) 12.dp else 16.dp)) { content() }
+    // a phone: YouTube's plain settings list, the rows on the page itself (no rounded cards)
+    if (LocalCompact.current) { Box(Modifier.fillMaxWidth().padding(horizontal = 4.dp)) { content() }; return }
+    Segment(first, last, Modifier.padding(horizontal = 16.dp)) { content() }
 }
 
 /** a category's name at the top of its card, with its icon in a small rounded square */

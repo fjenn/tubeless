@@ -110,6 +110,8 @@ data class Stream(
     val client: String,
     /** YouTube's storyboard spec: the small pictures shown over the seek bar while you drag it */
     val storyboard: String? = null,
+    /** how much louder than YouTube's reference the video is mastered (dB, playerConfig.audioConfig); null when not said */
+    val loudnessDb: Double? = null,
 ) {
     fun asVideo() = Video(id, title, author, channelId, lengthSec, views = views, live = live)
 }

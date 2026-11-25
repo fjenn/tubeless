@@ -156,9 +156,11 @@ private fun Home2(app: AppState, items: List<Item>, loading: Boolean, onEnd: sus
         }
         LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(bottom = 32.dp)) {
             item(key = "head") { Column(Modifier.padding(horizontal = if (phone) 0.dp else edge - 12.dp)) { header() } }
-            if (app.platform.touch || app.platform.tv) item(key = "hello") { Greeting(app, edge) }
+            // phones: no greeting, YouTube's app opens straight on the first video (QA-CI)
+            if ((app.platform.touch && !phone) || app.platform.tv) item(key = "hello") { Greeting(app, edge) }
             item(key = "continue") { Column(Modifier.padding(start = if (phone) 0.dp else edge - 4.dp, top = 8.dp)) { ContinueRow(app, forYou = false) } }
-            item(key = "words") { Words(app, edge) }
+            // the taste words as hashtags: not on a phone, where YouTube's Home goes straight to the videos
+            if (!phone) item(key = "words") { Words(app, edge) }
             for ((n, s) in shelves.withIndex()) {
                 item(key = "shelf:" + s.key) {
                     Column(Modifier.arrive("shelf:" + s.key, n, seen)) { ShelfRow(app, s.title, s.videos, edge) }
@@ -166,15 +168,20 @@ private fun Home2(app: AppState, items: List<Item>, loading: Boolean, onEnd: sus
                 // the Shorts after the first row
                 if (n == 0) item(key = "shorts") { ShortsShelf(app, edge) }
             }
-            if (shelves.isEmpty()) item(key = "shorts") { ShortsShelf(app, edge) }
-            if (rest.isNotEmpty()) item(key = "more") { Heading(tr("More for you"), edge) }
             val rows = rest.chunked(cols)
-            items(rows.size, key = { "row:" + rows[it].first().id }) { r ->
+            @Composable fun RowAt(r: Int) =
                 Row(Modifier.fillMaxWidth().padding(horizontal = if (phone) 0.dp else edge - 5.dp).arrive("row:" + rows[r].first().id, r, seen)) {
                     for (v in rows[r]) Box(Modifier.weight(1f)) { GlassCard(v, app, solid = true) }
                     repeat(cols - rows[r].size) { Spacer(Modifier.weight(1f)) }
                 }
-            }
+            // phones, as YouTube's app: the first video, then the Shorts shelf, then the list (no heading);
+            // bigger screens: the Shorts shelf, then "More for you"
+            val shortsAfter = if (phone && rows.isNotEmpty()) 1 else 0
+            if (shelves.isEmpty() && shortsAfter == 0) item(key = "shorts") { ShortsShelf(app, edge) }
+            if (rest.isNotEmpty() && !phone) item(key = "more") { Heading(tr("More for you"), edge) }
+            items(shortsAfter, key = { "row:" + rows[it].first().id }) { r -> RowAt(r) }
+            if (shelves.isEmpty() && shortsAfter > 0) item(key = "shorts") { ShortsShelf(app, edge) }
+            items(rows.size - shortsAfter, key = { "row:" + rows[it + shortsAfter].first().id }) { i -> RowAt(i + shortsAfter) }
             if (loading) item(key = "busy") { Busy() }
         }
     }

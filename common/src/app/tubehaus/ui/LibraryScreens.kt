@@ -24,6 +24,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.foundation.layout.Spacer
@@ -34,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberUpdatedState
 import app.tubehaus.data.Meta
+import app.tubehaus.engine.Accounts
 import app.tubehaus.engine.YouTube
 import app.tubehaus.engine.YouTubeAccount
 import app.tubehaus.engine.AccountFeed
@@ -146,11 +148,20 @@ private fun LocalSubsScreen(app: AppState) {
     val words = query.lowercase().split(' ').filter { it.isNotBlank() }
     if (lib.subs.isEmpty()) {
         Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            // signed out, as YouTube's app: sign in first (the account's channels come with it), importing a file second
+            if (canSignInHere(app) && !app.feedSource.signedIn) {
+                Text(tr("Don't miss new videos"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                Text(tr("Sign in to see updates from your favorite YouTube channels"), textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+                Button(onClick = { startSignIn(app) }, modifier = Modifier.padding(top = 16.dp)) { Text(tr("Sign in")) }
+                OutlinedButton(onClick = { importFile(app) }, modifier = Modifier.padding(top = 8.dp)) { Text(tr("Import subscriptions")) }
+            } else {
             Text(tr("Channels you subscribe to show up here. Subscriptions are kept on this device - no account needed."),
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Button(onClick = { importFile(app) }, modifier = Modifier.padding(top = 16.dp)) { Text(tr("Import subscriptions")) }
             Text(tr("From YouTube (Google Takeout), NewPipe, FreeTube, Invidious, TubeHaus or any OPML file"),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+            }
         }
         return
     }
@@ -365,7 +376,9 @@ fun LibraryScreen(app: AppState) {
             YouShelfTitle(tr("History"), onAll = { app.go(Screen.History) })
             if (hist.isEmpty()) Text(tr("Videos you watch show up here"), color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-            else LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            // a new row when the account's History replaces the local one: the old row's scroll position followed
+            // its first item by key and opened the account's row scrolled, its newest videos off to the left
+            else androidx.compose.runtime.key(accountHist == null) { LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(hist.take(20), key = { it.id }) { v ->
                     Column(Modifier.width(160.dp).tvClickable { app.watch(v) }) {
                         if (!app.store.settings.value.hideThumbs) Thumb(v, app, Modifier.fillMaxWidth(), rounded = 8)
@@ -373,7 +386,7 @@ fun LibraryScreen(app: AppState) {
                         if (v.author.isNotEmpty()) Text(v.author, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-            }
+            } }
         }
         item {
             YouShelfTitle(tr("Playlists"), onAdd = { newPl = true }, onAll = null)

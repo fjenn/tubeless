@@ -88,12 +88,16 @@ fun desktopSecrets(dataDir: File): SecretStore {
     return when {
         // a test run with its own home (-Duser.home=…) or TUBELESS_SECRETS=file never reads or writes the
         // Keychain, so it can't pick up (or sign out) the sign-in of the app the user really runs
-        env("TUBELESS_SECRETS") == "file" || System.getProperty("user.home") != (System.getenv("HOME") ?: System.getProperty("user.home")) -> file
+        isolatedRun() -> file
         os.startsWith("Mac") && File("/usr/bin/security").canExecute() -> MacKeychain().also { migrateSecrets(it, MacKeychain(LEGACY_SERVICE)) }
         os.startsWith("Windows") -> runCatching { DpapiSecrets(File(dataDir, "secrets")) }.getOrElse { file }
         else -> if (LibSecret.works()) LibSecret(file).also { migrateSecrets(it, LibSecret(NoSecrets, LEGACY_SERVICE)) } else file
     }
 }
+
+/** a test run with its own home (-Duser.home=…) or TUBELESS_SECRETS=file: kept apart from the user's own sign-in */
+fun isolatedRun(): Boolean =
+    env("TUBELESS_SECRETS") == "file" || System.getProperty("user.home") != (System.getenv("HOME") ?: System.getProperty("user.home"))
 
 private const val SERVICE = "dev.tubeless.app"
 

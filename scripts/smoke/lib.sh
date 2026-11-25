@@ -78,12 +78,71 @@ judge_play() { # <seconds>
       local h ads ms
       h=$(sed -n 's/.*"height":\([0-9]*\).*/\1/p' <<< "$line"); ads=$(sed -n 's/.*"ads":\([0-9]*\).*/\1/p' <<< "$line")
       ms=$(sed -n 's/.*"firstFrameMs":\([0-9]*\).*/\1/p' <<< "$line")
-      if [ "${h:-0}" -gt 0 ] && [ "${ads:-0}" = 0 ]; then result playback PASS "first frame ${ms} ms, ${h}p, 0 ads ($line)"
+      PLAYED_ID=$(sed -n 's/.*"videoId":"\([^"]*\)".*/\1/p' <<< "$line")
+      if [ "${h:-0}" -ge 720 ] && [ "${ads:-0}" = 0 ]; then result playback PASS "first frame ${ms} ms, ${h}p (HD), 0 ad requests ($line)"
+      elif [ "${h:-0}" -gt 0 ] && [ "${ads:-0}" = 0 ]; then result playback FAIL "started below HD: ${h}p ($line)"
       else result playback FAIL "$line"; fi ;;
     *'"botWall":true'*|*"sign in to confirm"*|*"Sign in to confirm"*|*"not a bot"*|*"HTTP 403"*|*" 403"*|*"LOGIN_REQUIRED"*)
       result playback BLOCKED "blocked by YouTube (datacenter IP): $line" ;;
     *) result playback FAIL "$line" ;;
   esac
+}
+
+# Home signed out: never empty (YouTube's own Home, or the popular fallback when that is empty)
+judge_home() { # <seconds>
+  local line items
+  if ! wait_screen Home 20 || ! wait_event feed_loaded "$1"; then result home FAIL "screen=$(screen_now), no feed_loaded in $1 s"; return; fi
+  line=$(last_event feed_loaded); items=$(sed -n 's/.*"items":\([0-9]*\).*/\1/p' <<< "$line")
+  if [ "${items:-0}" -gt 0 ]; then
+    result home PASS "${items} items$( [ "$(count_events feed_popular)" -gt 0 ] && echo ' (popular fallback)') $line"
+  else result home FAIL "Home is empty signed out: $line"; fi
+}
+
+# a download of the video that played ($PLAYED_ID), at 720p, while the rest of the test goes on
+download_start() {
+  if [ -z "${PLAYED_ID:-}" ]; then PLAYED_ID=$(last_event play | sed -n 's/.*"videoId":"\([^"]*\)".*/\1/p'); fi
+  if [ -z "${PLAYED_ID:-}" ]; then
+    if grep -q '^| playback | BLOCKED' "$RESULTS"; then result download BLOCKED "playback was blocked, nothing to download"
+    else result download FAIL "no video id to download (nothing played)"; fi
+    return 1
+  fi
+  send "download $PLAYED_ID@720"
+}
+
+# waits for it, shows Downloads and plays the saved copy: download PASS / BLOCKED / FAIL, offline-play PASS / FAIL
+download_finish() { # <seconds>
+  [ -n "${PLAYED_ID:-}" ] || return 0
+  local line
+  line=$(wait_any "$1" download_done download_failed) || { result download FAIL "no download_done in $1 s ($(last_event download_queued))"; return; }
+  case "$line" in
+    *'"event":"download_done"'*)
+      local bytes h
+      bytes=$(sed -n 's/.*"bytes":\([0-9]*\).*/\1/p' <<< "$line"); h=$(sed -n 's/.*"height":\([0-9]*\).*/\1/p' <<< "$line")
+      if [ "${bytes:-0}" -gt 100000 ]; then result download PASS "${h}p, $((bytes / 1048576)) MB ($line)"
+      else result download FAIL "finished but tiny: $line"; fi ;;
+    *"not a bot"*|*"Sign in to confirm"*|*"403"*|*"LOGIN_REQUIRED"*) result download BLOCKED "blocked by YouTube (datacenter IP): $line"; return ;;
+    *) result download FAIL "$line"; return ;;
+  esac
+  send "go downloads"
+  if wait_screen Downloads 20; then sleep 3; shot 07-downloads; else result downloads-page FAIL "screen=$(screen_now)"; fi
+  local n; n=$(count_events play_offline)
+  send "offline $PLAYED_ID"
+  if wait_event play_offline 60 . $((n + 1)); then result offline-play PASS "$(last_event play_offline)"
+  else result offline-play FAIL "the saved copy didn't play (screen=$(screen_now)) $(last_event player_error)"; fi
+  sleep 4; shot 08-offline-watch
+  send "pause"
+}
+
+# no ad request left the app all run (the HTTP client refuses and counts them), none shown among Shorts
+judge_ads() {
+  local n line req
+  n=$(count_events report)
+  send "report"
+  if ! wait_event report 20 . $((n + 1)); then result ads FAIL "no report event"; return; fi
+  line=$(last_event report); req=$(sed -n 's/.*"adRequests":\([0-9]*\).*/\1/p' <<< "$line")
+  if [ "${req:-x}" = 0 ] && [ "$(count_events short '"ad":true')" = 0 ]; then
+    result ads PASS "0 ad requests, 0 ads among Shorts; ads left out of YouTube's answers: $(sed -n 's/.*"adsLeftOut":\([0-9]*\).*/\1/p' <<< "$line")"
+  else result ads FAIL "ad requests: ${req:-?}, ads among Shorts: $(count_events short '"ad":true') ($line)"; fi
 }
 
 summary() { # <platform>

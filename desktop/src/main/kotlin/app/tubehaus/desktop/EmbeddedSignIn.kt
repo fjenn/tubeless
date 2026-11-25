@@ -30,7 +30,7 @@ import java.io.File
  * and is removed once youtube.com holds the session. The refresh and the sign-out use the same library,
  * hidden. A profile kept only by the older separate sign-in window ([helper]) is refreshed through it.
  */
-class EmbeddedSignIn(private val lib: Kw, private val windowTitle: String, private val helper: HelperSignIn?) : SignInLauncher, app.tubehaus.ui.InAppLauncherMarker {
+class EmbeddedSignIn(private val lib: Kw, private val windowTitle: String, private val helper: HelperSignIn?, private val storeTag: String = "") : SignInLauncher, app.tubehaus.ui.InAppLauncherMarker {
     interface Kw : Library {
         fun kw_start(mode: Int, title: String, profile: String, x: Double, y: Double, w: Double, h: Double): Long
         fun kw_bounds(x: Double, y: Double, w: Double, h: Double)
@@ -41,7 +41,7 @@ class EmbeddedSignIn(private val lib: Kw, private val windowTitle: String, priva
 
     companion object {
         /** the library next to the app's resources, or the repo's build of tools/signin-helper */
-        fun load(windowTitle: String, helper: HelperSignIn?): EmbeddedSignIn? {
+        fun load(windowTitle: String, helper: HelperSignIn?, storeTag: String = ""): EmbeddedSignIn? {
             if (!System.getProperty("os.name").startsWith("Mac")) return null
             val name = "libtubeless_webview.dylib"
             val f = sequence {
@@ -50,7 +50,7 @@ class EmbeddedSignIn(private val lib: Kw, private val windowTitle: String, priva
                 var d: File? = File("").absoluteFile
                 while (d != null) { yield(File(d, "tools/signin-helper/target/release/$name")); d = d.parentFile }
             }.firstOrNull { it.isFile } ?: return null
-            return runCatching { EmbeddedSignIn(Native.load(f.path, Kw::class.java), windowTitle, helper) }
+            return runCatching { EmbeddedSignIn(Native.load(f.path, Kw::class.java), windowTitle, helper, storeTag) }
                 .onFailure { Accounts.log("in-app sign-in library didn't load: ${it.message}") }.getOrNull()
         }
     }
@@ -67,7 +67,7 @@ class EmbeddedSignIn(private val lib: Kw, private val windowTitle: String, priva
     /** starts [mode] and waits for its result line */
     private suspend fun run(mode: Int, profile: String, area: List<Float>?): kotlinx.serialization.json.JsonElement? = one.withLock {
         val a = area ?: listOf(0f, 0f, 1f, 1f)
-        val gen = lib.kw_start(mode, windowTitle, profile, a[0].toDouble(), a[1].toDouble(), a[2].toDouble(), a[3].toDouble())
+        val gen = lib.kw_start(mode, windowTitle, storeTag + profile, a[0].toDouble(), a[1].toDouble(), a[2].toDouble(), a[3].toDouble())
         var lastPhase: String? = null
         var result: kotlinx.serialization.json.JsonElement? = null
         try {

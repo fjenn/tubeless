@@ -247,7 +247,10 @@ private fun startApp() {
     val dataDir = File(platform.dataDir.toString())
     app.tubehaus.engine.Accounts.log = signInLog(dataDir)
     val helper = HelperSignIn(dataDir)
-    val launcher = EmbeddedSignIn.load("Tubeless", helper.takeIf { it.available }) ?: helper
+    // the web view's store is per app bundle + profile, and every `java` run shares one bundle: a test run with its
+    // own home gets its own stores, so it never sees (or signs out) the Google sign-in of the user's own run
+    val storeTag = if (isolatedRun()) "t" + Integer.toHexString(dataDir.absolutePath.hashCode()) + "-" else ""
+    val launcher = EmbeddedSignIn.load("Tubeless", helper.takeIf { it.available }, storeTag) ?: helper
     app.tubehaus.ui.installAccounts(state, desktopSecrets(dataDir), launcher)
     DesktopPerks.install(state, platform)   // S5: stable volume / voice boost, E2E log, PiP window
     MemoryTrim.start { platform.mpv.state.value.playing || app.tubehaus.desktop.JsHost.running }   // M3: freed native memory back to the system

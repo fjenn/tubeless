@@ -2,6 +2,7 @@ package app.tubehaus.ui
 
 import app.tubehaus.engine.SponsorBlock
 import app.tubehaus.engine.Sys
+import app.tubehaus.engine.Ads
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -239,7 +240,7 @@ class Playback(private val app: AppState) {
                     playLogged = true
                     val cap = if (app.platform.metered()) store.settings.value.maxHeightMobileData else store.settings.value.maxHeight
                     val h = s.height.takeIf { it > 0 } ?: stream?.video?.map { it.height }?.filter { cap <= 0 || it <= cap }?.maxOrNull() ?: 0
-                    E2E.log("play", "videoId" to v.id, "firstFrameMs" to (Sys.nowMs() - openedAt), "height" to h, "ads" to 0,
+                    E2E.log("play", "videoId" to v.id, "firstFrameMs" to (Sys.nowMs() - openedAt), "height" to h, "ads" to Ads.requests, "adsLeftOut" to Ads.count,
                         "client" to stream?.client, "offline" to (stream?.client == "offline"))
                     if (stream?.client == "offline") E2E.log("play_offline", "videoId" to v.id)
                 }
@@ -358,7 +359,8 @@ class Playback(private val app: AppState) {
                 error = e.message ?: e.toString()
             } finally {
                 loading = false
-                if (error != null && video?.id == v.id) E2E.log("play_error", "videoId" to v.id, "botWall" to (error == tr(BOT_CHECK)), "message" to error)
+                if (error != null && video?.id == v.id) E2E.log("play_error", "videoId" to v.id, "botWall" to (error == tr(BOT_CHECK)), "message" to error,
+                    "tries" to YouTube.tries.joinToString(" / "))
             }
         }
     }

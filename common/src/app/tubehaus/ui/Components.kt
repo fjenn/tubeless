@@ -175,12 +175,36 @@ fun Modifier.notOnTv(): Modifier = if (LocalPlatform.current.tv) focusProperties
 
 @Composable
 fun Img(url: String, modifier: Modifier = Modifier, crop: Boolean = true) {
+    // a Windows file URI (file:/C:/...: a saved video's thumbnail) isn't a path the image loader can open there:
+    // its bytes are read here instead (QA-CI: Downloads showed grey boxes on Windows only)
+    val drive = remember(url) { windowsFile(url) }
+    val bytes = if (drive == null) null else androidx.compose.runtime.produceState<ByteArray?>(null, drive) {
+        value = kotlinx.coroutines.withContext(Sys.IO) { runCatching { Sys.fs.read(with(okio.Path) { drive.toPath() }) { readByteArray() } }.getOrNull() }
+    }.value
     AsyncImage(
-        model = url.ifEmpty { null },
+        model = if (drive != null) bytes else url.ifEmpty { null },
         contentDescription = null,
         modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant),
         contentScale = if (crop) ContentScale.Crop else ContentScale.Fit,
     )
+}
+
+/** "file:/C:/My%20Videos/x.jpg" → "C:/My Videos/x.jpg"; null for anything else */
+internal fun windowsFile(url: String): String? {
+    val m = Regex("^file:/+([A-Za-z]:/.*)$").find(url) ?: return null
+    val raw = m.groupValues[1]
+    val out = StringBuilder()
+    val bytes = ArrayList<Byte>()
+    var i = 0
+    fun flush() { if (bytes.isNotEmpty()) { out.append(bytes.toByteArray().decodeToString()); bytes.clear() } }
+    while (i < raw.length) {
+        val c = raw[i]
+        if (c == '%' && i + 2 < raw.length && raw.substring(i + 1, i + 3).toIntOrNull(16) != null) {
+            bytes.add(raw.substring(i + 1, i + 3).toInt(16).toByte()); i += 3
+        } else { flush(); out.append(c); i++ }
+    }
+    flush()
+    return out.toString()
 }
 
 @Composable

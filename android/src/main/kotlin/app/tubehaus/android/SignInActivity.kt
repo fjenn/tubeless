@@ -41,9 +41,8 @@ import javax.crypto.spec.GCMParameterSpec
 // (androidx.webkit MULTI_PROFILE) each Google sign-in has its own cookie store, so it can be refreshed later
 // without disturbing the others; elsewhere the default store is shared (and cleared for "add account").
 
-private const val LOGIN_URL = "https://accounts.google.com/ServiceLogin?service=youtube&uilel=3&passive=true&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Dm%26next%3Dhttps%253A%252F%252Fm.youtube.com%252F"
-private const val ADD_URL = "https://accounts.google.com/AddSession?service=youtube&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Dm%26next%3Dhttps%253A%252F%252Fm.youtube.com%252F"
-private const val HANDOFF_URL = "https://www.youtube.com/signin?action_handle_signin=true&app=m&next=https%3A%2F%2Fm.youtube.com%2F"
+private const val LOGIN_URL = "https://accounts.google.com/ServiceLogin?ltmpl=mobile&service=youtube&uilel=3&passive=true&continue=https%3A%2F%2Fm.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Dm%26hl%3Den%26next%3Dhttps%253A%252F%252Fm.youtube.com%252F%26feature%3Dmobile%26noapp%3D1&hl=en"
+private const val ADD_URL = "https://accounts.google.com/AddSession?ltmpl=mobile&service=youtube&uilel=3&continue=https%3A%2F%2Fm.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Dm%26hl%3Den%26next%3Dhttps%253A%252F%252Fm.youtube.com%252F%26feature%3Dmobile%26noapp%3D1&hl=en"
 
 private fun profiles() = WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)
 
@@ -118,7 +117,7 @@ class SignInActivity : Activity() {
             if (++seen >= 2) { cm.flush(); result?.complete(youtubeCookies(cm)); finish() }
         } else if (yt && !signed && !handedOff && googleSession(cm)) {
             handedOff = true
-            web.loadUrl(HANDOFF_URL)
+            web.loadUrl(LOGIN_URL)   // always through ServiceLogin: YouTube's signin URL opened directly gives its old error page
         }
     }
 

@@ -42,6 +42,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import platform.AVFoundation.muted
+import platform.AVFoundation.volume
 import kotlinx.coroutines.launch
 import platform.AVFAudio.AVAudioSession
 import platform.AVFAudio.AVAudioSessionCategoryPlayback
@@ -103,7 +104,11 @@ class IosPlayer : VideoPlayer {
     /** where to start once the item is ready (AVPlayer ignores a seek before that); -1 = done */
     private var startAt = -1L
     /** the player's picture-in-picture button (nothing happens while AVPlayer can't yet) */
-    fun startPip() { picture.pip?.startPictureInPicture() }
+    fun startPip() {
+        val pip = picture.pip
+        platform.Foundation.NSLog("PiP: start (controller ${pip != null}, possible ${pip?.pictureInPicturePossible}, on screen ${picture.window != null})")
+        pip?.startPictureInPicture()
+    }
 
     /** the original audio is chosen once per video, as soon as AVPlayer has read the list */
     private var audioPicked = false
@@ -115,6 +120,24 @@ class IosPlayer : VideoPlayer {
 
     override fun setCaptionStyle(size: Int, bg: Int, pos: Int) { capStyle = Triple(size, bg, pos) }
     private var readAhead = false
+
+    /**
+     * Stable volume on the iPhone: HLS gives AVPlayer no way into the sound itself (an audio mix or
+     * processing tap is ignored for HTTP Live Streaming), so loud videos are brought down to YouTube's
+     * reference level from the loudness YouTube measured for them (playerConfig.audioConfig.loudnessDb),
+     * as YouTube's own volume normalisation does; quieter ones play as they are. No voice boost here.
+     */
+    private var stable = false
+    private val fx = object : app.tubehaus.ui.AudioFx {
+        override val canVoice get() = false
+        override fun apply(stable: Boolean, voice: Boolean) { this@IosPlayer.stable = stable; gain() }
+    }
+    init { app.tubehaus.ui.Perks.fx = fx }
+
+    private fun gain() {
+        val db = stream?.loudnessDb?.takeIf { stable && it > 0.0 } ?: 0.0
+        av.volume = kotlin.math.exp(-db.coerceAtMost(20.0) / 20.0 * kotlin.math.ln(10.0)).toFloat()
+    }
 
     /**
      * The one picture of the player (one AVPlayerLayer, one picture-in-picture controller), moved into
@@ -212,6 +235,7 @@ class IosPlayer : VideoPlayer {
         item.addOutput(out)
         frames = out
         av.replaceCurrentItemWithPlayerItem(item)
+        gain()
         audioPicked = false
         startAt = o.startMs
         st.value = PlayerState(videoId = s.id, buffering = true, positionMs = o.startMs, durationMs = s.lengthSec * 1000L,
@@ -352,8 +376,13 @@ class IosPlayer : VideoPlayer {
     override fun View(modifier: Modifier) {
         val s by st.collectAsState()
         BoxWithConstraints(modifier.background(Color.Black)) {
-            UIKitView(factory = { PlayerHost(::hostMoved) }, modifier = Modifier.fillMaxSize())
-            val line = if (s.captions != null) cues.lastOrNull { s.positionMs >= it.start && s.positionMs < it.end }?.text else null
+            // the picture takes no touches: they go to the Compose behind and over it (a feed card's tap opens the
+            // video it plays muted; in the default cooperative mode the interop view swallowed that tap)
+            @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+            UIKitView(factory = { PlayerHost(::hostMoved) }, modifier = Modifier.fillMaxSize(),
+                properties = androidx.compose.ui.viewinterop.UIKitInteropProperties(interactionMode = null))
+            // none in the mini player, as YouTube: at its size a line of captions covers the whole picture
+            val line = if (s.captions != null && maxHeight >= 150.dp) cues.lastOrNull { s.positionMs >= it.start && s.positionMs < it.end }?.text else null
             // sized to the player like Android's (about 1/19 of its height): a fixed size was tiny on an iPad in full screen
             val (pct, bg, pos) = capStyle
             val base = (maxHeight.value / 19f).coerceIn(16f, 44f)

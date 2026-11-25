@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Runtime smoke test of the debug APK on an emulator (smoke.yml, inside reactivecircus/android-emulator-runner):
-#   install → launch → Home → search → open a video (player view) → Shorts (a real swipe) → Settings,
+#   install → launch → Home (not empty) → search → open a video (player view, HD, 0 ad requests) → download →
+#   Shorts (a real swipe) → Downloads + offline play → Settings → 0 ad requests,
 #   screenshots (screencap), the screen's text (uiautomator dump), and no FATAL EXCEPTION in logcat.
 #   scripts/smoke/android.sh <apk> <out dir>
 set -uo pipefail
@@ -64,8 +65,7 @@ if wait_event app_ready 90; then result start PASS "app_ready after $(( $(date +
 else result start FAIL "no app_ready in 90 s"; shot 01-start; adb logcat -d > "$OUT/logcat.txt"; summary android; exit 1; fi
 
 # 2 Home
-if wait_screen Home 20 && wait_event feed_loaded 45; then result home PASS "$(last_event feed_loaded) ui: $(ui_text home)"
-else result home FAIL "screen=$(screen_now) ui: $(ui_text home)"; fi
+judge_home 45; say "home ui: $(ui_text home)"
 sleep 2; shot 01-home
 
 # 3 search
@@ -81,10 +81,13 @@ else result open-video FAIL "screen=$(screen_now)"; fi
 judge_play 75
 sleep 5; shot 03-watch
 
+# 4b download the video that played (720p), in the background while Shorts run
+download_start
+
 # 5 Shorts tab, then a real swipe up on the screen
 send "pause" "go shorts"
 if wait_screen Shorts 20 && wait_event short 45; then
-  sleep 4; shot 04-shorts
+  sleep 4; shot 04-shorts; say "shorts ui: $(ui_text shorts)"
   n=$(count_events short)
   size=$(adb shell wm size | tr -d '\r' | sed -n 's/.*: \([0-9]*\)x\([0-9]*\).*/\1 \2/p' | tail -1); read -r w h <<< "${size:-1080 2400}"
   dismiss_anr
@@ -94,11 +97,16 @@ if wait_screen Shorts 20 && wait_event short 45; then
   shot 05-shorts-swiped
 else result shorts FAIL "screen=$(screen_now)"; shot 04-shorts; fi
 
+# 5b the download finished: Downloads page, and the saved copy plays
+download_finish 300
+
 # 6 Settings
 send "go settings"
 if wait_screen Settings 20; then result settings PASS "ui: $(ui_text settings)"
 else result settings FAIL "screen=$(screen_now)"; fi
-sleep 2; shot 06-settings
+sleep 2; shot 09-settings
+
+judge_ads
 
 # 7 Back leaves Settings (the system Back key), the app keeps running
 dismiss_anr; adb shell input keyevent KEYCODE_BACK; sleep 3

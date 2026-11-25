@@ -150,6 +150,36 @@ val translateHelper = tasks.register<Exec>("translateHelper") {
 }
 sourceSets["main"].resources.srcDir(translateHelper)
 
+// Google sign-in (tools/signin-helper): the helper window and, on macOS, libtubeless_webview.dylib (the page
+// inside the main window). Built with cargo when it is installed and copied to resources/<os>, so `:desktop:run`
+// (compose.application.resources.dir) and a locally packaged app both have it; without them "Sign in" could
+// only offer the cookies.txt import. One cargo target dir for every checkout (~400 MB, built once).
+val signinHelper = tasks.register("signinHelper") {
+    val os = System.getProperty("os.name")
+    val osDir = when { os.startsWith("Mac") -> "macos"; os.startsWith("Windows") -> "windows"; else -> "linux" }
+    val exe = if (os.startsWith("Windows")) "signin-helper.exe" else "signin-helper"
+    val names = listOf(exe) + if (osDir == "macos") listOf("libtubeless_webview.dylib") else emptyList()
+    val crate = rootProject.layout.projectDirectory.dir("tools/signin-helper")
+    val home = System.getProperty("user.home")
+    val cargo = (System.getenv("PATH").orEmpty().split(File.pathSeparator).map { File(it, if (os.startsWith("Windows")) "cargo.exe" else "cargo") } +
+        File(home, ".cargo/bin/cargo")).firstOrNull { it.canExecute() }
+    val target = System.getenv("CARGO_TARGET_DIR")?.let(::File)
+        ?: if (System.getenv("CI") != null) crate.dir("target").asFile else File(home, ".cache/tubeless/signin-helper-target")
+    val outDir = layout.projectDirectory.dir("resources/$osDir")
+    inputs.dir(crate.dir("src")); inputs.file(crate.file("Cargo.toml")); inputs.file(crate.file("Cargo.lock"))
+    outputs.files(names.map { outDir.file(it) })
+    onlyIf { cargo != null }
+    doLast {
+        val pb = ProcessBuilder(cargo!!.path, "build", "--release", "--locked").directory(crate.asFile).inheritIO()
+        pb.environment()["CARGO_TARGET_DIR"] = target.path
+        val code = pb.start().waitFor()
+        if (code != 0) throw GradleException("signin-helper: cargo build failed ($code)")
+        outDir.asFile.mkdirs()
+        for (n in names) File(target, "release/$n").copyTo(outDir.file(n).asFile, overwrite = true).setExecutable(true)
+    }
+}
+tasks.matching { it.name == "prepareAppResources" }.configureEach { dependsOn(signinHelper) }
+
 // runs every engine call against YouTube: ./gradlew :desktop:engineCheck
 tasks.register<JavaExec>("engineCheck") {
     classpath = sourceSets["main"].runtimeClasspath

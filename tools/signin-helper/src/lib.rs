@@ -39,7 +39,7 @@ pub const HANDOFF_URL: &str =
 pub const LOGIN_URL: &str = "https://accounts.google.com/ServiceLogin?service=youtube&uilel=3&passive=true&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Ddesktop%26next%3Dhttps%253A%252F%252Fwww.youtube.com%252F";
 pub const ADD_URL: &str = "https://accounts.google.com/AddSession?service=youtube&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Ddesktop%26next%3Dhttps%253A%252F%252Fwww.youtube.com%252F";
 pub const SAFARI_UA: &str =
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15";
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15";
 
 /// FNV-1a, 128 bit: the WKWebsiteDataStore identifier of a profile (same as the signin-helper's)
 pub fn store_id(profile: &str) -> [u8; 16] {
@@ -376,7 +376,9 @@ mod mac {
                     }
                 } else if is_youtube(&here) && google && !sapisid && !e.handed_off {
                     e.handed_off = true;
-                    let _ = e.webview.load_url(HANDOFF_URL);
+                    // through Google's ServiceLogin (the session is there, so it hands straight back with the
+                    // auth YouTube needs); youtube.com/signin opened bare shows "There was an issue signing you in"
+                    let _ = e.webview.load_url(LOGIN_URL);
                 }
             } else {
                 if is_youtube(&page) && e.loaded_at.is_none() {

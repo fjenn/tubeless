@@ -193,7 +193,7 @@ fun ShortsScreen(app: AppState) {
             current?.let { learnFrom(it) }
             current = v
             Parity.played += v.id
-            E2E.log("short", "videoId" to v.id, "page" to page, "ad" to Ads.isAd(v.id))
+            E2E.log("short", "videoId" to v.id, "page" to page, "ad" to Ads.isAd(v.id), "adRequests" to Ads.requests)
             if (page >= list.size - 4) scope.launch { more() }
             ahead(page)
             try {
@@ -399,8 +399,10 @@ private fun ShortPage(app: AppState, v: Video, s: Stream?, active: Boolean) {
             Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()
                 .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, Color(0x99000000))))
                 .padding(start = 14.dp, end = 14.dp, top = 40.dp, bottom = 6.dp)) {
-                val author = s?.author ?: v.author
-                val cid = s?.channelId ?: v.channelId
+                // the first of the player answer, the watch page's details and the list's entry that has it (a Short from
+                // YouTube's sequence comes with only its id, and a stream's empty name hid the whole line: QA-CI)
+                val author = s?.author.orEmpty().ifEmpty { info?.author.orEmpty() }.ifEmpty { v.author }
+                val cid = s?.channelId.orEmpty().ifEmpty { info?.channelId.orEmpty() }.ifEmpty { v.channelId }
                 // as YouTube's: the channel's picture, @name and a white Subscribe pill on one line, the title under it
                 if (author.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 64.dp)) {
                     val pic = info?.avatar?.ifEmpty { null } ?: v.avatar.ifEmpty { null } ?: lib.subs[cid]?.thumb
@@ -418,7 +420,7 @@ private fun ShortPage(app: AppState, v: Video, s: Stream?, active: Boolean) {
                                 .clickable { app.store.subscribe(cid, author, pic ?: "", !subbed) }.padding(horizontal = 12.dp, vertical = 6.dp))
                     }
                 }
-                Text(s?.title ?: v.title, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                Text(s?.title.orEmpty().ifEmpty { info?.title.orEmpty() }.ifEmpty { v.title }, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 8.dp, end = 64.dp))
                 if (mine && st.durationMs > 0) {
                     Track(

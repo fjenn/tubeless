@@ -1,5 +1,6 @@
 package app.tubehaus.ui
 
+import app.tubehaus.engine.Accounts
 import app.tubehaus.engine.YtError
 
 import app.tubehaus.engine.YouTubeAccount
@@ -275,6 +276,14 @@ fun Welcome(app: AppState) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Logo(Modifier.padding(top = 16.dp, bottom = 24.dp))
+            // where Google's sign-in page can open, signing in is the first choice (as on youtube.com); the file
+            // import below stays for using the app without an account
+            val canSignIn = !app.platform.instant && Accounts.launcher?.available == true
+            if (canSignIn) {
+                Button(onClick = { finish(); startSignIn(app) }, modifier = Modifier.padding(bottom = 28.dp).fillMaxWidth()) {
+                    Text(tr("Sign in to YouTube"))
+                }
+            }
             Text(tr("Bring your subscriptions"), style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
             Text(
                 tr("Your channels are kept on this device, no account needed. Pick the file you exported from another app:"),
@@ -297,7 +306,9 @@ fun Welcome(app: AppState) {
                     Text(how, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Button(onClick = { importFile(app) { ok -> if (ok) finish() } }, modifier = Modifier.padding(top = 20.dp).fillMaxWidth()) {
+            if (canSignIn) OutlinedButton(onClick = { importFile(app) { ok -> if (ok) finish() } }, modifier = Modifier.padding(top = 20.dp).fillMaxWidth()) {
+                Text(tr("Choose a file"))
+            } else Button(onClick = { importFile(app) { ok -> if (ok) finish() } }, modifier = Modifier.padding(top = 20.dp).fillMaxWidth()) {
                 Text(tr("Choose a file"))
             }
             TextButton(onClick = { finish() }, modifier = Modifier.padding(top = 4.dp)) { Text(tr("Skip for now")) }

@@ -71,11 +71,20 @@ import kotlin.coroutines.resume
 // in the Keychain. Each Google sign-in has its own persistent data store (iOS 17+), so a hidden reload of
 // youtube.com later rotates that account's cookies without a new sign-in.
 
-private const val LOGIN_URL = "https://accounts.google.com/ServiceLogin?service=youtube&uilel=3&passive=true&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Dm%26next%3Dhttps%253A%252F%252Fm.youtube.com%252F"
-private const val ADD_URL = "https://accounts.google.com/AddSession?service=youtube&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Dm%26next%3Dhttps%253A%252F%252Fm.youtube.com%252F"
-private const val HANDOFF_URL = "https://www.youtube.com/signin?action_handle_signin=true&app=m&next=https%3A%2F%2Fm.youtube.com%2F"
-/** Mobile Safari's own UA: WKWebView's default lacks the "Version/… Safari" tokens and Google refuses what it takes for an embedded browser */
-private const val UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
+// m.youtube.com's own sign-in link (read from its page, 2026-11-25): the mobile template, back to m.youtube.com, and
+// noapp=1 so YouTube never offers to hand over to its app (an iPhone with YouTube installed got an interstitial
+// in place of the sign-in, or straight away when Google already knew the account)
+private const val LOGIN_URL = "https://accounts.google.com/ServiceLogin?ltmpl=mobile&service=youtube&uilel=3&passive=true&continue=https%3A%2F%2Fm.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Dm%26hl%3Den%26next%3Dhttps%253A%252F%252Fm.youtube.com%252F%26feature%3Dmobile%26noapp%3D1&hl=en"
+private const val ADD_URL = "https://accounts.google.com/AddSession?ltmpl=mobile&service=youtube&uilel=3&continue=https%3A%2F%2Fm.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Dm%26hl%3Den%26next%3Dhttps%253A%252F%252Fm.youtube.com%252F%26feature%3Dmobile%26noapp%3D1&hl=en"
+/**
+ * Mobile Safari's own user agent on this iPhone: WebKit writes the device part itself (the OS token Safari sends,
+ * frozen at 18_6 since iOS 26), the app adds the "Version/… Safari" tail WKWebView leaves out (without it Google
+ * takes the page for an embedded browser). A fixed "iOS 18.0, Safari 18" string didn't match the WebKit it ran on.
+ */
+private fun safariTail(): String {
+    val v = UIDevice.currentDevice.systemVersion.split('.')
+    return "Version/${v.getOrElse(0) { "26" }}.${v.getOrElse(1) { "0" }} Mobile/15E148 Safari/604.1"
+}
 
 class IosSignIn : SignInLauncher {
     private fun store(profile: String): WKWebsiteDataStore {
@@ -90,8 +99,8 @@ class IosSignIn : SignInLauncher {
         val cfg = WKWebViewConfiguration()
         cfg.websiteDataStore = store(profile)
         cfg.defaultWebpagePreferences.preferredContentMode = WKContentMode.WKContentModeMobile
+        cfg.applicationNameForUserAgent = safariTail()
         val w = WKWebView(frame = CGRectMake(0.0, 0.0, 390.0, 844.0), configuration = cfg)
-        w.customUserAgent = UA
         if (!visible) {
             // in the window (WebKit throttles a page that is nowhere), but not to be seen
             w.alpha = 0.01
@@ -123,15 +132,32 @@ class IosSignIn : SignInLauncher {
 
     override suspend fun signIn(profile: String, add: Boolean): List<Ck>? = withContext(Dispatchers.Main) {
         val w = web(profile, visible = true)
+        // this profile's web view already holds the session (an earlier sign-in, or one the app lost): done, with no
+        // page at all. Otherwise always Google's ServiceLogin: opening YouTube's signin?action_handle_signin=true
+        // directly while Google already has a session gives YouTube's old error page (the "trouble" page the owner saw)
+        val before = cookies(w)
+        if (!add && CookieJar(youtube(before)).sapisid() != null) return@withContext youtube(before)
+        val start = if (add) ADD_URL else LOGIN_URL
         var cancelled = false
         val page = UIViewController(nibName = null, bundle = null)
-        page.view = w
+        // behind the web view: a spinner, seen while YouTube's own hand-off pages run hidden (not a blank page)
+        val box = platform.UIKit.UIView(frame = CGRectMake(0.0, 0.0, 390.0, 844.0))
+        box.backgroundColor = platform.UIKit.UIColor.whiteColor
+        val spin = platform.UIKit.UIActivityIndicatorView(activityIndicatorStyle = platform.UIKit.UIActivityIndicatorViewStyleLarge).also { it.color = platform.UIKit.UIColor.grayColor }
+        spin.startAnimating()
+        spin.center = platform.CoreGraphics.CGPointMake(195.0, 380.0)
+        spin.autoresizingMask = platform.UIKit.UIViewAutoresizingFlexibleLeftMargin or platform.UIKit.UIViewAutoresizingFlexibleRightMargin or
+            platform.UIKit.UIViewAutoresizingFlexibleTopMargin or platform.UIKit.UIViewAutoresizingFlexibleBottomMargin
+        box.addSubview(spin)
+        w.autoresizingMask = platform.UIKit.UIViewAutoresizingFlexibleWidth or platform.UIKit.UIViewAutoresizingFlexibleHeight
+        box.addSubview(w)
+        page.view = box
         page.title = "Sign in to YouTube"
         page.navigationItem.leftBarButtonItem = UIBarButtonItem(primaryAction = UIAction.actionWithTitle("Cancel", null, null) { _ -> cancelled = true })
         val nav = UINavigationController(rootViewController = page)
         nav.modalPresentationStyle = UIModalPresentationFullScreen
         top()?.presentViewController(nav, animated = true, completion = null) ?: return@withContext null
-        w.loadRequest(NSURLRequest(uRL = NSURL(string = if (add) ADD_URL else LOGIN_URL)))
+        w.loadRequest(NSURLRequest(uRL = NSURL(string = start)))
         var handedOff = false
         var seen = 0
         try {
@@ -149,7 +175,8 @@ class IosSignIn : SignInLauncher {
                         if (++seen >= 5) return@withTimeoutOrNull youtube(cookies(w))
                     } else if (yt && googleSession(list) && !signed && !handedOff) {
                         handedOff = true
-                        w.loadRequest(NSURLRequest(uRL = NSURL(string = HANDOFF_URL)))
+                        // YouTube without its session yet: through ServiceLogin again (passive, Google knows the account)
+                        w.loadRequest(NSURLRequest(uRL = NSURL(string = LOGIN_URL)))
                     }
                 }
                 null

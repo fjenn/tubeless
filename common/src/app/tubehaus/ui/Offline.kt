@@ -289,6 +289,9 @@ object OfflineEvents {
     private val file: String? by lazy { offlineEnv("TUBELESS_E2E_LOG")?.ifEmpty { null } }
 
     fun log(event: String, vararg kv: Pair<String, Any?>) {
+        // one writer per log: where the platform turned the E2E log on (Android: e2e.jsonl in its data folder,
+        // no environment variable) the events go there, under its lock
+        if (!E2E.path.isNullOrEmpty()) { E2E.log(event, *kv.filter { it.second != null }.toTypedArray()); return }
         val f = file ?: return
         val line = buildJsonObject {
             put("event", JsonPrimitive(event))
@@ -594,7 +597,8 @@ fun DownloadsScreen(app: AppState) {
             }
             Text(
                 if (items.isEmpty()) tr("Videos you download play here without internet.")
-                else tr("{n} videos · {s} on this device").replace("{n}", "${items.size}").replace("{s}", sizeText(items.sumOf { it.size })),
+                else tr("{n} videos · {s} on this device").let { t -> if (items.size == 1 && t.startsWith("{n} videos")) t.replace("{n} videos", "1 video") else t }
+                    .replace("{n}", "${items.size}").replace("{s}", sizeText(items.sumOf { it.size })),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp),
             )

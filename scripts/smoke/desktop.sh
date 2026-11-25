@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runtime smoke test of the packaged desktop app (Windows, Linux under Xvfb, macOS), from smoke.yml:
-#   start → Home → search → open a video → playback (first frame, height, no ads) → Shorts swipe →
-#   Settings → quit, with a screenshot of each step.
+#   start → Home (not empty signed out) → search → open a video → playback (first frame, HD, 0 ad requests) →
+#   download (720p) → Shorts swipe → Downloads + the saved copy plays → Settings → 0 ad requests all run → quit, with a screenshot of each step.
 #   scripts/smoke/desktop.sh <app launcher> <out dir>
 # Playback blocked by YouTube's bot wall (datacenter IPs) counts as BLOCKED, not FAIL; the UI steps must pass.
 set -uo pipefail
@@ -61,8 +61,8 @@ if [ -n "${SMOKE_ONLY_START:-}" ]; then
 fi
 
 # 2 Home: the signed-out Home is YouTube's own (often empty for a fresh visitor: "Try searching to get started")
-if wait_screen Home 20 && wait_event feed_loaded 45; then result home PASS "$(last_event feed_loaded)"
-else result home FAIL "screen=$(screen_now), no feed_loaded in 45 s"; fi
+# (FIX: never empty signed out; YouTube's popular videos when its own Home has nothing)
+judge_home 45
 sleep 3; shot 01-home
 
 # 3 search
@@ -78,6 +78,9 @@ else result open-video FAIL "screen=$(screen_now)"; fi
 judge_play 75
 sleep 6; shot 03-watch
 
+# 4b download the video that played (720p), in the background while Shorts run
+download_start
+
 # 5 Shorts, then three swipes (↓, as on YouTube's website)
 send "pause" "go shorts"
 if wait_screen Shorts 20 && wait_event short 45; then
@@ -90,11 +93,17 @@ if wait_screen Shorts 20 && wait_event short 45; then
   sleep 3; shot 05-shorts-swiped
 else result shorts FAIL "screen=$(screen_now), no Short shown"; shot 04-shorts; fi
 
+# 5b the download finished: Downloads page, and the saved copy plays
+download_finish 300
+
 # 6 Settings
 send "go settings"
 if wait_screen Settings 20; then result settings PASS "Settings open"
 else result settings FAIL "screen=$(screen_now)"; fi
-sleep 3; shot 06-settings
+sleep 3; shot 09-settings
+
+# 6b no ad request all run
+judge_ads
 
 # 7 quit the normal way (as closing the window)
 send "quit"

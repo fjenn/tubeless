@@ -45,7 +45,7 @@ const REFRESH_URL: &str = "https://www.youtube.com/";
 /// contradict any other UA, so it keeps its own (Edge).
 #[cfg(not(target_os = "windows"))]
 const LOGIN_UA: Option<&str> =
-    Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15");
+    Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15");
 #[cfg(target_os = "windows")]
 const LOGIN_UA: Option<&str> = None;
 
@@ -321,7 +321,8 @@ fn main() {
                 } else if is_youtube(&host) && google_session(&cookies) && !has_sapisid(&cookies) && !handed_off {
                     // signed in to Google, but the flow skipped YouTube's hand-off: send it through once
                     handed_off = true;
-                    let _ = webview.load_url(HANDOFF_URL);
+                    // via Google's ServiceLogin: youtube.com/signin opened bare shows YouTube's sign-in error page
+                    let _ = webview.load_url(LOGIN_URL);
                 }
             }
         }

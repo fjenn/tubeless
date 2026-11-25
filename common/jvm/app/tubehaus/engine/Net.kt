@@ -17,6 +17,14 @@ object Net {
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
+        // no ad requests ever leave the app: an ad call (Ads.isAdUrl) is answered here with an empty 204 and counted
+        .addInterceptor { chain ->
+            val req = chain.request()
+            if (!Ads.isAdUrl(req.url.toString())) return@addInterceptor chain.proceed(req)
+            Ads.refusedRequest()
+            okhttp3.Response.Builder().request(req).protocol(okhttp3.Protocol.HTTP_1_1).code(204).message("ad refused")
+                .body(ByteArray(0).toResponseBody(null)).build()
+        }
         // the connected TubeHaus server's login, on requests to the server only (its streams, captions)
         .addInterceptor { chain ->
             val req = chain.request()

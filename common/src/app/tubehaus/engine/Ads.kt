@@ -75,6 +75,34 @@ object Ads {
         for (k in listOf("videoId", "contentId")) for (x in e.findAll(k, emptySet())) x.str?.takeIf { it.length == 11 }?.let(::mark)
     }
 
+    // ---------------------------------------------------------------- ad requests (the network side)
+
+    /** hosts that only serve ads or ad measurement */
+    private val AD_HOSTS = listOf(
+        "doubleclick.net", "googleadservices.com", "googlesyndication.com", "googletagservices.com",
+        "imasdk.googleapis.com", "adservice.google.com", "pagead2.googlesyndication.com",
+    )
+
+    /** paths on youtube.com / google.com that are ad calls (ad pings, ad tracking, midroll info, active view) */
+    private val AD_PATHS = listOf("/pagead/", "/api/stats/ads", "/ptracking", "/get_midroll_info", "/pcs/activeview", "/youtubei/v1/player/ad_break", "/aclk")
+
+    /** whether [url] is an ad request: the app never sends one (the HTTP client refuses it and counts it) */
+    fun isAdUrl(url: String): Boolean {
+        val rest = url.substringAfter("://", url)
+        val host = rest.substringBefore('/').substringBefore('?').substringBefore(':').lowercase()
+        val path = "/" + rest.substringAfter('/', "")
+        return AD_HOSTS.any { host == it || host.endsWith(".$it") } ||
+            ((host.endsWith("youtube.com") || host.endsWith("google.com")) && AD_PATHS.any { path.startsWith(it) })
+    }
+
+    @Volatile private var refused = 0
+
+    /** ad requests something in the app tried to make and the HTTP client refused (the smoke tests' "0 ad requests") */
+    val requests: Int get() = refused
+
+    /** counts one refused ad request */
+    fun refusedRequest() { refused++ }
+
     private fun hasAny(e: JsonElement, keys: Set<String>): Boolean = when (e) {
         is JsonObject -> e.any { (k, v) -> k in keys || hasAny(v, keys) }
         is JsonArray -> e.any { hasAny(it, keys) }

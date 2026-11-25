@@ -65,7 +65,8 @@ import kotlinx.coroutines.launch
 fun PhoneTabBar(app: AppState, root: Screen?) {
     var more by remember { mutableStateOf(false) }
     // on Shorts the bar turns black with white icons, as YouTube's (the Short fills the screen above it)
-    val shorts = root == Screen.Shorts
+    // (the page in front, not the tab's root: Settings opened from Shorts has the usual bar, as on YouTube)
+    val shorts = app.current == Screen.Shorts
     val base = MaterialTheme.colorScheme
     val scheme = if (!shorts) base else base.copy(background = Color.Black, surface = Color.Black, onSurface = Color.White, outline = Color(0xFF3F3F3F))
     MaterialTheme(colorScheme = scheme) {
@@ -73,20 +74,31 @@ fun PhoneTabBar(app: AppState, root: Screen?) {
     // signed in: the You tab is the account's picture, as YouTube's
     val accounts by Accounts.state.collectAsState()
     val photo = accounts.sessions.firstOrNull { it.key == accounts.current }?.identity?.photo
-    Column(Modifier.fillMaxWidth().let { if (shorts) it.background(Color.Black) else it }.windowInsetsPadding(NavigationBarDefaults.windowInsets)) {
+    Column(Modifier.fillMaxWidth().background(if (shorts) Color.Black else base.surface).windowInsetsPadding(NavigationBarDefaults.windowInsets)) {
         HorizontalDivider(color = c.outline.copy(alpha = 0.6f), thickness = 0.5.dp)
         Row(Modifier.fillMaxWidth().height(52.dp), verticalAlignment = Alignment.CenterVertically) {
-            val subsLit = root == Screen.Subs
-            val homeLit = root == Screen.Home || (root is Screen.Topic && root.key in TOP_TOPICS)
-            PhoneTab(app, tr("Home"), Sym.Home, homeLit) { app.go(Screen.Home) }
-            if (!app.noShorts) PhoneTab(app, tr("Shorts"), Sym.Bolt, root == Screen.Shorts) { app.go(Screen.Shorts) }
+            // the lit tab: the newest page in the stack that belongs to one (Settings or Downloads opened from
+            // Shorts light You, not Shorts); pages of no tab (a channel, a search) keep the one they came from
+            val lit = app.stack.asReversed().firstNotNullOfOrNull { tabOf(it) } ?: root?.let(::tabOf)
+            PhoneTab(app, tr("Home"), Sym.Home, lit == Screen.Home) { app.go(Screen.Home) }
+            if (!app.noShorts) PhoneTab(app, tr("Shorts"), Sym.Bolt, lit == Screen.Shorts) { app.go(Screen.Shorts) }
             PlusTab { more = true }
-            PhoneTab(app, tr("Subscriptions"), Sym.Subscriptions, subsLit) { app.go(Screen.Subs) }
-            PhoneTab(app, tr("You"), Sym.Person, root == Screen.Library || root == Screen.Music, photo) { app.go(Screen.Library) }
+            PhoneTab(app, tr("Subscriptions"), Sym.Subscriptions, lit == Screen.Subs) { app.go(Screen.Subs) }
+            PhoneTab(app, tr("You"), Sym.Person, lit == Screen.Library, photo) { app.go(Screen.Library) }
         }
     }
     }
     if (more) QuickActions(app) { more = false }
+}
+
+/** the bottom-bar tab a page belongs to (Home, Shorts, Subs or Library = You), null for pages of no tab */
+private fun tabOf(s: Screen): Screen? = when (s) {
+    Screen.Home -> Screen.Home
+    is Screen.Topic -> if (s.key in TOP_TOPICS) Screen.Home else null
+    Screen.Shorts -> Screen.Shorts
+    Screen.Subs, Screen.ManageSubs -> Screen.Subs
+    Screen.Library, Screen.Music, Screen.Settings, is Screen.SettingsPage, Screen.Downloads, Screen.History, is Screen.Local, Screen.Learned, Screen.Stats -> Screen.Library
+    else -> null
 }
 
 @Composable

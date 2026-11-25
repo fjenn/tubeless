@@ -119,13 +119,25 @@ object YouTube {
         warmScope.launch { try { if (delayMs > 0) kotlinx.coroutines.delay(delayMs); if (Sabr.available) { h.warm(); runCatching { Sabr.prepare(WARM_ID) } } } finally { warming = false } }
     }
 
+    /**
+     * no connection at all: nothing else will get through either. A refusal YouTube sent (an HTTP status, e.g. 403 to
+     * one client from some networks) is that client's: the next one is asked (QA-CI: a 403 to VISIONOS on the
+     * Android emulator stopped the whole list, so nothing played).
+     */
+    private val YtError.offline get() = kind == YtError.Kind.NETWORK && http == 0
+
+    /** what the last video's clients answered when none played ("VISIONOS: YouTube answered 403", ...): the E2E log's play_error */
+    @Volatile var tries: List<String> = emptyList()
+    private fun tried(client: String, e: YtError) { tries = tries + "$client: ${e.message}" }
+
     /** From this device. Tries each player client until one gives playable URLs. */
     private suspend fun device(id: String): Stream {
+        tries = emptyList()
         // the front door first: the web player's own way (SABR, a real browser's token) once its page is up; it
         // starts in the background after the first video, so that one never waits for it
         if (Sabr.first && Sabr.warm) {
             // not a live stream: the usual clients' live playlists go back hours, live SABR keeps only the last minute
-            try { sabr(id).let { if (!it.live) return it } } catch (e: YtError) { if (e.kind == YtError.Kind.NETWORK) throw e; if (e.kind == YtError.Kind.OTHER || e.kind == YtError.Kind.LOGIN) Sabr.cool() }  // a video that isn't there (ended live, removed, private) says nothing about the page
+            try { sabr(id).let { if (!it.live) return it } } catch (e: YtError) { tried("SABR", e); if (e.offline) throw e; if (e.kind == YtError.Kind.OTHER || e.kind == YtError.Kind.LOGIN) Sabr.cool() }  // a video that isn't there (ended live, removed, private) says nothing about the page
             catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; Sabr.cool() }
         } else prewarm()
         var first: YtError? = null
@@ -135,8 +147,9 @@ object YouTube {
                 try {
                     return player(id, c)
                 } catch (e: YtError) {
+                    tried(c.name, e)
                     if (first == null || first.kind == YtError.Kind.LOGIN) first = e
-                    if (e.kind == YtError.Kind.NETWORK) throw e
+                    if (e.offline) throw e
                     if (e.kind != YtError.Kind.LOGIN) walled = false
                 }
             }
@@ -145,14 +158,14 @@ object YouTube {
             // the SABR host starts only once YouTube Kids refused too (S2): a video the usual clients or Kids play
             // never starts it (on a computer it is an in-process JS engine now, up in well under a second)
             if (attempt == 0 && first?.kind != YtError.Kind.AGE) {
-                try { return player(id, Clients.KIDS) } catch (e: YtError) { if (e.kind == YtError.Kind.NETWORK) throw e }
+                try { return player(id, Clients.KIDS) } catch (e: YtError) { tried("KIDS", e); if (e.offline) throw e }
             }
             // then SABR, YouTube's web player way with its own web token, before the TV client (whose links wait behind an ad)
             if (attempt == 0 && first?.kind != YtError.Kind.AGE && Sabr.available) {
-                try { return sabr(id) } catch (e: YtError) { if (e.kind == YtError.Kind.NETWORK) throw e } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e }
+                try { return sabr(id) } catch (e: YtError) { tried("SABR", e); if (e.offline) throw e } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e }
             }
             if (attempt == 0 && first?.kind != YtError.Kind.AGE && Cipher.available) {
-                try { return tv(id) } catch (e: YtError) { if (e.kind == YtError.Kind.NETWORK) throw e } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e }
+                try { return tv(id) } catch (e: YtError) { tried("TV", e); if (e.offline) throw e } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e }
             }
             // every client asked to sign in: the wall is on this visitor identity, so try a new one
             if (!walled || attempt == 1 || !InnerTube.reroll()) break
@@ -251,6 +264,7 @@ object YouTube {
             expiresAt = Sys.nowMs() / 1000 + (sd.at("expiresInSeconds").long ?: 18000),
             client = c.name,
             storyboard = d.at("storyboards.playerStoryboardSpecRenderer.spec").str,
+            loudnessDb = (d.at("playerConfig.audioConfig.loudnessDb") ?: d.at("playerConfig.audioConfig.perceptualLoudnessDb")).str?.toDoubleOrNull(),
         )
     }
 

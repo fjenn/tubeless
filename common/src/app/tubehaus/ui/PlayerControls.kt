@@ -1415,13 +1415,15 @@ internal fun ColumnScope.SettingsPages(app: AppState, pageState: androidx.compos
             for ((h, c) in more.entries.sortedByDescending { it.key }) Pick("${h}p", false, codecName(c)) { pb.playWithCodec(c, h); dismiss() }
             for (h in st.heights.sortedDescending()) Pick("${h}p", st.height == h, if (h > 1080) pb.stream?.video?.filter { it.height == h }?.map { it.codecFamily }?.distinct()?.singleOrNull()?.let(::codecName) ?: codecName(pb.codecNow()) else "") { player.setHeight(h); dismiss() }
         }
-        "a" -> for ((lang, name) in st.audioTracks) {
-            Pick(name, st.audioTrack == lang) { player.setAudioTrack(lang); dismiss() }
+        "a" -> {
+            PageTitle(tr("Audio track")) { page = "" }
+            for ((lang, name) in st.audioTracks) Pick(name, st.audioTrack == lang) { player.setAudioTrack(lang); dismiss() }
         }
         "s" -> SpeedPage(app, st) { page = "" }
         "c" -> {
             val caps = app.playback.stream?.captions ?: emptyList()
             val lang = app.store.settings.value.let { s -> s.captionLang.ifEmpty { s.lang.ifEmpty { "en" } } }
+            PageTitle(tr("Subtitles/CC")) { page = "" }
             Pick(tr("Off"), st.captions == null) {
                 player.setCaptions(null, null); app.store.settings.update { it.copy(captions = false) }; dismiss()
             }

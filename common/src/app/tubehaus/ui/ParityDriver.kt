@@ -125,6 +125,9 @@ fun ParityDriver(app: AppState) {
                         "wl-add" -> YouTube.search(arg, SearchOptions(type = 1)).items.filterIsInstance<Video>().filter { !it.short }.take(6)
                             .forEach { app.store.setInList("wl", it, true) }
                         "close" -> app.playback.close()
+                        // the smoke tests' closing numbers: ad requests refused by the HTTP client, ads left out of YouTube's answers
+                        "report" -> E2E.log("report", "adRequests" to Ads.requests, "adsLeftOut" to Ads.count, "screen" to app.current::class.simpleName,
+                            "saved" to app.offline.saved.value.items.size)
                         // signed-in checks (docs/BUILD-STATUS.md SIGNED), through the same Store calls the buttons make,
                         // so the account mirror sends them: "like <id> 1|0", "wl <id> 1|0", "pl-new <id> <title>", "pl-del <title>"
                         "like" -> app.store.setInList("likes", Video(arg.substringBefore(' '), ""), arg.substringAfter(' ', "1") == "1")

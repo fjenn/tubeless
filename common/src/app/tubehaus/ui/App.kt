@@ -76,6 +76,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -206,9 +207,19 @@ fun App(app: AppState) {
                             LocalCompact provides (app.platform.touch && maxWidth < 600.dp),
                             LocalDensity provides Density(d.density, d.fontScale * settings.textScale),
                         ) {
+                            // phones and tablets open straight on Home, as YouTube's app does: the device's language
+                            // (English when the app has no translation for it) and no import page (it stays in
+                            // Settings and You; signing in brings the subscriptions over)
+                            val skipFirstRun = app.platform.touch && !tv
+                            if (skipFirstRun && (settings.lang.isEmpty() || !settings.welcomed)) LaunchedEffect(Unit) {
+                                val device = app.platform.deviceLanguage().substringBefore('-').lowercase()
+                                app.store.settings.update { s ->
+                                    s.copy(lang = s.lang.ifEmpty { LANGS.firstOrNull { it.first == device }?.first ?: "en" }, welcomed = true)
+                                }
+                            }
                             when {
-                                settings.lang.isEmpty() -> LanguagePicker(app)
-                                !settings.welcomed && app.store.lib.value.subs.isEmpty() -> Welcome(app)
+                                settings.lang.isEmpty() -> if (skipFirstRun) Box(Modifier.fillMaxSize()) else LanguagePicker(app)
+                                !settings.welcomed && !skipFirstRun && app.store.lib.value.subs.isEmpty() -> Welcome(app)
                                 app.pip -> Box(Modifier.fillMaxSize().background(Color.Black)) {
                                     app.player.View(Modifier.fillMaxSize())
                                 }
@@ -301,7 +312,9 @@ private fun Shell(app: AppState) {
     var barPx by remember { mutableStateOf(0) }
     // a computer: the website's layout (masthead on every page, the guide, the mini guide)
     val web = webDesk(app)
-    val showTop = if (web) cur !is Screen.NowPlaying else cur !is Screen.Watch && cur !is Screen.Shorts && cur !is Screen.Search && cur !is Screen.NowPlaying
+    val showTop = if (web) cur !is Screen.NowPlaying else cur !is Screen.Watch && cur !is Screen.Shorts && cur !is Screen.Search && cur !is Screen.NowPlaying &&
+        // a phone's Settings has its own plain "← Settings" header, as YouTube's app
+        !(compact && (cur is Screen.Settings || cur is Screen.SettingsPage))
     // the watch page: the guide is a drawer over the page, opened from the masthead's menu button
     var drawer by remember { mutableStateOf(false) }
     LaunchedEffect(cur) { drawer = false }
@@ -366,7 +379,8 @@ private fun Shell(app: AppState) {
                 }
             }
         },
-        snackbarHost = { SnackbarHost(app.snackbar) },
+        // (on Shorts the notes show at the top instead: over the bar they covered the Short's title and channel)
+        snackbarHost = { if (cur !is Screen.Shorts) SnackbarHost(app.snackbar) },
     ) { pad ->
         Row(Modifier.fillMaxSize().padding(pad).let { if (autoHide) it.nestedScroll(navScroll) else it }) {
             // tablets: the side rail steps aside while watching, so the video gets the room
@@ -470,6 +484,7 @@ private fun Shell(app: AppState) {
         }
     }
     if (sheet && cur !is Screen.Shorts) WatchSheet(app, expanded = now is Screen.Watch, barPx = barPx)
+    if (cur is Screen.Shorts) SnackbarHost(app.snackbar, Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 52.dp))
     if (web && drawer) {
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { drawer = false })
         Surface(Modifier.width(240.dp).fillMaxHeight(), color = MaterialTheme.colorScheme.background, shadowElevation = 8.dp) {
@@ -712,7 +727,8 @@ private fun TopBar(app: AppState, onMenu: (() -> Unit)? = null, page: Screen = a
           }
         }
         // every device: Home, Subscriptions, Music, Live and More under the logo, on those pages themselves
-        if (depth == 1 && page.underHome() && !web) TopTabs(app)
+        // (not over a phone's Subscriptions: its own tab in the bottom bar, where "Home · Live · More" lit Home)
+        if (depth == 1 && page.underHome() && !web && !(LocalCompact.current && page == Screen.Subs)) TopTabs(app)
     }
 }
 

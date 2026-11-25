@@ -96,16 +96,30 @@ private fun CoroutineScope.run(app: AppState, block: suspend () -> Unit) = launc
 /** the sign-in in progress (its web view is open); Cancel in [SigningInDialog] stops it */
 private var signInJob: kotlinx.coroutines.Job? = null
 
+/** Sign in from outside the account menu (the first-start page) */
+fun startSignIn(app: AppState) = signIn(app, app.scope)
+
 private fun signIn(app: AppState, scope: CoroutineScope, add: Boolean = false) {
     // the website alone can't sign in: YouTube takes a signed-in call only with an Authorization header, which it
     // refuses to other sites (CORS preflight 403), and ignores the token anywhere else (tested 2026-11-24)
     if (app.platform.instant) { FullMode.ask(tr("Sign in")); return }
-    if (Accounts.launcher?.available != true) { importCookies(app, scope); return }
+    // no sign-in window in this build (the helper wasn't built or bundled): say why a file picker opens
+    if (Accounts.launcher?.available != true) {
+        app.toast(tr("This build has no sign-in window. Pick a cookies.txt exported from your browser."))
+        importCookies(app, scope); return
+    }
     // the app's own scope: the menu that started it closes at once (its scope would cancel the sign-in)
     signInJob = app.scope.run(app) {
-        if (Accounts.signIn(add) && Accounts.pending.value == null) Accounts.identity?.let { app.toast(tr("Signed in as {n}").replace("{n}", it.name)) }
+        if (Accounts.signIn(add) && Accounts.pending.value == null) {
+            // back on Home, as YouTube's app after a sign-in (Home reloads for the account: accountChanged)
+            if (app.platform.touch) app.go(Screen.Home)
+            Accounts.identity?.let { app.toast(tr("Signed in as {n}").replace("{n}", it.name)) }
+        }
     }
 }
+
+/** where a Sign in button can open Google's sign-in in the app (not the plain website) */
+fun canSignInHere(app: AppState) = !app.platform.instant && Accounts.launcher?.available == true
 
 private fun importCookies(app: AppState, scope: CoroutineScope) {
     app.platform.openTextFile { text ->
