@@ -31,15 +31,17 @@
         const p = document.createElement("span");
         p.textContent = text;
         el.append(p);
+        // the way to everything: the Tubeless bookmark (youtube.html); the app and the extension are on that page too
         if (actions) {
-          for (const [label, href] of [["Add the extension", LINKS.extension], ["Get the app", LINKS.app]]) {
+          for (const [label, href] of actions === true ? [["Add the bookmark", "youtube.html"]] : actions) {
             const a = document.createElement("a");
             a.textContent = label; a.href = href; a.target = "_blank"; a.rel = "noopener";
+            a.addEventListener("click", () => notice.closed?.(key));
             el.append(a);
           }
         }
         const x = document.createElement("button");
-        x.textContent = "×"; x.title = "Close"; x.onclick = () => notice.hide();
+        x.textContent = "×"; x.title = "Close"; x.onclick = () => { notice.closed?.(key); notice.hide(); };
         el.append(x);
         el.hidden = false;
       },
@@ -117,7 +119,7 @@ parent.postMessage({ k: "tl-ready", origin: self.origin }, "*");
       if (++health.fails < 2 || health.broken) return;
       health.broken = true;
       log("InnerTube refuses this page now; videos go to YouTube's embedded player");
-      notice.show("broken", "YouTube isn't answering this website right now, so videos play in YouTube's own player (ads possible). The extension and the app keep working.");
+      notice.show("broken", "YouTube isn't answering this website right now, so videos play in YouTube's own player (ads possible). The Tubeless bookmark on youtube.com keeps working.");
     },
   };
 
@@ -266,7 +268,7 @@ parent.postMessage({ k: "tl-ready", origin: self.origin }, "*");
         current = id;
         box.hidden = false;
         embed.place(...rect);
-        notice.show("embed", "This video plays in YouTube's own player, so ads are possible. The extension or the app plays it ad-free.");
+        notice.show("embed", "This video plays in YouTube's own player, so ads are possible. The Tubeless bookmark on youtube.com plays it ad-free.");
         const YT = await load();
         if (current !== id) return;
         if (yt) { autoplay ? yt.loadVideoById({ videoId: id, startSeconds: start }) : yt.cueVideoById({ videoId: id, startSeconds: start }); }
@@ -748,6 +750,14 @@ parent.postMessage({ k: "tl-ready", origin: self.origin }, "*");
       fetch("/__report", { method: "POST", body: JSON.stringify(st) }).catch(() => {});
     }, 1000 * +params.get("report"));
   }
+
+  // once per browser, a while after the start: where sign-in, HD downloads and the sound tools are (the bookmark)
+  const HINT = "tubeless.bookmarkHint";
+  const keep = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return "1"; } };
+  notice.closed = (key) => { if (key === "hint") keep(HINT, "1"); };
+  if (!keep(HINT) && !params.get("v") && !/HeadlessChrome/.test(navigator.userAgent)) setTimeout(() => {
+    if (!document.hidden && $("tubeless-notice").hidden) notice.show("hint", "Want your own YouTube account, HD downloads and voice boost? Add the free Tubeless bookmark.", [["Show me", "youtube.html"]]);
+  }, 25000);
 
   window.tubeless = { instant: true, net, fs, auth, fonts, player, sabr, dl, save, embed, bridge, health, notice, ready };
 })();

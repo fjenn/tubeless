@@ -21,5 +21,5 @@
   document.documentElement.appendChild(f);
   document.title = "Tubeless";
   // YouTube's own page underneath stops drawing and playing
-  setTimeout(function () { var a = document.querySelector("ytd-app, ytm-app, #page"); if (a) a.remove(); document.querySelectorAll("video,audio").forEach(function (v) { try { v.pause(); v.removeAttribute("src"); v.load(); } catch (e) {} }); }, 300);
+  setTimeout(function () { var a = document.querySelector("ytd-app, ytm-app, #page"); if (a) a.remove(); document.title = "Tubeless"; document.querySelectorAll("video,audio").forEach(function (v) { try { v.pause(); v.removeAttribute("src"); v.load(); } catch (e) {} }); }, 300);
 })();

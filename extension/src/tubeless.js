@@ -457,18 +457,33 @@
         try {
           while (len <= 0 || have < len) {
             const to = len > 0 ? Math.min(len - 1, have + CHUNK - 1) : have + CHUNK - 1;
-            const r = await fetch(url, { headers: { Range: `bytes=${have}-${to}` }, credentials: "omit" });
-            if (r.status !== 200 && r.status !== 206) return { status: r.status, have };
-            if (len <= 0) len = +(r.headers.get("Content-Range") || "").split("/").pop() || +r.headers.get("Content-Length") || 0;
-            const rd = r.body.getReader();
-            let got = 0;
-            for (;;) {
-              const { done, value } = await rd.read();
-              if (done) break;
-              await w.write(value);
-              got += value.length;
-              progress(have + got);
-            }
+            // a server that stops sending (seen: 1 MB in, then nothing for minutes) is dropped after 20 s of
+            // silence; the throw lands in OfflineWeb.fetch, which carries on from the bytes written
+            const ac = new AbortController();
+            let quiet;
+            const wake = () => { clearTimeout(quiet); quiet = setTimeout(() => ac.abort(new Error("no data for 20 s")), 20000); };
+            wake();
+            let got = 0, r;
+            try {
+              dl.last = { path, at: have, phase: "fetch", t: Date.now() };
+              r = await fetch(url, { headers: { Range: `bytes=${have}-${to}` }, credentials: "omit", signal: ac.signal });
+              if (r.status !== 200 && r.status !== 206) { console.log(`[tubeless] download ${path}: HTTP ${r.status} at ${have}`); return { status: r.status, have }; }
+              if (len <= 0) len = +(r.headers.get("Content-Range") || "").split("/").pop() || +r.headers.get("Content-Length") || 0;
+              const rd = r.body.getReader();
+              for (;;) {
+                wake();
+                dl.last = { path, at: have + got, phase: "read", t: Date.now() };
+                const { done, value } = await rd.read();
+                if (done) break;
+                dl.last.phase = "write";
+                await w.write(value);
+                got += value.length;
+                progress(have + got);
+              }
+            } catch (e) {
+              console.log(`[tubeless] download ${path} stopped at ${have + got} of ${len}: ${e && e.message}`);
+              throw e;
+            } finally { clearTimeout(quiet); }
             have += got;
             if (r.status === 200 || got === 0) break;
           }

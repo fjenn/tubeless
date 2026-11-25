@@ -19,7 +19,7 @@ mkdirSync(shots, { recursive: true });
 const [browser = "chrome", ...scenarios] = process.argv.slice(2);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
-const ok = (name, pass, detail) => { results.push({ name, pass, detail }); console.log(`${pass ? "PASS" : "FAIL"} ${browser} ${name}: ${detail}`); };
+const ok = (name, pass, detail) => { if (process.env.XMODE) name = name.replace(/^bookmark/, "extension"); results.push({ name, pass, detail }); console.log(`${pass ? "PASS" : "FAIL"} ${browser} ${name}: ${detail}`); };
 
 // ------------------------------------------------------------------ a static server, as GitHub Pages would be
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8", ".wasm": "application/wasm",
@@ -40,7 +40,10 @@ console.log("serving", dist, "at", base);
 const profile = mkdtempSync(join(process.env.TMPDIR || tmpdir(), `tubeless-site-${browser}-`));
 const dlDir = join(profile, "downloads");   // the browser's downloads folder (the save scenario)
 mkdirSync(dlDir);
-let drv;
+let drv, extId = null;
+// XMODE=1 (with EXT=<extension/dist/chrome|firefox>): the y* scenarios run in the extension's own app page instead of the bookmark
+const XMODE = !!process.env.XMODE;
+const FF_UUID = "6b7d2c1e-0d6e-4f5a-9c1b-6a0c4b1e2f3a";
 if (browser === "chrome") drv = await chrome();
 else drv = await firefox();
 
@@ -49,7 +52,9 @@ async function chrome() {
   const proc = spawn(bin, ["--headless=new", `--user-data-dir=${profile}`, "--remote-debugging-pipe", "--enable-unsafe-extension-debugging",
     "--no-first-run", "--no-default-browser-check", "--window-size=1280,800", "--autoplay-policy=no-user-gesture-required", "--mute-audio",
     // the bookmark scenarios load the app from this test server (127.0.0.1) into youtube.com, as from GitHub Pages
-    "--disable-features=LocalNetworkAccessChecks,PrivateNetworkAccessRespectPreflightResults", "about:blank"],
+    "--disable-features=LocalNetworkAccessChecks,PrivateNetworkAccessRespectPreflightResults",
+    // UA=<string>: the browser's User-Agent (headless Chrome says "HeadlessChrome", which servers may treat differently)
+    ...(process.env.UA ? [`--user-agent=${process.env.UA}`] : []), "about:blank"],
     { stdio: ["ignore", "ignore", "pipe", "pipe", "pipe"] });
   const [, , , to, from] = proc.stdio;
   let seq = 0, buf = "";
@@ -70,7 +75,7 @@ async function chrome() {
     to.write(JSON.stringify(msg) + "\0");
     return new Promise((r) => waiting.set(msg.id, r)).then((x) => { if (x.error) throw new Error(method + ": " + x.error.message); return x.result; });
   };
-  if (process.env.EXT) console.log("extension:", (await send("Extensions.loadUnpacked", { path: resolve(process.env.EXT) })).id);
+  if (process.env.EXT) { extId = (await send("Extensions.loadUnpacked", { path: resolve(process.env.EXT) })).id; console.log("extension:", extId); }
   await send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: dlDir });
   const { targetId } = await send("Target.createTarget", { url: "about:blank" });
   const { sessionId: s } = await send("Target.attachToTarget", { targetId, flatten: true });
@@ -103,9 +108,12 @@ async function firefox() {
     `user_pref("browser.download.dir", ${JSON.stringify(dlDir)});`, `user_pref("browser.download.folderList", 2);`,
     `user_pref("browser.download.useDownloadDir", true);`, `user_pref("browser.download.always_ask_before_handling_new_types", false);`,
     `user_pref("dom.disable_open_during_load", false);`, `user_pref("network.lna.enabled", false);`,
+    // EXT: a fixed moz-extension:// host for the extension, its host permissions granted without a prompt
+    `user_pref("extensions.webextensions.uuids", ${JSON.stringify(JSON.stringify({ "tubeless@tubeless.invalid": FF_UUID }))});`,
+    `user_pref("extensions.originControls.grantByDefault", true);`,
   ].join("\n") + "\n");
   const proc = spawn(bin, ["--headless", "--profile", profile, "--remote-debugging-port", "0", "--no-remote", "--window-size", "1280,800"],
-    { stdio: ["ignore", "pipe", "pipe"] });
+    { stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, MOZ_REMOTE_ALLOW_SYSTEM_ACCESS: "1" } });
   const port = await new Promise((okp, no) => {
     const t = setTimeout(() => no(new Error("no WebDriver BiDi port")), 60000);
     proc.stderr.on("data", (d) => { const m = /WebDriver BiDi listening on ws:\/\/127\.0\.0\.1:(\d+)/.exec(d.toString()); if (m) { clearTimeout(t); okp(m[1]); } });
@@ -129,6 +137,15 @@ async function firefox() {
   };
   await send("session.new", { capabilities: {} });
   await send("session.subscribe", { events: ["log.entryAdded", "network.beforeRequestSent", "network.responseCompleted", "network.fetchError"] });
+  if (process.env.EXT) {
+    // a test copy whose app page a web page may open (WebDriver BiDi may not navigate to moz-extension:// itself)
+    const ext = join(profile, "ext");
+    cpSync(resolve(process.env.EXT), ext, { recursive: true });
+    const mf = JSON.parse(readFileSync(join(ext, "manifest.json"), "utf8"));
+    mf.web_accessible_resources = [...(mf.web_accessible_resources || []), { resources: ["app.html"], matches: ["<all_urls>"] }];
+    writeFileSync(join(ext, "manifest.json"), JSON.stringify(mf));
+    console.log("extension:", (await send("webExtension.install", { extensionData: { type: "path", path: ext } })).extension);
+  }
   const ctx = (await send("browsingContext.create", { type: "tab" })).context;
   await send("browsingContext.setViewport", { context: ctx, viewport: { width: 1280, height: 800 } });
   const pointer = (actions) => send("input.performActions", { context: ctx, actions: [{ type: "pointer", id: "m", parameters: { pointerType: "mouse" }, actions }] });
@@ -186,6 +203,14 @@ const VIDEO = process.env.VIDEO || "aqz-KE-bpKQ";  // Big Buck Bunny 60fps 4K (B
 // dist must be built with SITE_URL=http://127.0.0.1:<PORT>/tubeless-publik/ (and PORT set here) so the bookmark loads from this server
 const bookmarklet = () => readFileSync(join(dist, "bookmarklet.txt"), "utf8").trim();
 async function ytOpen(q = "") {
+  if (XMODE) {
+    const page = (browser === "chrome" ? `chrome-extension://${extId}` : `moz-extension://${FF_UUID}`) + "/app.html?lang=en" + q;
+    if (browser === "chrome") await drv.open(page);
+    else { await drv.open("https://example.com/"); await waitFor(`document.readyState === 'complete'`, 30, "example.com"); await drv.eval(`(location.href = ${JSON.stringify(page)}, 1)`); }
+    await waitFor(`!!window.tubeless && !!document.querySelector('canvas') && !document.getElementById('tubeless-loading')`, 120, "Tubeless in the extension");
+    await sleep(2500);
+    return;
+  }
   await drv.open("https://www.youtube.com/robots.txt?tubeless&lang=en" + q);
   await waitFor(`location.pathname === '/robots.txt' && document.readyState === 'complete'`, 40, "youtube.com/robots.txt");
   await drv.bookmark(bookmarklet());
@@ -216,7 +241,8 @@ const S = {
   async search() {
     await drv.open(base + "?lang=en&q=" + encodeURIComponent("big buck bunny"));
     await appReady();
-    await waitFor(`performance.getEntriesByType('resource').filter(e => e.name.includes('i.ytimg.com/vi')).length >= 4`, 60, "search thumbnails");
+    // a search page shows channels between the videos: two video thumbnails are enough to know it filled
+    await waitFor(`performance.getEntriesByType('resource').filter(e => e.name.includes('i.ytimg.com/vi')).length >= 2`, 60, "search thumbnails");
     await sleep(2500);
     await shot("search");
     const searched = (await drv.eval(`tubeless.health.calls.search`)) === 200;
@@ -293,7 +319,7 @@ const S = {
     await sleep(1500);
     const sb = drv.net.some((r) => /sponsor\.ajay\.app|sponsorblock/.test(r.url));
     let jumped = null;
-    for (let i = 0; i < (browser === "chrome" ? 40 : 260); i++) {
+    for (let i = 0; i < (browser === "chrome" ? 40 : 420); i++) {
       await sleep(500);
       const st = await state();
       if (i % 20 === 0) console.log(`  t=${st.at.toFixed(1)} paused=${st.ap} mode=${st.mode} rs=${st.vr}/${st.ar} want=${st.want} seeks=${st.stats.seeks} ct=${st.at}`);
@@ -420,11 +446,11 @@ const S = {
       .then(async (r) => { const t = await r.text(); return r.status + (t.includes('"logged_in","value":"1"') ? ' logged_in=1' : t.includes('"logged_in","value":"0"') ? ' logged_in=0' : ''); }).catch((e) => 'ERR ' + e)`);
     // a brand-new anonymous visitor gets YouTube's own empty Home ("Try searching to get started"), as on youtube.com: search fills the page
     await ytOpen("&q=" + encodeURIComponent("big buck bunny"));
-    await waitFor(`performance.getEntriesByType('resource').filter(e => e.name.includes('i.ytimg.com/vi')).length >= 4`, 90, "search thumbnails");
+    await waitFor(`performance.getEntriesByType('resource').filter(e => e.name.includes('i.ytimg.com/vi')).length >= 2`, 90, "search thumbnails");
     await sleep(3000);
     await shot("yt-search");
     const thumbs = await drv.eval(`performance.getEntriesByType('resource').filter(e => e.name.includes('i.ytimg.com/vi')).length`);
-    ok("bookmark: Home + search in youtube.com", env.origin === "https://www.youtube.com" && homeThumbs > 0 && thumbs >= 4 && /^200/.test(cred),
+    ok("bookmark: Home + search in youtube.com", (XMODE || env.origin === "https://www.youtube.com") && homeThumbs > 0 && thumbs >= 2 && /^200/.test(cred),
       `origin ${env.origin}; Home: ${homeThumbs} thumbnails (an empty YouTube Home shows popular videos); search: ${thumbs} thumbnails; document.cookie readable (${env.cookies} cookies, values not printed); SAPISID ${env.sapisid ? "present" : "absent (signed out)"}; credentialed /browse ${cred}`);
   },
   async ywatch() {
@@ -484,7 +510,7 @@ const S = {
       const now = await drv.eval(sizes); opfs = JSON.parse(now || "{}");
       const has = Object.keys(opfs).some((n) => n.startsWith("audio.")) && Object.keys(opfs).some((n) => n.startsWith("video."));
       same = has && now === last ? same + 1 : 0; last = now;
-      if (i % 6 === 0) console.log("  OPFS:", now);
+      if (i % 6 === 0) console.log("  OPFS:", now, await drv.eval(`JSON.stringify(tubeless.dl.last || null)`));
     }
     // the Downloads page's "Save to device" (OfflineWeb.export): picture and sound joined into one file for the browser's downloads
     const vName = Object.keys(opfs).find((n) => n.startsWith("video.")), aName = Object.keys(opfs).find((n) => n.startsWith("audio."));

@@ -569,7 +569,8 @@ private fun SavedRow(app: AppState, s: SavedVideo, all: List<Video>, onNote: (St
             IconButton(onClick = { menu = true }) { Icon(Sym.MoreVert.outline, null) }
             DropdownMenu(menu, onDismissRequest = { menu = false }) {
                 DropdownMenuItem(text = { Text(tr("Remove download")) }, onClick = { menu = false; app.offline.remove(s.id) })
-                if (app.platform.canPickFolder) DropdownMenuItem(text = { Text(tr("Save as one file")) }, onClick = {
+                // the web: the joined file goes to the browser's own downloads (OfflineWeb.export)
+                if (app.platform.canPickFolder || app.platform.name == "web") DropdownMenuItem(text = { Text(tr("Save as one file")) }, onClick = {
                     menu = false
                     onNote(tr("Saving as one file..."))
                     app.offline.export(s.id) { p -> onNote(if (p != null) tr("Saved: ") + p else tr("Couldn't put it into one file.")) }

@@ -36,6 +36,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -103,6 +104,9 @@ private fun signIn(app: AppState, scope: CoroutineScope, add: Boolean = false) {
     // the website alone can't sign in: YouTube takes a signed-in call only with an Authorization header, which it
     // refuses to other sites (CORS preflight 403), and ignores the token anywhere else (tested 2026-11-24)
     if (app.platform.instant) { FullMode.ask(tr("Sign in")); return }
+    // the extension and Tubeless on youtube.com use the browser's own YouTube session: sign in there, as on youtube.com;
+    // the app notices the new session by itself (WebAuth.watch)
+    if (app.platform.name == "web") { app.platform.openExternal("https://accounts.google.com/ServiceLogin?service=youtube&continue=https://www.youtube.com/"); return }
     // no sign-in window in this build (the helper wasn't built or bundled): say why a file picker opens
     if (Accounts.launcher?.available != true) {
         app.toast(tr("This build has no sign-in window. Pick a cookies.txt exported from your browser."))
@@ -206,6 +210,8 @@ fun AccountButton(app: AppState) {
     val id = data.sessions.firstOrNull { it.key == data.current }?.identity
     // app.account changes on every sign-in and sign-out (the browser's and the code's sessions are no Compose state)
     val browser = app.account >= 0 && Accounts.browserSession
+    val browserId by Accounts.browserIdentity.collectAsState()
+    LaunchedEffect(browser, app.account) { if (browser && id == null && !Accounts.tokenSession) runCatching { Accounts.loadBrowserIdentity() } }
     if (Parity.on("acctmenu") && !open) androidx.compose.runtime.LaunchedEffect(Unit) { open = true; Parity.flags.remove("acctmenu") }
     pending?.let { ChannelPicker(app, it) }
     val inApp by Accounts.signInScreen.collectAsState()
@@ -215,7 +221,7 @@ fun AccountButton(app: AppState) {
         when {
             busy -> CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
             id != null -> Box(Modifier.clip(CircleShape).clickable { open = true }.padding(4.dp)) { Avatar(id.photo, id.name, 30.dp) }
-            browser -> Box(Modifier.clip(CircleShape).clickable { open = true }.padding(4.dp)) { Avatar(null, "Y", 30.dp) }
+            browser -> Box(Modifier.clip(CircleShape).clickable { open = true }.padding(4.dp)) { Avatar(browserId?.photo, browserId?.name ?: "Y", 30.dp) }
             // a phone's top bar has no room for the pill (it wrapped to "Sig / n in"): the person icon alone, as YouTube's app
             app.platform.touch -> Box(Modifier.size(40.dp).clip(CircleShape).clickable { signIn(app, scope) }, contentAlignment = Alignment.Center) {
                 Icon(Sym.Person.outline, tr("Sign in"), Modifier.size(24.dp), tint = accent)
@@ -244,7 +250,8 @@ fun AccountButton(app: AppState) {
 private fun AccountMenu(app: AppState, sessions: List<Session>, current: String?, close: () -> Unit) {
     val scope = rememberCoroutineScope()
     val s = sessions.firstOrNull { it.key == current }
-    val id = s?.identity
+    // the browser's own session (extension, Tubeless on youtube.com): its name and picture from YouTube
+    val id = s?.identity ?: Accounts.browserIdentity.collectAsState().value?.takeIf { s == null && Accounts.browserSession && !Accounts.tokenSession }
     Column(Modifier.widthIn(min = 260.dp, max = 340.dp)) {
         if (id != null) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -387,7 +394,11 @@ fun YouHeader(app: AppState) {
     val busy by Accounts.busy.collectAsState()
     val scope = rememberCoroutineScope()
     val s = data.sessions.firstOrNull { it.key == data.current }
-    val id = s?.identity
+    // the browser's own YouTube session (the extension, Tubeless on youtube.com): its name and picture from YouTube
+    val browser = s == null && app.account >= 0 && Accounts.browserSession && !Accounts.tokenSession
+    val browserId by Accounts.browserIdentity.collectAsState()
+    LaunchedEffect(browser, app.account) { if (browser) runCatching { Accounts.loadBrowserIdentity() } }
+    val id = s?.identity ?: browserId?.takeIf { browser }
     val c = MaterialTheme.colorScheme
     if (id == null && !(app.account >= 0 && Accounts.browserSession)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -423,6 +434,12 @@ fun YouHeader(app: AppState) {
     }
     var menu by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (browser) {
+            // signed in by the browser itself: switching and the account live on YouTube and Google, as there
+            YouPill(Sym.Person, tr("Switch account")) { app.platform.openExternal("https://www.youtube.com/channel_switcher") }
+            YouPill(Sym.Settings, tr("Google Account")) { app.platform.openExternal("https://myaccount.google.com/") }
+            return@Row
+        }
         Box {
             YouPill(Sym.Person, tr("Switch account")) { menu = true }
             DropdownMenu(menu, { menu = false }) { AccountMenu(app, data.sessions, data.current) { menu = false } }

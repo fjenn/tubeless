@@ -35,7 +35,7 @@ internal object PerkSettings {
                 if (Perks.fx?.canVoice == true) PerkToggle(tr("Voice boost"), tr("Speech stands out from music and noise"), Perks.prefs.voiceBoost) { b -> Perks.update { it.copy(voiceBoost = b) } }
             },
             SettingsSections.Row("stable volume voice boost sound app extension") { app ->
-                if (app.platform.instant) FullModeRow(tr("Stable volume and voice boost"), tr("With Tubeless on youtube.com, the extension or the app"))
+                if (app.platform.instant) FullModeRow(tr("Stable volume and voice boost"), tr("Comes with the Tubeless bookmark on youtube.com"))
             },
             SettingsSections.Row("auto speed words") { app ->
                 PerkToggle(tr("Auto speed"), tr("The speed follows how fast people speak (videos with captions)"), Perks.prefs.autoSpeed) { b -> AutoSpeed.set(app, b) }

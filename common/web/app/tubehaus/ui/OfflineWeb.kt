@@ -295,6 +295,12 @@ class Offline(private val app: AppState) {
                 have = jsSize(path).await<JsNumber>().toDouble().toLong()
                 if (++failures > 8) throw okio.IOException(e.message ?: "network error")
                 delay(1000L * failures * failures)
+                // the same link failing again: often googlevideo moving it to another server, which a page may not
+                // follow (the redirect's Origin turns "null", refused by CORS; youtube.com page, 2026-11-25), or a
+                // server that stopped sending: a fresh link from a new player answer goes to another server
+                if (failures >= 2 && renewed < 5) {
+                    runCatching { YouTube.stream(id).let { s -> (s.video + s.audio).firstOrNull { it.itag == f.itag }?.url } }.getOrNull()?.let { url = it; renewed++ }
+                }
                 continue
             }
             val status = jsStatus(r)

@@ -54,6 +54,8 @@ fun main() {
             if (!state.store.settings.value.welcomed) state.store.settings.update { it.copy(welcomed = true) }
         } else {
             WebAuth.onChange = { state.accountChanged() }
+            // the top bar's account button, as on youtube.com: the account's picture, or Sign in (Google's page)
+            app.tubehaus.ui.TopBarSlots.account = { app.tubehaus.ui.AccountButton(it) }
             WebAuth.watch()
             WebAuth.refresh()
             WebSettings.register(state)

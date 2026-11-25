@@ -3,67 +3,104 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Tubeless on youtube.com</title>
-<meta name="description" content="One bookmark: Tubeless runs inside youtube.com with your YouTube account, HD downloads and sound effects. No extension.">
+<meta name="description" content="One bookmark turns youtube.com into Tubeless: your own account, no ads, HD downloads, voice boost. Nothing to install.">
 <meta name="theme-color" content="#0f0f0f">
 <meta name="referrer" content="no-referrer">
 <link rel="icon" href="icon-128.png">
 <style>
   :root { color-scheme: dark; }
   html, body { margin: 0; background: #0f0f0f; color: #f1f1f1; font: 15px/1.55 Roboto, system-ui, -apple-system, sans-serif; }
-  main { max-width: 680px; margin: 0 auto; padding: 32px 16px 64px; }
-  h1 { font-size: 26px; margin: 8px 0 4px; } h2 { font-size: 17px; margin: 28px 0 6px; }
-  p, li { color: #d0d0d0; } a { color: #3ea6ff; text-decoration: none; }
-  .mark { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 20px; background: #f1f1f1; color: #0f0f0f;
-    font-weight: 600; cursor: grab; user-select: none; }
+  main { max-width: 640px; margin: 0 auto; padding: 28px 16px 64px; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 18px 0 6px; } h2 { font-size: 17px; margin: 0 0 10px; }
+  p, li { color: #d0d0d0; } a { color: #3ea6ff; text-decoration: none; } b { color: #f1f1f1; }
+  .lead { font-size: 16px; margin: 0 0 18px; }
+  .perks { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 0 0 24px; list-style: none; }
+  .perks li { background: #272727; color: #f1f1f1; border-radius: 8px; padding: 4px 10px; font-size: 13px; }
+  .card { background: #1a1a1a; border-radius: 14px; padding: 18px 18px 6px; margin: 16px 0; }
+  .card[hidden] { display: none; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 16px; }
+  .n { flex: none; width: 26px; height: 26px; border-radius: 13px; background: #f1f1f1; color: #0f0f0f; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .step > div { flex: 1; min-width: 0; }
+  .step p { margin: 2px 0 8px; }
+  .mark { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 20px; background: #f1f1f1; color: #0f0f0f;
+    font-weight: 600; cursor: grab; user-select: none; box-shadow: 0 0 0 4px rgba(62,166,255,.35); }
   .mark img { width: 20px; height: 20px; }
-  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 16px 0; }
-  button { font: inherit; background: #272727; color: #f1f1f1; border: 0; border-radius: 18px; padding: 8px 16px; cursor: pointer; }
-  textarea { width: 100%; box-sizing: border-box; height: 72px; background: #1f1f1f; color: #aaa; border: 1px solid #333; border-radius: 8px; font: 12px ui-monospace, monospace; }
+  .go { display: inline-block; padding: 10px 20px; border-radius: 20px; background: #3ea6ff; color: #0f0f0f; font-weight: 600; }
+  button { font: inherit; background: #f1f1f1; color: #0f0f0f; font-weight: 600; border: 0; border-radius: 20px; padding: 10px 20px; cursor: pointer; }
   .note { font-size: 13px; color: #aaa; }
-  ol { padding-left: 22px; }
+  .hint { font-size: 13px; color: #ffb74d; min-height: 1em; margin: 6px 0 0; }
+  kbd { font: 12px ui-monospace, monospace; background: #333; border-radius: 4px; padding: 1px 5px; color: #f1f1f1; }
+  details { margin: 18px 0; } summary { cursor: pointer; color: #3ea6ff; }
+  textarea { width: 100%; box-sizing: border-box; height: 64px; background: #1f1f1f; color: #aaa; border: 1px solid #333; border-radius: 8px; font: 12px ui-monospace, monospace; }
 </style>
 <main>
   <a href="./">&larr; Tubeless</a>
-  <h1>Tubeless on youtube.com</h1>
-  <p>One bookmark, no extension. Open youtube.com, press the bookmark, and that tab becomes Tubeless: with your own YouTube account,
-    HD and 4K downloads, stable volume and voice boost. It runs in your browser as part of youtube.com; nothing goes through us.</p>
+  <h1>Everything Tubeless can do, on youtube.com</h1>
+  <p class="lead">Add one bookmark. Press it on youtube.com and the page becomes Tubeless, signed in with your own YouTube account. Nothing to install.</p>
+  <ul class="perks"><li>Your Home, subscriptions and playlists</li><li>No ads</li><li>HD and 4K</li><li>Downloads in HD</li><li>Stable volume</li><li>Voice boost</li><li>SponsorBlock</li><li>Background play</li><li>Picture-in-picture</li></ul>
 
-  <h2>Computer: Chrome, Edge, Firefox, Brave</h2>
-  <ol>
-    <li>Show the bookmarks bar (<b>Ctrl+Shift+B</b>, on a Mac <b>&#8984;+Shift+B</b>).</li>
-    <li>Drag this button onto it:</li>
-  </ol>
-  <div class="row"><a class="mark" id="mark" href="#" title="Drag me to your bookmarks bar"><img src="icon-128.png" alt="">Tubeless</a>
-    <span class="note">(Clicking it here does nothing: it works on youtube.com.)</span></div>
-  <ol start="3">
-    <li>Open <a href="https://www.youtube.com/">youtube.com</a> and press <b>Tubeless</b> in the bookmarks bar. Use it again on each visit; your library and downloads stay.</li>
-  </ol>
+  <!-- Computers: Chrome, Edge, Brave, Firefox (shown first there) -->
+  <section class="card" id="desktop">
+    <h2>On a computer</h2>
+    <div class="step"><span class="n">1</span><div>
+      <p>Drag this button to your bookmarks bar<span id="barkey"></span>:</p>
+      <p><a class="mark" id="mark" href="#" title="Drag me to your bookmarks bar"><img src="icon-128.png" alt="">Tubeless</a></p>
+      <p class="hint" id="clickhint" role="status"></p>
+    </div></div>
+    <div class="step"><span class="n">2</span><div>
+      <p>Open YouTube and press <b>Tubeless</b> in the bookmarks bar. Do it on every visit; your downloads and settings stay.</p>
+      <p><a class="go" href="https://www.youtube.com/">Open YouTube</a></p>
+    </div></div>
+  </section>
 
-  <h2>Safari (Mac, iPhone, iPad) and phones</h2>
-  <ol>
-    <li><button id="copy">Copy the bookmark</button> <span class="note" id="copied"></span></li>
-    <li>Bookmark this page (Share &rarr; Add Bookmark, or &#8984;D), name it <b>Tubeless</b>.</li>
-    <li>Edit that bookmark (Bookmarks &rarr; Edit) and paste the copied text as its address.</li>
-    <li>Open <a href="https://www.youtube.com/robots.txt?tubeless">www.youtube.com/robots.txt?tubeless</a> (a plain youtube.com page; bookmark it too),
-      then open the <b>Tubeless</b> bookmark. On a phone: tap the address bar, type <b>Tubeless</b> and tap the bookmark.</li>
-  </ol>
-  <p class="note">Why that page: Safari doesn't let bookmarks run on youtube.com's normal pages, only on pages like this one. Chrome and Firefox
-    run it anywhere on www.youtube.com; from any other site it first takes you to that page (press it once more there).</p>
-  <textarea id="code" readonly aria-label="The bookmark's address"></textarea>
+  <!-- Safari (Mac, iPhone, iPad) and phones: bookmarks can't be dragged there -->
+  <section class="card" id="phone">
+    <h2>Safari, iPhone, iPad and Android</h2>
+    <div class="step"><span class="n">1</span><div>
+      <p><button id="copy">Copy the bookmark</button></p>
+      <p class="hint" id="copied" role="status"></p>
+    </div></div>
+    <div class="step"><span class="n">2</span><div>
+      <p>Bookmark this page (Share &rarr; <b>Add Bookmark</b>, or <kbd>&#8984;D</kbd>) and call it <b>Tubeless</b>.
+        Then edit that bookmark and paste over its address.</p>
+    </div></div>
+    <div class="step"><span class="n">3</span><div>
+      <p>Open the YouTube page below, then your <b>Tubeless</b> bookmark. On a phone: tap the address bar, type <b>Tubeless</b>, tap the bookmark.</p>
+      <p><a class="go" href="https://www.youtube.com/robots.txt?tubeless">Open YouTube for Tubeless</a></p>
+      <p class="note">Safari only lets bookmarks run on simple youtube.com pages like this one. Bookmark it too, so it's one tap next time.</p>
+    </div></div>
+  </section>
 
-  <h2>What it can see</h2>
-  <p class="note">The bookmark loads Tubeless from this site into youtube.com. Like youtube.com itself, it uses your YouTube sign-in in this browser to show your
-    Home, subscriptions and library (turn it on in Settings &rarr; Account). Nothing is sent anywhere but YouTube and the services the app already uses
-    (SponsorBlock, Return YouTube Dislike). The source is public.</p>
+  <details>
+    <summary>The bookmark's address</summary>
+    <textarea id="code" readonly aria-label="The bookmark's address"></textarea>
+  </details>
+
+  <h2>Good to know</h2>
+  <p class="note">Tubeless runs inside youtube.com in your own browser and uses the YouTube account you're signed in with there, like
+    youtube.com itself. Nothing goes through us: only YouTube and the services the app already uses (SponsorBlock, Return YouTube Dislike).
+    It loads the newest Tubeless each time, so the bookmark never needs updating. To use it signed out, turn off
+    Settings &rarr; Account &rarr; "Use my youtube.com sign-in". The source is public.</p>
+  <p class="note">Prefer an app? <a href="https://github.com/fjenn/tubeless-publik/releases">The Tubeless app and the browser extension</a> do the same.</p>
 </main>
 <script>
   const code = "__BOOKMARKLET__";
-  document.getElementById("mark").href = code;
-  document.getElementById("mark").addEventListener("click", (e) => { e.preventDefault(); });
-  document.getElementById("code").value = code;
-  document.getElementById("copy").onclick = async () => {
-    try { await navigator.clipboard.writeText(code); document.getElementById("copied").textContent = "Copied."; }
-    catch (e) { const t = document.getElementById("code"); t.select(); document.execCommand("copy"); document.getElementById("copied").textContent = "Copied."; }
+  const $ = (id) => document.getElementById(id);
+  $("mark").href = code;
+  $("code").value = code;
+  // clicking the button here can't do anything (it runs on youtube.com): say what to do instead
+  $("mark").addEventListener("click", (e) => { e.preventDefault(); $("clickhint").textContent = "Drag it, don't click it: hold it, move it onto the bookmarks bar and let go."; });
+  const ua = navigator.userAgent, mac = /Mac/.test(navigator.platform || ua);
+  const mobile = /iPhone|iPad|Android|Mobile/.test(ua) || (mac && navigator.maxTouchPoints > 1);
+  const safari = /Safari\//.test(ua) && !/Chrome|Chromium|Edg|Firefox|FxiOS|CriOS/.test(ua);
+  $("barkey").innerHTML = mac ? " (no bar? press <kbd>&#8984;</kbd><kbd>Shift</kbd><kbd>B</kbd>)" : " (no bar? press <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>B</kbd>)";
+  // what fits this browser comes first
+  if (mobile || safari) $("desktop").before($("phone"));
+  if (mobile) $("desktop").hidden = true;
+  $("copy").onclick = async () => {
+    try { await navigator.clipboard.writeText(code); }
+    catch (e) { const t = $("code"); t.closest("details").open = true; t.select(); document.execCommand("copy"); }
+    $("copied").textContent = "Copied. Now step 2.";
   };
 </script>
 </html>

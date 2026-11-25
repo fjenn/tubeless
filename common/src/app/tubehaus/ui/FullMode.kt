@@ -38,24 +38,28 @@ object FullMode {
     fun ask(feature: String) { asking = feature }
 }
 
-/** the prompt itself; shown from App while [FullMode.asking] is set */
+/** the prompt itself; shown from App while [FullMode.asking] is set. One clear way on (the bookmark), the others small. */
 @Composable
 fun FullModeDialog(app: AppState, feature: String, close: () -> Unit) {
     AlertDialog(
         onDismissRequest = close,
         title = { Text(feature) },
         text = {
-            Text(
-                tr("This needs Tubeless on youtube.com (one bookmark, nothing to install), the browser extension or the Tubeless app. This website plays videos without them, but your browser keeps it from signing in, saving videos in HD or changing the sound."),
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            Column {
+                Text(
+                    tr("Get this and everything else with one bookmark: Tubeless on youtube.com, signed in with your YouTube account, HD downloads, stable volume and voice boost. Nothing to install."),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    tr("Or use the Tubeless app or the browser extension."),
+                    style = MaterialTheme.typography.bodySmall.copy(textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 12.dp).clickable { app.platform.openExternal(FullMode.APP_URL); close() },
+                )
+            }
         },
         confirmButton = {
-            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End) {
-                TextButton(onClick = { app.platform.openExternal(FullMode.BOOKMARK_URL); close() }) { Text(tr("Use on youtube.com")) }
-                TextButton(onClick = { app.platform.openExternal(FullMode.EXTENSION_URL); close() }) { Text(tr("Add the extension")) }
-                TextButton(onClick = { app.platform.openExternal(FullMode.APP_URL); close() }) { Text(tr("Get the app")) }
-            }
+            androidx.compose.material3.Button(onClick = { app.platform.openExternal(FullMode.BOOKMARK_URL); close() }) { Text(tr("Add the bookmark")) }
         },
         dismissButton = { TextButton(onClick = close) { Text(tr("Not now")) } },
     )
@@ -94,7 +98,7 @@ fun WebSaveDialog(app: AppState, v: Video, close: () -> Unit) {
                     state == "saved" -> tr("Saving to your browser's downloads (360p MP4, picture and sound).")
                     state == "tab" -> tr("The video opened in a new tab. Save it from there: in Chrome with ⋮ → Download, in Firefox with right-click → Save Video As.")
                     state.startsWith("error:") -> tr("This video can't be saved from the website.") + " " + state.removePrefix("error:")
-                    else -> tr("The website saves videos at 360p, picture and sound in one MP4, into your browser's downloads. Tubeless on youtube.com (one bookmark), the extension and the app save up to 4K.")
+                    else -> tr("This website saves videos at 360p. For HD and 4K, add the Tubeless bookmark and download on youtube.com.")
                 },
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -102,7 +106,7 @@ fun WebSaveDialog(app: AppState, v: Video, close: () -> Unit) {
         confirmButton = {
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End) {
                 if (state == "" || state == "busy") {
-                    TextButton(onClick = { app.platform.openExternal(FullMode.BOOKMARK_URL); close() }) { Text(tr("HD on youtube.com")) }
+                    TextButton(onClick = { app.platform.openExternal(FullMode.BOOKMARK_URL); close() }) { Text(tr("Get HD")) }
                     TextButton(enabled = state == "", onClick = { state = "busy"; app.platform.webSave(v.id, v.title) { state = it } }) { Text(tr("Save 360p")) }
                 } else TextButton(onClick = close) { Text(tr("Done")) }
             }

@@ -1,9 +1,6 @@
 package app.tubeless.web
 
-import app.tubehaus.engine.InnerTube
-import app.tubehaus.engine.Sys
 import kotlinx.coroutines.await
-import okio.ByteString.Companion.encodeUtf8
 import kotlin.js.Promise
 
 /**
@@ -29,22 +26,13 @@ object WebAuth {
 
     fun apply() {
         val now = on && browserSignedIn
-        InnerTube.authHeaders = if (now) ::headers else null
+        // through Accounts, so the shared UI (You header, menus) knows it is signed in; same SAPISIDHASH headers
+        app.tubehaus.engine.Accounts.useBrowserSession(if (now) ({ jsSapisid() }) else null)
         if (now != applied) { applied = now; onChange?.invoke() }
     }
 
     /** the browser's youtube.com cookies changed (signed in or out there) */
     fun watch() = jsOnCookies { apply() }
-
-    private fun headers(origin: String): Map<String, String> {
-        val sapisid = jsSapisid() ?: return emptyMap()
-        val ts = Sys.nowMs() / 1000
-        return mapOf(
-            "Authorization" to "SAPISIDHASH ${ts}_${"$ts $sapisid $origin".encodeUtf8().sha1().hex()}",
-            "X-Goog-AuthUser" to "0",
-            "X-Origin" to origin,
-        )
-    }
 
     fun openSignIn() = jsOpenSignIn()
 }

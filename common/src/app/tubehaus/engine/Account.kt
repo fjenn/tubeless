@@ -429,6 +429,17 @@ object Accounts {
 
     fun browserCookiesChanged() = activate()
 
+    /** the browser session's own name, @handle and picture (account/accounts_list), for the You header and the menu */
+    private val _browserIdentity = MutableStateFlow<Identity?>(null)
+    val browserIdentity: StateFlow<Identity?> = _browserIdentity
+
+    suspend fun loadBrowserIdentity() {
+        if (browserSapisid?.invoke() == null || tokenSession) { _browserIdentity.value = null; return }
+        val d = InnerTube.call("account/accounts_list", mapOf(
+            "requestType" to "ACCOUNTS_LIST_REQUEST_TYPE_CHANNEL_SWITCHER", "callCircumstance" to "SWITCHING_USERS_FULL"), auth = true)
+        _browserIdentity.value = parseAccountsList(d).let { l -> l.firstOrNull { it.selected } ?: l.firstOrNull() }
+    }
+
     private fun browserHeaders(origin: String): Map<String, String> {
         token?.let { t -> return t()?.let { mapOf("Authorization" to "Bearer $it") } ?: emptyMap() }
         val sid = browserSapisid?.invoke() ?: return emptyMap()
