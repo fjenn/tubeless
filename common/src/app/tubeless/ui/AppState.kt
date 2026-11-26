@@ -122,9 +122,8 @@ class AppState(val platform: Platform, val store: Store) {
             Remote.refreshClients()
             val os = Sys.osName()
             // Linux: the release page, to pick deb/rpm/tar.gz
-            // macOS: the Apple Silicon or the Intel build, whichever this Mac runs
-            val mac = if (Sys.osArch() == "aarch64") "-mac-arm64.dmg" else "-mac-x64.dmg"
-            val desktopFile = when { os.startsWith("Windows") -> ".msi"; os.startsWith("Mac") -> mac; else -> null }
+            // macOS: the universal DMG (Apple silicon + Intel, since 1.0.1)
+            val desktopFile = when { os.startsWith("Windows") -> ".msi"; os.startsWith("Mac") -> "-mac-universal.dmg"; else -> null }
             // one release per version (v*) carries every platform's file
             // Android: the APK signed with the same key as this one, or the system refuses it
             // ("App not installed"): Tubeless-release-*.apk for the release key, Tubeless-*.apk otherwise

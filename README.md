@@ -11,10 +11,9 @@ Home feed, subscriptions, history, Watch later, playlists and notifications, or 
 a local library. Ads are left out (in videos, lists and Shorts), sponsor segments are skipped, and
 background play, picture-in-picture and offline downloads work on every platform.
 
-**Download:** [macOS (Apple silicon)](https://github.com/fjenn/tubeless/releases/latest/download/Tubeless-1.0.0-mac-arm64.dmg) ·
-[macOS (Intel)](https://github.com/fjenn/tubeless/releases/latest/download/Tubeless-1.0.0-mac-x64.dmg) ·
-[Linux AppImage](https://github.com/fjenn/tubeless/releases/latest/download/Tubeless-1.0.0-linux-x86_64.AppImage) ·
-[Linux .deb](https://github.com/fjenn/tubeless/releases/latest/download/Tubeless-1.0.0-linux-amd64.deb) ·
+**Download:** [macOS (Apple silicon and Intel)](https://github.com/fjenn/tubeless/releases/latest/download/Tubeless-mac-universal.dmg) ·
+[Linux AppImage](https://github.com/fjenn/tubeless/releases/latest/download/Tubeless-1.0.1-linux-x86_64.AppImage) ·
+[Linux .deb](https://github.com/fjenn/tubeless/releases/latest/download/Tubeless-1.0.1-linux-amd64.deb) ·
 [all files](https://github.com/fjenn/tubeless/releases/latest)
 
 **Try it in your browser, nothing to install:** <https://fjenn.github.io/tubeless/> (Instant mode:
@@ -57,7 +56,7 @@ Release files come from [`.github/workflows/release.yml`](.github/workflows/rele
 published on the [Releases](https://github.com/fjenn/tubeless/releases) page. The app tells you when a
 new version is out; it never installs anything by itself.
 
-**Linux:** `sudo apt install ./Tubeless-1.0.0-linux-amd64.deb` (pulls in libmpv), or make the AppImage
+**Linux:** `sudo apt install ./Tubeless-1.0.1-linux-amd64.deb` (pulls in libmpv), or make the AppImage
 executable (`chmod +x`) and run it.
 
 ## Build

@@ -239,7 +239,7 @@ fun main() = runBlocking {
             require(Remote.newerRelease("v", "0.2.0", ".dmg") == null && Remote.releaseNotes() == null) { "asked a repository while off" }
             return@check "off (no Brand.REPO): no request made"
         }
-        val m = Remote.newerRelease("v", "0.2.0", "-mac-arm64.dmg")
+        val m = Remote.newerRelease("v", "0.2.0", "-mac-universal.dmg")
             ?: return@check "no release published yet"
         require(Remote.newerRelease("v", "99.0.0", ".dmg") == null) { "offered an older version" }
         "mac ${m.version} (${m.download ?: m.page}), ${m.notes.size} lines of notes"

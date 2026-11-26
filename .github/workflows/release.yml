@@ -10,8 +10,10 @@ name: Release
 # when they are Developer ID signed + notarized (here with the secrets, or signed on a Mac with
 # packaging/macos/sign-dmg.sh and uploaded to the draft). Windows, Android and iOS are built but not
 # released yet (signing pending). Files:
-#   mac        Tubeless-<v>-mac-{arm64,x64}.dmg    Developer ID signed + notarized when the secrets are
-#                                                 set, ad hoc otherwise (packaging/macos/sign-dmg.sh)
+#   mac        Tubeless-<v>-mac-universal.dmg      one app for Apple silicon + Intel (packaging/macos/make-universal.sh),
+#              + Tubeless-mac-universal.dmg        Developer ID signed + notarized when the secrets are set, ad hoc
+#                (the same file, a stable name)    otherwise (packaging/macos/sign-dmg.sh). Without the secrets: sign
+#                                                 the mac-universal-app artifact on a Mac with sign-dmg.sh
 #   windows    Tubeless-<v>-win-x64.msi (+ portable .zip)      unsigned (SignPath/Azure signing: later)
 #   linux      Tubeless-<v>-linux-{x86_64,aarch64}.AppImage, .deb, .rpm; Tubeless-<v>-linux-x86_64.flatpak;
 #              .snap per arch (best effort, Snap Store upload when SNAPCRAFT_STORE_CREDENTIALS is set)
@@ -67,7 +69,7 @@ jobs:
       - name: Asset lint
         run: scripts/asset-lint.sh
 
-  mac:
+  mac-build:
     needs: meta
     strategy:
       fail-fast: false
@@ -77,16 +79,14 @@ jobs:
           - { arch: x64, runner: macos-15-intel }
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
-    env:
-      VERSION: ${{ needs.meta.outputs.version }}
-      HAS_CERT: ${{ secrets.MACOS_CERTIFICATE != '' }}
-      HAS_NOTARY: ${{ secrets.APPLE_API_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
+          # the newest build on both runners (their preinstalled ones differ): the universal app needs one JDK build
+          check-latest: true
       - uses: gradle/actions/setup-gradle@v4
       - name: Put libmpv inside the app
         id: mpv
@@ -105,6 +105,47 @@ jobs:
           (cd tools/signin-helper && cargo build --release --locked)
           mkdir -p desktop/resources/macos
           cp tools/signin-helper/target/release/signin-helper tools/signin-helper/target/release/libtubeless_webview.dylib desktop/resources/macos/
+      # unsigned: the two apps are merged into one universal app below, then signed as a whole
+      - name: Build the app
+        run: ./gradlew --no-daemon :desktop:createReleaseDistributable
+      - name: Pack the app
+        run: tar -C desktop/build/compose/binaries/main-release/app -cf "Tubeless-mac-${{ matrix.arch }}.app.tar" Tubeless.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-app-${{ matrix.arch }}
+          path: Tubeless-mac-*.app.tar
+          if-no-files-found: error
+
+  # one download for every Mac: the Apple silicon and the Intel app joined (packaging/macos/make-universal.sh)
+  mac:
+    needs: [meta, mac-build]
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      HAS_CERT: ${{ secrets.MACOS_CERTIFICATE != '' }}
+      HAS_NOTARY: ${{ secrets.APPLE_API_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: mac-app-*
+          path: dl
+      - name: Universal app
+        run: |
+          for a in arm64 x64; do mkdir -p "build-$a" && tar -C "build-$a" -xf "dl/mac-app-$a/Tubeless-mac-$a.app.tar"; done
+          packaging/macos/make-universal.sh build-arm64/Tubeless.app build-x64/Tubeless.app universal/Tubeless.app
+          # unsigned, for signing on a Mac that holds the Developer ID (sign-dmg.sh)
+          tar -C universal -cf Tubeless-mac-universal.app.tar Tubeless.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-universal-app
+          path: Tubeless-mac-universal.app.tar
+          if-no-files-found: error
       # a throwaway keychain holding only the Developer ID identity
       - name: Import signing certificate
         if: env.HAS_CERT == 'true'
@@ -132,12 +173,7 @@ jobs:
           security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
           name=$(security find-identity -v -p codesigning "$KEYCHAIN" | sed -n 's/.*"\(Developer ID Application: .*\)"/\1/p' | head -1)
           [ -n "$name" ] || { echo "::error::no Developer ID Application identity in MACOS_CERTIFICATE"; exit 1; }
-          {
-            echo "SIGN_IDENTITY=$name"
-            # Compose signs the jars' native libraries too; it wants the name without the prefix
-            echo "COMPOSE_SIGN=-Pcompose.desktop.mac.sign=true -Pcompose.desktop.mac.signing.keychain=$KEYCHAIN"
-            echo "COMPOSE_IDENTITY=${name#Developer ID Application: }"
-          } >> "$GITHUB_ENV"
+          echo "SIGN_IDENTITY=$name" >> "$GITHUB_ENV"
       - name: Notary key
         if: env.HAS_CERT == 'true' && env.HAS_NOTARY == 'true'
         env:
@@ -147,23 +183,15 @@ jobs:
         run: |
           (umask 077; printf '%s' "$APPLE_API_KEY" | base64 --decode > "$RUNNER_TEMP/notary.p8")
           { echo "NOTARY_KEY_PATH=$RUNNER_TEMP/notary.p8"; echo "NOTARY_KEY_ID=$APPLE_API_KEY_ID"; echo "NOTARY_ISSUER=$APPLE_API_ISSUER_ID"; } >> "$GITHUB_ENV"
-      - name: Build the app
-        run: |
-          # shellcheck disable=SC2086
-          if [ -n "${COMPOSE_SIGN:-}" ]; then
-            ./gradlew --no-daemon :desktop:createReleaseDistributable $COMPOSE_SIGN "-Pcompose.desktop.mac.signing.identity=$COMPOSE_IDENTITY"
-          else
-            ./gradlew --no-daemon :desktop:createReleaseDistributable
-          fi
       - name: Sign, DMG, notarize
         run: |
-          app=$(find desktop/build/compose/binaries/main-release/app -maxdepth 1 -name '*.app' | head -1)
-          packaging/macos/sign-dmg.sh "$app" "Tubeless-$VERSION-mac-${{ matrix.arch }}.dmg"
-          if [ -z "${SIGN_IDENTITY:-}" ]; then echo "::warning::mac-${{ matrix.arch }}: ad-hoc signed (no MACOS_CERTIFICATE secret): users right-click → Open once"; fi
+          packaging/macos/sign-dmg.sh universal/Tubeless.app "Tubeless-$VERSION-mac-universal.dmg"
+          packaging/macos/make-universal.sh --check universal/Tubeless.app
+          if [ -z "${SIGN_IDENTITY:-}" ]; then echo "::warning::mac: ad-hoc signed (no MACOS_CERTIFICATE secret): users right-click → Open once"; fi
       - uses: actions/upload-artifact@v4
         with:
-          name: mac-${{ matrix.arch }}
-          path: Tubeless-*.dmg
+          name: mac
+          path: Tubeless-*-mac-universal.dmg
           if-no-files-found: error
 
   windows:
@@ -496,7 +524,11 @@ jobs:
           mkdir -p files
           find dl/linux-* -type f \( -name 'Tubeless-*.AppImage' -o -name 'Tubeless-*.deb' \) -exec cp {} files/ \;
           find dl/extension -type f \( -name 'Tubeless-*-chrome.zip' -o -name 'Tubeless-*.xpi' \) -exec cp {} files/ \;
-          if [ "$SIGNED_MAC" = true ]; then find dl/mac-* -type f -name 'Tubeless-*.dmg' -exec cp {} files/ \; ; fi
+          if [ "$SIGNED_MAC" = true ]; then
+            cp "dl/mac/Tubeless-$VERSION-mac-universal.dmg" files/
+            # the same file under a name that never changes: .../releases/latest/download/Tubeless-mac-universal.dmg
+            cp "dl/mac/Tubeless-$VERSION-mac-universal.dmg" files/Tubeless-mac-universal.dmg
+          fi
           ls -la files
           notes=$(git tag -l --format='%(contents)' "$TAG" 2>/dev/null)
           if gh release view "$TAG" >/dev/null 2>&1; then
