@@ -41,7 +41,8 @@ if [ -n "${SIGN_IDENTITY:-}" ]; then
   # Mach-O files inside jars: unpacked, signed, put back (the jar is updated in place)
   jn=0
   while IFS= read -r -d '' jar; do
-    unzip -Z1 "$jar" 2>/dev/null | grep -q -E '\.(dylib|jnilib)$|(^|/)[^./]+$' || continue
+    # grep reads it all (not -q): with pipefail an early exit fails unzip (SIGPIPE) and the jar was skipped at random
+    unzip -Z1 "$jar" 2>/dev/null | grep -E '\.(dylib|jnilib)$|(^|/)[^./]+$' >/dev/null || continue
     jt=$(mktemp -d)
     unzip -q -o "$jar" -d "$jt" -x 'META-INF/*' 2>/dev/null || true
     signed=()

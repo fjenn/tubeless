@@ -54,7 +54,8 @@ check() {
     if is_macho "$f"; then check_one "$f" "${f#"$app"/}"; fi
   done < <(find "$app/Contents" -type f -print0)
   while IFS= read -r -d '' jar; do
-    unzip -Z1 "$jar" 2>/dev/null | grep -q -E '\.(dylib|jnilib)$|(^|/)[^./]+$' || continue
+    # grep reads it all (not -q): with pipefail an early exit fails unzip (SIGPIPE) and the jar was skipped at random
+    unzip -Z1 "$jar" 2>/dev/null | grep -E '\.(dylib|jnilib)$|(^|/)[^./]+$' >/dev/null || continue
     tmp=$(mktemp -d)
     unzip -q -o "$jar" -d "$tmp" -x 'META-INF/*' 2>/dev/null || true
     while IFS= read -r -d '' f; do
@@ -146,7 +147,7 @@ merge_jar() { # <arm64 jar (== out)> <x64 jar>
     die "$(basename "$a"): $e differs between the arches"
   done < <(find "$jx" -type f -print0)
   if [ ${#changed[@]} -gt 0 ]; then
-    unzip -Z1 "$a" | grep -qE '^META-INF/[^/]+\.(SF|RSA|EC|DSA)$' && die "$(basename "$a") is a signed jar and would change"
+    unzip -Z1 "$a" | grep -E '^META-INF/[^/]+\.(SF|RSA|EC|DSA)$' >/dev/null && die "$(basename "$a") is a signed jar and would change"
     (cd "$ja" && zip -q "$a" "${changed[@]}")
     say "  jar $(basename "$a"): ${#changed[@]} entries merged"
   fi
