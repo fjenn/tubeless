@@ -1,0 +1,19 @@
+<!doctype html>
+<!-- The Tubeless website moved to https://opena.tech/tubeless/web/ (GitHub Pages now only forwards there; see
+     .github/workflows/pages.yml). The same page is index.html, youtube.html and 404.html, so every old address,
+     with its query (?v=, ?q=, ...) and #hash, lands on the same place on the new site. -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tubeless has moved</title>
+<meta name="robots" content="noindex">
+<link rel="canonical" href="https://opena.tech/tubeless/web/">
+<noscript><meta http-equiv="refresh" content="0; url=https://opena.tech/tubeless/web/"></noscript>
+<script>
+(function () {
+  var NEW = "https://opena.tech/tubeless/web/", L = location;
+  var p = L.pathname.replace(/^\/tubeless\/?/, "").replace(/^index\.html$/, "");
+  if (p === "youtube.html") p = "install";
+  L.replace(NEW + p + L.search + L.hash);
+})();
+</script>
+<style>body{font:16px/1.5 system-ui,sans-serif;background:#0f0f0f;color:#f1f1f1;display:grid;place-items:center;min-height:90vh;margin:0}a{color:#3ea6ff}</style>
+</head><body><p>Tubeless has moved to <a href="https://opena.tech/tubeless/web/">opena.tech/tubeless/web</a>.</p></body></html>

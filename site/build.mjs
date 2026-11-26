@@ -43,7 +43,7 @@ execFileSync("unzip", ["-q", "-o", skikoJar(), "skiko.mjs", "skiko.wasm", "-d", 
 cpSync(join(root, "common/fonts/RobotoVariable.ttf"), join(out, "RobotoVariable.ttf"));
 cpSync(join(root, "common/fonts/PretendardVariable.ttf"), join(out, "PretendardVariable.ttf"));
 // Tubeless on youtube.com (the bookmark, youtube.html): yt.js loads the extension's own host code and the same app there
-const SITE_URL = process.env.SITE_URL || "https://fjenn.github.io/tubeless/";
+const SITE_URL = process.env.SITE_URL || "https://opena.tech/tubeless/web/";
 cpSync(join(here, "yt.js"), join(out, "yt.js"));
 for (const f of ["tubeless.js", "sabr-frame.js"]) cpSync(join(root, "extension/src", f), join(out, f));
 for (const f of ["shaka-player.compiled.js", "mediabunny.min.mjs"]) cpSync(join(root, "extension/vendor", f), join(out, "vendor", f));

@@ -16,7 +16,7 @@ background play, picture-in-picture and offline downloads work on every platform
 [Linux .deb](https://github.com/fjenn/tubeless/releases/latest/download/Tubeless-1.0.1-linux-amd64.deb) ·
 [all files](https://github.com/fjenn/tubeless/releases/latest)
 
-**Try it in your browser, nothing to install:** <https://fjenn.github.io/tubeless/> (Instant mode:
+**Try it in your browser, nothing to install:** <https://opena.tech/tubeless/web/> (Instant mode:
 signed out, no downloads; add the extension or get the app for everything else).
 
 > [!NOTE]
@@ -47,7 +47,7 @@ signed out, no downloads; add the extension or get the app for everything else).
 | macOS 15+ (Apple silicon, Intel) | `.dmg`, signed and notarized | libmpv |
 | Linux (x86_64, aarch64) | AppImage, `.deb` | libmpv |
 | Chrome / Firefox | extension (`.zip` / `.xpi`) | `<video>` + Shaka Player |
-| Any browser | [website](https://fjenn.github.io/tubeless/) (Instant mode) | `<video>` + `<audio>` in step, native HLS on Safari |
+| Any browser | [website](https://opena.tech/tubeless/web/) (Instant mode) | `<video>` + `<audio>` in step, native HLS on Safari |
 | Windows (x64) | coming soon (code signing pending); build it yourself meanwhile | libmpv |
 | Android (phone, tablet, TV) | coming soon; build it yourself meanwhile | Media3 / ExoPlayer |
 | iPhone / iPad | coming soon; build it yourself meanwhile | AVPlayer |

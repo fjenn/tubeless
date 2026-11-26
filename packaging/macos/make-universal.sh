@@ -16,9 +16,11 @@
 #   3. every file in either app: identical → kept; Mach-O in both → lipo -create; jars → merged entry by
 #      entry (Mach-O entries joined by lipo, entries only in one added); arch-specific jars (skiko,
 #      Javet's Node.js) and libskiko-macos-<arch>.dylib → both kept, Tubeless.cfg's classpath gets the
-#      union. Allowed to differ beyond that: lib/modules (the jlink image) only in
-#      jdk/internal/util/PlatformProps (checked; in JDK 21 only jdk.internal.util.Architecture reads it,
-#      and nothing reads that), lib/shaders.metallib (GPU code, the same for both), the signatures.
+#      union. Allowed to differ beyond that: lib/modules (the jlink image; the Apple silicon one is kept)
+#      only in what records the build platform: module-info's ModuleTarget ("macos-aarch64") and
+#      ModuleHashes, SystemModules$* (the same, pre-generated), jdk.internal.util.PlatformProps and
+#      Architecture (checked: in JDK 21 nothing else reads them; the JVM itself takes os.arch from the
+#      running CPU); lib/shaders.metallib (GPU code, the same for both); the signatures.
 #      Anything else that differs stops the merge;
 #   4. check: every Mach-O file (and every one inside a jar) holds arm64 + x86_64, unless its path names
 #      its one architecture (skiko, JNA, Javet: per-arch files with the other arch's twin next to it) or
@@ -188,11 +190,11 @@ while IFS= read -r -d '' f; do
     Contents/runtime/Contents/Home/lib/modules)
       ma="$WORK/ma"; mx="$WORK/mx"
       "${JAVA}jimage" extract --dir "$ma" "$o"; "${JAVA}jimage" extract --dir "$mx" "$f"
-      d=$(diff -rq "$ma" "$mx" | sed "s#$WORK/##g" || true)
-      [ "$d" = "Files ma/java.base/jdk/internal/util/PlatformProps.class and mx/java.base/jdk/internal/util/PlatformProps.class differ" ] \
-        || die "lib/modules differs beyond PlatformProps: $(printf '%s\n' "$d" | head -5)"
-      users=$(cd "$ma" && grep -rlaF -e 'jdk/internal/util/Architecture' -e 'jdk/internal/util/PlatformProps' . | grep -vE '^\./java\.base/jdk/internal/util/(Architecture|PlatformProps)\.class$' || true)
-      [ -z "$users" ] || die "lib/modules: these read the build's CPU from PlatformProps: $users"
+      d=$(diff -rq "$ma" "$mx" | sed "s#$WORK/##g" | grep -vE '^Files ma/[^ ]+/(module-info|jdk/internal/module/SystemModules[$][^ /]*|jdk/internal/util/(PlatformProps|Architecture))\.class and ' || true)
+      [ -z "$d" ] || die "lib/modules differs beyond the build-platform records: $(printf '%s\n' "$d" | head -5)"
+      # (PlatformProps' other readers, e.g. OperatingSystem, are identical on both: only its OS part is used there)
+      users=$(cd "$ma" && grep -rlaF 'jdk/internal/util/Architecture' . | grep -vE '^\./java\.base/jdk/internal/util/Architecture\.class$' || true)
+      [ -z "$users" ] || die "lib/modules: these read the build's CPU (jdk.internal.util.Architecture): $users"
       rm -rf "$ma" "$mx" ;;
     *) die "$rel differs between the arches and is not Mach-O" ;;
   esac

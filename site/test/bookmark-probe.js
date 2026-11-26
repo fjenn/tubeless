@@ -2,7 +2,7 @@
 (async () => {
   const R = (window.__bm = { ran: true, href: location.href });
   const t = async (k, f) => { try { R[k] = await f(); } catch (e) { R[k] = "ERR " + (e && e.name) + ": " + String(e && e.message).slice(0, 120); } };
-  await t("connect", async () => (await fetch("https://fjenn.github.io/tubeless/version.txt", { credentials: "omit" })).status);
+  await t("connect", async () => (await fetch("https://opena.tech/tubeless/web/version.txt", { credentials: "omit" })).status);
   let pol = null;
   await t("ttPolicy", () => { pol = trustedTypes.createPolicy("tubeless-probe" + Math.random(), { createScript: (s) => s, createScriptURL: (s) => s, createHTML: (s) => s }); return "ok"; });
   await t("evalPlain", () => eval("1+1"));

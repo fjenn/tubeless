@@ -27,12 +27,12 @@ import app.tubeless.engine.Video
  * instead of offering a button that can't work.
  */
 object FullMode {
-    const val APP_URL = "https://github.com/fjenn/tubeless/releases"
+    const val APP_URL = "https://opena.tech/tubeless"
     /**
-     * The install page (site/youtube.html): it leads with the browser extension on Chrome, Edge, Brave and Firefox
+     * The install page (site/youtube.html, served at opena.tech/tubeless/web/install): it leads with the browser extension on Chrome, Edge, Brave and Firefox
      * ("Add Tubeless to Chrome") and with the bookmark on Safari and phones
      */
-    const val BOOKMARK_URL = "https://fjenn.github.io/tubeless/youtube.html"
+    const val BOOKMARK_URL = "https://opena.tech/tubeless/web/install"
     const val EXTENSION_URL = BOOKMARK_URL
 
     /** the feature someone reached for ("Downloads"); null: no prompt */

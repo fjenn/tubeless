@@ -2,7 +2,7 @@
 // user's browsers, settings and YouTube session are never touched) and checks Instant mode end to end.
 //   node site/test/run.mjs chrome|firefox <scenario...>    scenarios: home search watch seek shorts sponsor drift save
 //   Tubeless on youtube.com (the bookmark): ythome ywatch yfx ydl yover; build the site with SITE_URL=http://127.0.0.1:<PORT>/tubeless/
-//   and pass the same PORT (the bookmark loads yt.js from there into www.youtube.com, as from GitHub Pages)
+//   and pass the same PORT (the bookmark loads yt.js from there into www.youtube.com, as from the website)
 // env: BIN=<browser binary>, DIST=<site dir> (site/dist), SHOTS=<dir for screenshots>, DRIFT_S=<seconds> (600),
 //      EXT=<unpacked Chrome extension dir> (Full-mode hand-over check, chrome only), PORT
 import { spawn, execFileSync } from "node:child_process";
