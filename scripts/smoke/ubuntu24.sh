@@ -13,6 +13,8 @@ mkdir -p "$out"
 fail=0
 check() { if "$@"; then echo "PASS: $*"; else echo "FAIL: $*"; fail=1; fi; }
 export DEBIAN_FRONTEND=noninteractive
+# GitHub's container jobs set HOME=/github/home; the app (Java) takes the home folder from the user database
+HOME=$(getent passwd "$(id -u)" | cut -d: -f6); export HOME
 apt-get update -q >/dev/null
 # the test's own tools (an X server, screenshots, validators), none of the app's libraries
 apt-get install -y -q --no-install-recommends xvfb xauth imagemagick desktop-file-utils appstream ca-certificates >/dev/null

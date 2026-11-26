@@ -80,6 +80,42 @@ else
 fi
 codesign --verify --deep --strict --verbose=1 "$APP"
 
+auth=()
+if [ -n "${NOTARY_PROFILE:-}" ]; then
+  auth=(--keychain-profile "$NOTARY_PROFILE")
+elif [ -n "${NOTARY_KEY_PATH:-}${NOTARY_KEY_ID:-}${NOTARY_ISSUER:-}" ]; then
+  [ -f "${NOTARY_KEY_PATH:-}" ] && [ -n "${NOTARY_KEY_ID:-}" ] && [ -n "${NOTARY_ISSUER:-}" ] \
+    || die "notarizing by API key needs NOTARY_KEY_PATH (an existing .p8), NOTARY_KEY_ID and NOTARY_ISSUER"
+  auth=(--key "$NOTARY_KEY_PATH" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER")
+fi
+# notarize one file (zip or dmg) and wait; stops the script unless Apple accepts it
+notarize() {
+  local out status id
+  out=$(xcrun notarytool submit "$1" "${auth[@]}" --wait --output-format json) || true
+  status=$(/usr/bin/python3 -I -c 'import json,sys
+try: print(json.loads(sys.stdin.read()).get("status",""))
+except Exception: print("")' <<< "$out")
+  id=$(/usr/bin/python3 -I -c 'import json,sys
+try: print(json.loads(sys.stdin.read()).get("id",""))
+except Exception: print("")' <<< "$out")
+  echo "notarization of $(basename "$1") $id: ${status:-no answer}"
+  if [ "$status" != Accepted ]; then
+    echo "$out"
+    [ -n "$id" ] && xcrun notarytool log "$id" "${auth[@]}" || true
+    die "notarization not accepted"
+  fi
+}
+
+# the app itself first, so its ticket is stapled to it (Gatekeeper then needs no network on first start)
+if [ -n "${SIGN_IDENTITY:-}" ] && [ ${#auth[@]} -gt 0 ]; then
+  step "notarizing the app (usually 2-15 minutes)"
+  zip_dir=$(mktemp -d)
+  ditto -c -k --keepParent "$APP" "$zip_dir/app.zip"
+  notarize "$zip_dir/app.zip"
+  rm -rf "$zip_dir"
+  xcrun stapler staple "$APP"
+fi
+
 step "dmg"
 rm -f "$DMG"
 stage=$(mktemp -d)
@@ -90,29 +126,9 @@ name=$(basename "$APP" .app)
 hdiutil create -volname "$name" -srcfolder "$stage" -fs HFS+ -format UDZO -ov "$DMG" >/dev/null
 [ -n "${SIGN_IDENTITY:-}" ] && codesign --force --timestamp -s "$SIGN_IDENTITY" "$DMG"
 
-auth=()
-if [ -n "${NOTARY_PROFILE:-}" ]; then
-  auth=(--keychain-profile "$NOTARY_PROFILE")
-elif [ -n "${NOTARY_KEY_PATH:-}${NOTARY_KEY_ID:-}${NOTARY_ISSUER:-}" ]; then
-  [ -f "${NOTARY_KEY_PATH:-}" ] && [ -n "${NOTARY_KEY_ID:-}" ] && [ -n "${NOTARY_ISSUER:-}" ] \
-    || die "notarizing by API key needs NOTARY_KEY_PATH (an existing .p8), NOTARY_KEY_ID and NOTARY_ISSUER"
-  auth=(--key "$NOTARY_KEY_PATH" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER")
-fi
 if [ -n "${SIGN_IDENTITY:-}" ] && [ ${#auth[@]} -gt 0 ]; then
-  step "notarizing (usually 2-15 minutes)"
-  out=$(xcrun notarytool submit "$DMG" "${auth[@]}" --wait --output-format json) || true
-  status=$(/usr/bin/python3 -I -c 'import json,sys
-try: print(json.loads(sys.stdin.read()).get("status",""))
-except Exception: print("")' <<< "$out")
-  id=$(/usr/bin/python3 -I -c 'import json,sys
-try: print(json.loads(sys.stdin.read()).get("id",""))
-except Exception: print("")' <<< "$out")
-  echo "notarization $id: ${status:-no answer}"
-  if [ "$status" != Accepted ]; then
-    echo "$out"
-    [ -n "$id" ] && xcrun notarytool log "$id" "${auth[@]}" || true
-    die "notarization not accepted"
-  fi
+  step "notarizing the DMG"
+  notarize "$DMG"
   xcrun stapler staple "$DMG"
   spctl -a -t open --context context:primary-signature -v "$DMG" || true
 elif [ -n "${SIGN_IDENTITY:-}" ]; then
