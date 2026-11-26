@@ -3,7 +3,7 @@
 //  - fetch: relative addresses resolve on www.youtube.com, with a browser's user agent, Origin and Referer
 //  - window/self: the global object; Worker: yt-dlp's EJS solver in a function of its own
 //  - __thMakeMinter: BotGuard under JSDOM (rustypipe-botguard's bundle, MIT), re-rolled until the
-//    token lands in the class googlevideo accepts (short), as Spotless does (KI-1); more at ACCEPTED_MAX_IT
+//    token lands in the class googlevideo accepts (short); more at ACCEPTED_MAX_IT
 // The host supplies __thHost(json) and __thBin.postMessage(ArrayBuffer) before this runs, and __thUA.
 (() => {
   const g = globalThis;
@@ -115,7 +115,7 @@
   };
 
   // ------------------------------------------------------------ BotGuard
-  // The class googlevideo takes shows in a pot's length (Spotless KI-1): pot = identifier + integrity part + 14.
+  // The class googlevideo takes shows in a pot's length: pot = identifier + integrity part + 14.
   // Measured here 2026-11-23 on SABR (WEB), 24 bootstraps each started 344 s into a video (past the free first
   // minute): an integrity part of 67-68 bytes streamed (9 of 9), 69-72 was refused at once (15 of 15). Fresh
   // challenges land in the short class about one time in three; re-using one challenge never did.

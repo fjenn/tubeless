@@ -1,7 +1,7 @@
 import SwiftUI
-import TubeHausKit
+import TubelessKit
 
-// The whole app is Kotlin + Compose (TubeHausKit); this only puts it in a window.
+// The whole app is Kotlin + Compose (TubelessKit); this only puts it in a window.
 @main
 struct TubelessApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var delegate

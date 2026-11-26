@@ -1,7 +1,7 @@
 package app.tubeless.web
 
-import app.tubehaus.ui.AudioFx
-import app.tubehaus.ui.Perks
+import app.tubeless.ui.AudioFx
+import app.tubeless.ui.Perks
 
 /**
  * Stable volume and voice boost on the web: Web Audio on the video's sound (tubeless.js `player.fx`). It works where

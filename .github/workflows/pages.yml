@@ -2,7 +2,7 @@ name: Website (GitHub Pages)
 
 # The Tubeless website (site/: Instant mode, and the hand-over to the extension when it is installed),
 # built from this tree and published to GitHub Pages. It runs only in the public repo
-# (fjenn/tubeless-publik → https://fjenn.github.io/tubeless-publik/); the private repo has no Pages.
+# (fjenn/tubeless → https://fjenn.github.io/tubeless/); the private repo has no Pages.
 on:
   push:
     branches: [main]
@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.repository == 'fjenn/tubeless-publik'
+    if: github.repository == 'fjenn/tubeless'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -41,7 +41,7 @@ jobs:
           node extension/build.mjs
           # Firefox: the signed add-on of the newest release, when it has one (release.yml signs it unlisted on AMO)
           if gh release download -R "$GITHUB_REPOSITORY" --pattern 'Tubeless-*-firefox.xpi' --dir xpi 2>/dev/null; then
-            export FIREFOX_XPI="$(ls xpi/*.xpi | head -1)"
+            FIREFOX_XPI="$(find xpi -name '*.xpi' | head -1)"; export FIREFOX_XPI
           fi
           node site/build.mjs
         env:

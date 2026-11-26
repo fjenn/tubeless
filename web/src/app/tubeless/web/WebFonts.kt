@@ -2,8 +2,8 @@ package app.tubeless.web
 
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.platform.Font
-import app.tubehaus.web.jsLog
-import app.tubehaus.web.toByteArray
+import app.tubeless.web.jsLog
+import app.tubeless.web.toByteArray
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import org.khronos.webgl.ArrayBuffer

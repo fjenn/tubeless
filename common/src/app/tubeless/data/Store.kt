@@ -1,0 +1,499 @@
+package app.tubeless.data
+
+import app.tubeless.engine.Video
+import app.tubeless.engine.str
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.contentOrNull
+import app.tubeless.engine.Sys
+import app.tubeless.engine.SysLock
+import app.tubeless.engine.hex
+import okio.FileSystem
+import okio.Path
+import okio.Path.Companion.toPath
+import kotlin.random.Random
+
+val storeJson = Json { ignoreUnknownKeys = true; encodeDefaults = false; explicitNulls = false }
+
+/** One JSON file kept in memory as a StateFlow and written back (atomically) shortly after each change. */
+@OptIn(FlowPreview::class)
+class JsonFile<T>(private val file: Path, private val ser: KSerializer<T>, private val empty: T, scope: CoroutineScope) {
+    // a getter, not a field: load() runs in the first initializer below, before fields after it are set
+    private val fs: FileSystem get() = Sys.fs
+    // the debounced save (a background thread) and flushNow (the main one) may meet
+    private val writing = SysLock()
+    private val flow = MutableStateFlow(load() ?: empty)
+    val state: StateFlow<T> get() = flow
+    val value: T get() = flow.value
+
+    init {
+        // Windows: an antivirus, the search indexer or a second copy of the app can hold the file for a moment.
+        // Try again a few times, and never let a save that fails take the app down (it did: issue #47)
+        flow.drop(1).debounce(400).onEach { v ->
+            for (i in 1..5) { if (trySave(v)) break; delay(300L * i) }
+        }.launchIn(scope)
+    }
+
+    private fun load(): T? = try {
+        if (fs.exists(file)) storeJson.decodeFromString(ser, fs.read(file) { readUtf8() }) else null
+    } catch (e: Exception) {
+        // keep the unreadable file for the user instead of overwriting it with nothing
+        runCatching { fs.copy(file, (file.toString() + ".broken-" + Sys.nowMs()).toPath()) }
+        null
+    }
+
+    private fun save(v: T) = writing.run {
+        file.parent?.let { fs.createDirectories(it) }
+        val tmp = (file.toString() + ".tmp").toPath()
+        val text = storeJson.encodeToString(ser, v)
+        fs.write(tmp) { writeUtf8(text) }
+        try {
+            fs.atomicMove(tmp, file)
+        } catch (e: okio.IOException) {
+            // the swap was refused (the file is open elsewhere): write it in place, which Windows often still allows
+            fs.write(file) { writeUtf8(text) }
+            runCatching { fs.delete(tmp) }
+        }
+    }
+
+    /** false when the file couldn't be written this time (the next change, or the retry, writes it) */
+    private fun trySave(v: T): Boolean = try { save(v); true } catch (e: Exception) { false }
+
+    fun update(f: (T) -> T) = flow.update(f)
+
+    fun flushNow() { trySave(flow.value) }
+
+    /** a copy of what's in it, written to [to] (another person's folder, see Store.switchPerson) */
+    fun copyTo(to: Path) {
+        val text = storeJson.encodeToString(ser, flow.value)
+        to.parent?.let { fs.createDirectories(it) }
+        fs.write(to) { writeUtf8(text) }
+    }
+
+    /** what [from] holds (nothing there: empty) in place of what it held; saved to its own file shortly */
+    fun takeFrom(from: Path) {
+        flow.value = try {
+            if (fs.exists(from)) storeJson.decodeFromString(ser, fs.read(from) { readUtf8() }) else empty
+        } catch (e: Exception) { empty }
+        trySave(flow.value)
+    }
+}
+
+/** The people who use the app on this device, each with a library, taste and settings of their own (a household on one TV) */
+@Serializable
+data class People(
+    /** who is using it now; "" is the first person, whose files have always been in the data folder itself */
+    val current: String = "",
+    /** everyone, the first person included (as [firstName]) */
+    val names: List<String> = emptyList(),
+    val firstName: String = "",
+    /** person id -> their PIN, hashed (Store.pinHash); someone without one is picked with no question */
+    val pins: Map<String, String> = emptyMap(),
+    /** phones and computers: ask who is watching when the app opens (a TV always asks) */
+    val askOnOpen: Boolean = false,
+)
+
+private fun now() = Sys.nowMs() / 1000
+
+/** A change the Tubeless server (ServerSync) hasn't taken yet: its endpoint and body; a newer one with the same [key] replaces it. */
+@Serializable
+data class SyncOp(val path: String, val body: JsonObject, val key: String = "")
+
+/**
+ * A signed-in YouTube account that gets the library's changes too (S4: AppState's AccountSync over
+ * engine/YouTubeAccount). Each call returns at once; the account does its write in the background.
+ */
+interface AccountMirror {
+    fun list(list: String, v: Video, on: Boolean) {}
+    fun subscribe(cid: String, on: Boolean) {}
+    fun historyRemove(id: String) {}
+    fun historyClear() {}
+    fun playlistNew(localId: String, title: String, first: Video?) {}
+    fun playlistRename(id: String, title: String) {}
+    fun playlistDelete(id: String) {}
+    /** "Not interested" ([channel]: "Don't recommend channel") */
+    fun notInterested(v: Video, channel: Boolean) {}
+}
+
+/** The app's data: library, learned taste and settings, each in its own file. */
+class Store(dir: Path) {
+    /** the signed-in account the library's changes go to as well; null signed out */
+    @app.tubeless.engine.Volatile var mirror: AccountMirror? = null
+
+    private val scope = CoroutineScope(SupervisorJob() + Sys.IO)
+    val lib = JsonFile(dir / "library.json", Library.serializer(), Library(), scope)
+    val taste = JsonFile(dir / "taste.json", Taste.serializer(), Taste(), scope)
+    val settings = JsonFile(dir / "settings.json", Settings.serializer(), Settings(), scope)
+    /** the taste profiles not in use, by name ("" = the main one); the one in use is [taste] (see rec/Profiles) */
+    val profiles = JsonFile(dir / "profiles.json", MapSerializer(String.serializer(), Taste.serializer()), emptyMap(), scope)
+    /** changes for the connected server, kept on disk until it has them */
+    val queue = JsonFile(dir / "sync-queue.json", ListSerializer(SyncOp.serializer()), emptyList(), scope)
+    /** channel id -> its picture, for cards whose list came without one (see channelAvatar) */
+    val avatars = JsonFile(dir / "avatars.json", MapSerializer(String.serializer(), String.serializer()), emptyMap(), scope)
+    /** watch time by day (Wellbeing, the recap) */
+    val stats = JsonFile(dir / "stats.json", WatchStats.serializer(), WatchStats(), scope)
+    /** the music tab's recent songs, searches and pages */
+    val music = JsonFile(dir / "music.json", MusicData.serializer(), MusicData(), scope)
+    val people = JsonFile(dir / "people.json", People.serializer(), People(), scope)
+    private val base = dir
+    /** what each person has of their own; the channel pictures stay shared */
+    private val own get() = listOf(lib to "library.json", taste to "taste.json", settings to "settings.json", profiles to "profiles.json",
+        queue to "sync-queue.json", stats to "stats.json", music to "music.json")
+    private fun folder(id: String) = base / "people" / id
+
+    /**
+     * Another person's things in place of this one's: whoever uses the app now is put away in
+     * people/<id>/, and [id]'s come out (nothing yet: an empty library and the usual settings).
+     * The files in the data folder are always the person using it, so nothing else needs to know.
+     */
+    fun switchPerson(id: String) {
+        val cur = people.value.current
+        if (id == cur) return
+        val shared = settings.value.let { Triple(it.lang, it.region, it.dark) }
+        val fresh = !Sys.fs.exists(folder(id.ifEmpty { "_first" }) / "settings.json")
+        flush()
+        for ((f, name) in own) f.copyTo(folder(cur.ifEmpty { "_first" }) / name)
+        for ((f, name) in own) f.takeFrom(folder(id.ifEmpty { "_first" }) / name)
+        // a new person starts in the device's language and look, not the defaults
+        if (fresh) settings.update { it.copy(lang = shared.first, region = shared.second, dark = shared.third) }
+        people.update { it.copy(current = id) }
+        flush(); people.flushNow()
+    }
+
+    /** a new person (their library starts empty); returns their id */
+    fun addPerson(name: String): String {
+        val id = "p" + Sys.nowMs().toString(36)
+        people.update { it.copy(names = (if (it.names.isEmpty()) listOf("") else it.names) + "$id:$name") }
+        people.flushNow()
+        return id
+    }
+
+    fun hasPin(id: String) = people.value.pins[id] != null
+    fun pinOk(id: String, pin: String) = people.value.pins[id].let { it == null || it == pinHash(id, pin) || it == pinHash(id, pin, app.tubeless.Legacy.PIN_SALT) }
+    /** a PIN for [id], or none ([pin] null) */
+    fun setPin(id: String, pin: String?) {
+        people.update { p -> p.copy(pins = if (pin == null) p.pins - id else p.pins + (id to pinHash(id, pin))) }
+        people.flushNow()
+    }
+    private fun pinHash(id: String, pin: String, salt: String = "tubeless-person") = app.tubeless.engine.sha256("$salt:$id:$pin".encodeToByteArray()).hex()
+
+    /** someone else on this device leaves: their folder is deleted (never the one using it now) */
+    fun removePerson(id: String) {
+        if (id == people.value.current) return
+        runCatching { Sys.fs.deleteRecursively(folder(id.ifEmpty { "_first" })) }
+        people.update { p -> p.copy(names = p.names.filter { personId(it) != id }, pins = p.pins - id) }
+        people.flushNow()
+    }
+
+    /** set by ServerSync: something was queued */
+    var onQueued: (() -> Unit)? = null
+
+    fun flush() {
+        lib.flushNow(); taste.flushNow(); settings.flushNow(); profiles.flushNow(); queue.flushNow(); avatars.flushNow()
+        stats.flushNow(); music.flushNow()
+    }
+
+    companion object {
+        /** names are kept as "id:name" ("" for the first person) */
+        fun personId(entry: String) = if (entry.isEmpty()) "" else entry.substringBefore(":")
+        fun personName(entry: String) = entry.substringAfter(":", "")
+    }
+
+    /** with a server connected: the same change for it (the endpoints the web version uses) */
+    private fun push(path: String, key: String = "", body: JsonObjectBuilder.() -> Unit) {
+        if (settings.value.server.isEmpty()) return
+        val op = SyncOp(path, buildJsonObject(body), key)
+        queue.update { q -> (if (key.isEmpty()) q else q.filter { it.key != key }) + op }
+        onQueued?.invoke()
+    }
+
+    private fun JsonObjectBuilder.video(m: Meta) = put("video", storeJson.encodeToJsonElement(Meta.serializer(), m))
+
+    // ---------------------------------------------------------- watch time
+    /** [sec] more seconds of [v] played today; music counts by artist, videos by channel */
+    fun addWatch(v: Video, sec: Long, music: Boolean, started: Boolean = false) {
+        if (settings.value.historyOff || (sec <= 0 && !started)) return
+        val day = Sys.today()
+        stats.update { s ->
+            val d = s.days[day] ?: DayStats()
+            val nd = if (music) d.copy(music = d.music + sec, art = if (v.author.isEmpty()) d.art else d.art + (v.author to (d.art[v.author] ?: 0) + sec))
+            else d.copy(video = d.video + sec, ch = if (v.channelId.isEmpty()) d.ch else d.ch + (v.channelId to (d.ch[v.channelId] ?: 0) + sec))
+            var days = s.days + (day to nd.copy(n = nd.n + if (started) 1 else 0))
+            // a year and a bit, so last year's month can still be compared
+            if (days.size > 400) days = days.entries.sortedByDescending { it.key }.take(400).associate { it.key to it.value }
+            val names = if (!music && v.channelId.isNotEmpty() && v.author.isNotEmpty() && s.names[v.channelId] != v.author) s.names + (v.channelId to v.author) else s.names
+            s.copy(days = days, names = names)
+        }
+    }
+
+    // ---------------------------------------------------------- music
+    fun rememberSong(m: SongMeta) {
+        if (settings.value.historyOff) return
+        music.update { it.copy(recent = (listOf(m) + it.recent.filter { r -> r.id != m.id }).take(200)) }
+        push("/yt/mstate") { put("k", "recent"); put("item", songJson(m)) }
+    }
+
+    // the music tab's lists on the server (the web's shape: an opened page's "sub", a search as {id})
+    private fun songJson(m: SongMeta) = storeJson.encodeToJsonElement(SongMeta.serializer(), m)
+    private fun cardJson(c: CardMeta) = buildJsonObject { put("id", c.id); put("title", c.title); put("sub", c.subtitle); put("art", c.art); put("kind", c.kind) }
+
+    /** the server's music lists (from ServerSync), in place of this device's */
+    fun takeServerMusic(o: kotlinx.serialization.json.JsonObject) {
+        fun arr(k: String) = (o[k] as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { it as? kotlinx.serialization.json.JsonObject }
+        fun str(x: kotlinx.serialization.json.JsonObject, k: String) = (x[k] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull.orEmpty()
+        val songs = { k: String -> arr(k).mapNotNull { x -> runCatching { storeJson.decodeFromJsonElement(SongMeta.serializer(), x) }.getOrNull() } }
+        music.update { it.copy(
+            recent = songs("recent"), liked = songs("likes"),
+            opened = arr("opened").map { x -> CardMeta(str(x, "id"), str(x, "title"), str(x, "sub"), str(x, "art"), str(x, "kind")) }.filter { c -> c.id.isNotEmpty() },
+            searches = arr("searches").map { x -> str(x, "id") }.filter { t -> t.isNotEmpty() },
+        ) }
+    }
+
+    /** this device's music lists, for the first sync with a server (it keeps its own first) */
+    fun musicLists() = buildJsonObject {
+        val m = music.value
+        put("lists", buildJsonObject {
+            put("recent", kotlinx.serialization.json.JsonArray(m.recent.map { songJson(it) }))
+            put("likes", kotlinx.serialization.json.JsonArray(m.liked.map { songJson(it) }))
+            put("opened", kotlinx.serialization.json.JsonArray(m.opened.map { cardJson(it) }))
+            put("searches", kotlinx.serialization.json.JsonArray(m.searches.map { buildJsonObject { put("id", it) } }))
+        })
+    }
+
+    fun rememberMusicSearch(q: String) {
+        val t = q.trim()
+        if (t.isEmpty() || settings.value.historyOff) return
+        music.update { it.copy(searches = (listOf(t) + it.searches.filter { s -> !s.equals(t, true) }).take(20)) }
+        push("/yt/mstate") { put("k", "searches"); put("item", buildJsonObject { put("id", t) }) }
+    }
+
+    fun rememberCard(c: CardMeta) {
+        if (settings.value.historyOff) return
+        music.update { it.copy(opened = (listOf(c) + it.opened.filter { o -> o.id != c.id }).take(40)) }
+        push("/yt/mstate") { put("k", "opened"); put("item", cardJson(c)) }
+    }
+
+    fun likeSong(m: SongMeta, on: Boolean) {
+        music.update { it.copy(liked = (if (on) listOf(m) else emptyList()) + it.liked.filter { l -> l.id != m.id }) }
+        push("/yt/mstate") { put("k", "likes"); if (on) put("item", songJson(m)) else put("drop", m.id) }
+    }
+
+    // ---------------------------------------------------------- subscriptions
+    fun isSubbed(cid: String) = cid in lib.value.subs
+
+    fun subscribe(cid: String, name: String, thumb: String, on: Boolean) {
+        lib.update { l -> l.copy(subs = if (on) l.subs + (cid to Sub(name, thumb, now())) else l.subs - cid) }
+        push("/yt/sub", "sub:$cid") { put("id", cid); put("on", on); put("name", name); put("thumb", thumb) }
+        mirror?.subscribe(cid, on)
+    }
+
+    /** the account's subscriptions join this device's (only added: a channel kept here alone stays); no mirror, no server push */
+    fun takeAccountSubs(channels: List<app.tubeless.engine.Channel>) = lib.update { l ->
+        val add = channels.filter { it.id !in l.subs }
+        if (add.isEmpty()) l else l.copy(subs = l.subs + add.associate { it.id to Sub(it.name, it.avatar, now()) })
+    }
+
+    /** a resume point from the account (watched on another device): taken when this device has none or an older one */
+    fun takeResume(v: Video, seconds: Long, at: Long = now()) {
+        if (settings.value.historyOff || v.lengthSec <= 0) return
+        lib.update { l ->
+            val old = l.pos[v.id]
+            if (old != null && (old.getOrNull(2) ?: 0) >= at) l
+            else l.copy(pos = l.pos + (v.id to listOf(seconds, v.lengthSec.toLong(), at)))
+        }
+    }
+
+    /** fills in a channel's name and picture (imports often come without them); keeps the subscription date */
+    fun updateSub(cid: String, name: String, thumb: String) = lib.update { l ->
+        val s = l.subs[cid] ?: return@update l
+        l.copy(subs = l.subs + (cid to s.copy(name = name.ifEmpty { s.name }, thumb = thumb.ifEmpty { s.thumb })))
+    }
+
+    // ---------------------------------------------------------- subscription groups (this device only)
+    fun newGroup(name: String) {
+        val n = name.trim().take(60)
+        if (n.isEmpty()) return
+        lib.update { l -> if (l.groups.any { it.name == n }) l else l.copy(groups = l.groups + SubGroup(n)) }
+    }
+
+    fun renameGroup(old: String, name: String) {
+        val n = name.trim().take(60)
+        if (n.isEmpty() || n == old) return
+        lib.update { l -> if (l.groups.any { it.name == n }) l else l.copy(groups = l.groups.map { if (it.name == old) it.copy(name = n) else it }) }
+        if (settings.value.subsGroup == old) settings.update { it.copy(subsGroup = n) }
+    }
+
+    fun deleteGroup(name: String) {
+        lib.update { l -> l.copy(groups = l.groups.filter { it.name != name }) }
+        if (settings.value.subsGroup == name) settings.update { it.copy(subsGroup = "") }
+    }
+
+    fun setInGroup(name: String, cid: String, on: Boolean) = lib.update { l ->
+        l.copy(groups = l.groups.map { g ->
+            if (g.name != name) g else g.copy(channels = if (on) (g.channels - cid) + cid else g.channels - cid)
+        })
+    }
+
+    fun unsubscribeAll() {
+        val all = lib.value.subs.keys
+        lib.update { it.copy(subs = emptyMap()) }
+        for (cid in all) push("/yt/sub", "sub:$cid") { put("id", cid); put("on", false) }
+    }
+
+    /** Gives a saved video that came in with only its id (an imported playlist or history) its title and
+     *  channel, wherever it is saved (#71). Only on this device; nothing is sent to the server. */
+    fun fillMeta(id: String, title: String, author: String, authorId: String) {
+        if (title.isEmpty()) return
+        fun List<Meta>.fill() = map {
+            if (it.id == id && it.title.isEmpty()) it.copy(title = title, author = it.author.ifEmpty { author }, authorId = it.authorId.ifEmpty { authorId }) else it
+        }
+        lib.update { l ->
+            l.copy(hist = l.hist.fill(), wl = l.wl.fill(), likes = l.likes.fill(),
+                playlists = l.playlists.mapValues { (_, p) -> if (p.items.any { it.id == id }) p.copy(items = p.items.fill()) else p })
+        }
+    }
+
+    // ---------------------------------------------------------- history and resume points
+    fun savePosition(v: Video, seconds: Long, length: Long) {
+        if (settings.value.historyOff) return
+        lib.update { l ->
+            val pos = (l.pos + (v.id to listOf(seconds, length, now()))).let { p ->
+                if (p.size > 5000) p.entries.sortedByDescending { it.value.getOrNull(2) ?: 0 }.take(5000).associate { it.key to it.value } else p
+            }
+            val old = l.hist.firstOrNull { it.id == v.id }
+            val m = v.meta(now()).let { if (old != null && it.title.isEmpty()) old.copy(at = now()) else it }
+            l.copy(pos = pos, hist = (listOf(m) + l.hist.filter { it.id != v.id }).take(3000))
+        }
+        push("/yt/pos", "pos:${v.id}") {
+            put("id", v.id); put("t", seconds); put("len", length)
+            put("meta", storeJson.encodeToJsonElement(Meta.serializer(), v.meta()))
+        }
+    }
+
+    fun position(id: String): Long? = lib.value.pos[id]?.let { p ->
+        val t = p.getOrNull(0) ?: 0
+        val len = p.getOrNull(1) ?: 0
+        // finished (or nearly) means start again from the beginning
+        if (t < 10 || (len > 0 && t > len - 15)) null else t
+    }
+
+    fun removeFromHistory(id: String) {
+        lib.update { it.copy(hist = it.hist.filter { h -> h.id != id }, pos = it.pos - id) }
+        push("/yt/hist/del") { put("id", id) }
+        mirror?.historyRemove(id)
+    }
+
+    fun clearHistory() {
+        lib.update { it.copy(hist = emptyList(), pos = emptyMap()) }
+        push("/yt/hist/del") { put("all", true) }
+        mirror?.historyClear()
+        // what was watched when goes too, and the music tab's recent songs
+        stats.update { WatchStats() }
+        music.update { it.copy(recent = emptyList(), searches = emptyList()) }
+    }
+
+    // ---------------------------------------------------------- lists
+    fun inList(list: String, id: String): Boolean = when (list) {
+        "wl" -> lib.value.wl.any { it.id == id }
+        "likes" -> lib.value.likes.any { it.id == id }
+        "dislikes" -> id in lib.value.dislikes
+        else -> lib.value.playlists[list]?.items?.any { it.id == id } == true
+    }
+
+    fun setInList(list: String, v: Video, on: Boolean) {
+        setInListHere(list, v, on)
+        push("/yt/list", "list:$list:${v.id}") { put("list", list); put("on", on); video(v.meta()) }
+        mirror?.list(list, v, on)
+    }
+
+    private fun setInListHere(list: String, v: Video, on: Boolean) = lib.update { l ->
+        val m = v.meta()
+        when (list) {
+            "wl" -> l.copy(wl = (if (on) listOf(m) else emptyList()) + l.wl.filter { it.id != v.id })
+            "likes" -> l.copy(
+                likes = (if (on) listOf(m) else emptyList()) + l.likes.filter { it.id != v.id },
+                dislikes = if (on) l.dislikes - v.id else l.dislikes,
+            )
+            "dislikes" -> l.copy(
+                dislikes = l.dislikes.filter { it != v.id } + (if (on) listOf(v.id) else emptyList()),
+                likes = if (on) l.likes.filter { it.id != v.id } else l.likes,
+            )
+            else -> l.playlists[list]?.let { pl ->
+                val items = pl.items.filter { it.id != v.id } + (if (on) listOf(m) else emptyList())
+                l.copy(playlists = l.playlists + (list to pl.copy(items = items, updated = now())))
+            } ?: l
+        }
+    }
+
+    fun newPlaylist(title: String, first: Video?): String {
+        val id = "HP" + Random.nextBytes(8).hex()
+        lib.update { it.copy(playlists = it.playlists + (id to PlaylistData(title.take(150), listOfNotNull(first?.meta()), now()))) }
+        push("/yt/pl/new") { put("id", id); put("title", title.take(150)); first?.let { video(it.meta()) } }
+        mirror?.playlistNew(id, title.take(150), first)
+        return id
+    }
+
+    fun renamePlaylist(id: String, title: String) {
+        lib.update { l ->
+            l.playlists[id]?.let { l.copy(playlists = l.playlists + (id to it.copy(title = title.take(150), updated = now()))) } ?: l
+        }
+        push("/yt/pl/rename", "rename:$id") { put("id", id); put("title", title.take(150)) }
+        mirror?.playlistRename(id, title.take(150))
+    }
+
+    fun deletePlaylist(id: String) {
+        lib.update { it.copy(playlists = it.playlists - id) }
+        push("/yt/pl/del") { put("id", id) }
+        mirror?.playlistDelete(id)
+    }
+
+    /** an older server chose another ID for a playlist made here: use its ID, here and in what's still queued */
+    fun renamePlaylistId(mine: String, theirs: String) {
+        lib.update { l -> l.playlists[mine]?.let { l.copy(playlists = l.playlists - mine + (theirs to it)) } ?: l }
+        queue.update { q ->
+            q.map { op ->
+                val b = op.body
+                when {
+                    b["id"].str == mine -> op.copy(body = JsonObject(b + ("id" to kotlinx.serialization.json.JsonPrimitive(theirs))))
+                    b["list"].str == mine -> op.copy(body = JsonObject(b + ("list" to kotlinx.serialization.json.JsonPrimitive(theirs))))
+                    else -> op
+                }
+            }
+        }
+    }
+
+    fun movePlaylistItem(id: String, from: Int, to: Int) {
+        val n = lib.value.playlists[id]?.items?.size ?: return
+        if (from !in 0 until n || to !in 0 until n) return
+        moveHere(id, from, to)
+        push("/yt/pl/move") { put("id", id); put("from", from); put("to", to) }
+    }
+
+    private fun moveHere(id: String, from: Int, to: Int) = lib.update { l ->
+        val pl = l.playlists[id] ?: return@update l
+        val items = pl.items.toMutableList()
+        if (from !in items.indices || to !in items.indices) return@update l
+        items.add(to, items.removeAt(from))
+        l.copy(playlists = l.playlists + (id to pl.copy(items = items, updated = now())))
+    }
+}

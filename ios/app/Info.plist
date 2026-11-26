@@ -48,7 +48,7 @@
 	<array>
 		<string>dev.tubeless.app.downloads.*</string>
 	</array>
-	<!-- a self-hosted TubeHaus server at home may be plain http (e.g. on the VPN) -->
+	<!-- a self-hosted Tubeless server at home may be plain http (e.g. on the VPN) -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

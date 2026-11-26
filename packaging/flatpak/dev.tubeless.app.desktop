@@ -8,3 +8,4 @@ Icon=dev.tubeless.app
 Terminal=false
 Categories=AudioVideo;Video;Player;
 Keywords=youtube;video;player;subscriptions;
+StartupWMClass=tubeless

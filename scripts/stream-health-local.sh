@@ -94,7 +94,7 @@ if [[ "${1:-}" == "--here" ]]; then
   cd "$REPO" || exit 1
   sha="$(git rev-parse --short HEAD)$(git diff --quiet || echo '+dirty')"
 else
-  ref="${TUBELESS_HEALTH_REF:-${KESTREL_HEALTH_REF:-}}"   # the old name still counts
+  ref="${TUBELESS_HEALTH_REF:-}"
   if [[ -z "$ref" ]]; then
     if git -C "$REPO" remote get-url origin >/dev/null 2>&1; then
       git -C "$REPO" fetch -q origin trunk || echo "fetch failed, testing the last fetched origin/trunk" >&2

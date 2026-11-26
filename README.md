@@ -11,7 +11,13 @@ Home feed, subscriptions, history, Watch later, playlists and notifications, or 
 a local library. Ads are left out (in videos, lists and Shorts), sponsor segments are skipped, and
 background play, picture-in-picture and offline downloads work on every platform.
 
-**Try it in your browser, nothing to install:** <https://fjenn.github.io/tubeless-publik/> (Instant mode:
+**Download:** [macOS (Apple silicon)](https://github.com/fjenn/tubeless/releases/latest/download/Tubeless-1.0.0-mac-arm64.dmg) ·
+[macOS (Intel)](https://github.com/fjenn/tubeless/releases/latest/download/Tubeless-1.0.0-mac-x64.dmg) ·
+[Linux AppImage](https://github.com/fjenn/tubeless/releases/latest/download/Tubeless-1.0.0-linux-x86_64.AppImage) ·
+[Linux .deb](https://github.com/fjenn/tubeless/releases/latest/download/Tubeless-1.0.0-linux-amd64.deb) ·
+[all files](https://github.com/fjenn/tubeless/releases/latest)
+
+**Try it in your browser, nothing to install:** <https://fjenn.github.io/tubeless/> (Instant mode:
 signed out, no downloads; add the extension or get the app for everything else).
 
 > [!NOTE]
@@ -37,18 +43,22 @@ signed out, no downloads; add the extension or get the app for everything else).
 
 ## Platforms
 
-| Platform | Build | Player |
+| Platform | Download | Player |
 |---|---|---|
-| macOS (arm64, x64) | `.dmg` | libmpv |
-| Windows (x64) | `.msi`, portable `.zip` | libmpv |
-| Linux (x86_64, aarch64) | AppImage, `.deb`, `.rpm`, Flatpak, Snap | libmpv |
-| Android (phone, tablet, TV) | `.apk` | Media3 / ExoPlayer |
-| iPhone / iPad | `.ipa` (sideload with AltStore / SideStore) | AVPlayer |
-| Chrome / Firefox | extension | `<video>` + Shaka Player |
-| Any browser | [website](https://fjenn.github.io/tubeless-publik/) (Instant mode) | `<video>` + `<audio>` in step, native HLS on Safari |
+| macOS 15+ (Apple silicon, Intel) | `.dmg`, signed and notarized | libmpv |
+| Linux (x86_64, aarch64) | AppImage, `.deb` | libmpv |
+| Chrome / Firefox | extension (`.zip` / `.xpi`) | `<video>` + Shaka Player |
+| Any browser | [website](https://fjenn.github.io/tubeless/) (Instant mode) | `<video>` + `<audio>` in step, native HLS on Safari |
+| Windows (x64) | coming soon (code signing pending); build it yourself meanwhile | libmpv |
+| Android (phone, tablet, TV) | coming soon; build it yourself meanwhile | Media3 / ExoPlayer |
+| iPhone / iPad | coming soon; build it yourself meanwhile | AVPlayer |
 
 Release files come from [`.github/workflows/release.yml`](.github/workflows/release.yml) and are
-published on the [Releases](../../releases) page.
+published on the [Releases](https://github.com/fjenn/tubeless/releases) page. The app tells you when a
+new version is out; it never installs anything by itself.
+
+**Linux:** `sudo apt install ./Tubeless-1.0.0-linux-amd64.deb` (pulls in libmpv), or make the AppImage
+executable (`chmod +x`) and run it.
 
 ## Build
 
@@ -67,8 +77,8 @@ node site/build.mjs                         # the website in site/dist (after th
 iPhone / iPad:
 
 ```sh
-./gradlew :ios:linkReleaseFrameworkIosArm64          # Kotlin → TubeHausKit.framework
-mkdir -p ios/build/kit && cp -R ios/build/bin/iosArm64/releaseFramework/TubeHausKit.framework ios/build/kit/
+./gradlew :ios:linkReleaseFrameworkIosArm64          # Kotlin → TubelessKit.framework
+mkdir -p ios/build/kit && cp -R ios/build/bin/iosArm64/releaseFramework/TubelessKit.framework ios/build/kit/
 cd ios/app && xcodegen generate                      # makes Tubeless.xcodeproj
 APPLE_TEAM_ID=<your team id> xcodebuild -project Tubeless.xcodeproj -scheme Tubeless ...
 ```
@@ -83,6 +93,8 @@ Release signing is optional: without the signing secrets, `release.yml` builds a
 apps, unsigned Windows / iOS files and a debug-key APK.
 
 ## Credits
+
+See [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md) for every project Tubeless builds on and its license.
 
 Tubeless is a fork of [TubeHaus](https://github.com/biolend83/tubehaus) by biolend83 and its
 contributors (GPL-3.0); its engine, player integrations and much of the UI come from there. It also

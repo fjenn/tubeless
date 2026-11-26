@@ -36,7 +36,7 @@ stamp=$(date +%F-%H%M)
 OUT="$ROOT/docs/parity/e2e"; mkdir -p "$OUT"
 REPORT="$OUT/$platform-$stamp.md"
 # an existing event log (an app session already running with it) is read as is; else a fresh one
-export TUBELESS_E2E_LOG="${TUBELESS_E2E_LOG:-${KESTREL_E2E_LOG:-}}"   # the old name still counts
+export TUBELESS_E2E_LOG="${TUBELESS_E2E_LOG:-}"
 if [ -z "${TUBELESS_E2E_LOG:-}" ]; then export TUBELESS_E2E_LOG="$OUT/$platform-$stamp.events.jsonl"; : > "$TUBELESS_E2E_LOG"; fi
 # test video: long enough for SponsorBlock segments, chapters and 1080p+ (override with E2E_VIDEO)
 VIDEO=${E2E_VIDEO:-dQw4w9WgXcQ}

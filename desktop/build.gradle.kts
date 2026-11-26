@@ -57,9 +57,11 @@ dependencies {
 
 compose.desktop {
     application {
-        mainClass = "app.tubehaus.desktop.MainKt"
+        mainClass = "app.tubeless.desktop.MainKt"
         // M3 memory: G1 gives unused heap back (periodic GC when quiet, little free heap kept), ~100 MB less RSS while playing
         jvmArgs += listOf("-Xmx512m", "-XX:MaxHeapFreeRatio=20", "-XX:MinHeapFreeRatio=5", "-XX:G1PeriodicGCInterval=15000")
+        // Linux: Main.kt names the window class "tubeless" (WM_CLASS) for the dock icon
+        if (System.getProperty("os.name").startsWith("Linux")) jvmArgs += "--add-opens=java.desktop/sun.awt.X11=ALL-UNNAMED"
         nativeDistributions {
             // only the formats of the system it is built on (Compose refuses e.g. AppImage on macOS)
             val os = System.getProperty("os.name")
@@ -72,7 +74,7 @@ compose.desktop {
             packageVersion = appVersion
             description = "YouTube on your own terms"
             vendor = "Tubeless"
-            copyright = "AGPL-3.0-or-later (based on TubeHaus, GPL-3.0)"
+            copyright = "GPL-3.0 (based on TubeHaus, see ACKNOWLEDGEMENTS.md)"
             // libmpv-2.dll goes in resources/windows (not in git: see README)
             appResourcesRootDir.set(project.layout.projectDirectory.dir("resources"))
             modules("java.net.http", "jdk.unsupported", "jdk.httpserver")
@@ -183,26 +185,26 @@ tasks.matching { it.name == "prepareAppResources" }.configureEach { dependsOn(si
 // runs every engine call against YouTube: ./gradlew :desktop:engineCheck
 tasks.register<JavaExec>("engineCheck") {
     classpath = sourceSets["main"].runtimeClasspath
-    mainClass.set("app.tubehaus.desktop.EngineCheckKt")
+    mainClass.set("app.tubeless.desktop.EngineCheckKt")
 }
 
 // when YouTube stops answering the player clients in clients.json: finds the ones that still work and rewrites the list
 // ./gradlew :desktop:engineRepair
 tasks.register<JavaExec>("engineRepair") {
     classpath = sourceSets["main"].runtimeClasspath
-    mainClass.set("app.tubehaus.desktop.EngineRepairKt")
+    mainClass.set("app.tubeless.desktop.EngineRepairKt")
 }
 
 // signed-in Home check (from eval/signed-in-home): ./gradlew :desktop:homeCheck -Pcookies=/path/cookies.txt
 // uses the owner's local cookies; never run in CI
 tasks.register<JavaExec>("homeCheck") {
     classpath = sourceSets["main"].runtimeClasspath
-    mainClass.set("app.tubehaus.desktop.HomeCheckKt")
+    mainClass.set("app.tubeless.desktop.HomeCheckKt")
     args((findProperty("cookies") ?: "${System.getProperty("user.home")}/youtube-app/eval/cookies.txt").toString())
 }
 
 // S3's offline sign-in checks (cookie jar, SAPISIDHASH, accounts, signed-in rule): ./gradlew :desktop:accountCheck
 tasks.register<JavaExec>("accountCheck") {
     classpath = sourceSets["main"].runtimeClasspath
-    mainClass.set("app.tubehaus.desktop.AccountCheckKt")
+    mainClass.set("app.tubeless.desktop.AccountCheckKt")
 }

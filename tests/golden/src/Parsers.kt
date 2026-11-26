@@ -1,19 +1,19 @@
-package app.tubehaus.golden
+package app.tubeless.golden
 
-import app.tubehaus.engine.AccountParse
-import app.tubehaus.engine.Bell
-import app.tubehaus.engine.Notifications
-import app.tubehaus.engine.WatchTime
-import app.tubehaus.engine.YouTubeAccount
-import app.tubehaus.engine.chaptersIn
-import app.tubehaus.engine.continuationOf
-import app.tubehaus.engine.parseItems
-import app.tubehaus.engine.parsePosts
+import app.tubeless.engine.AccountParse
+import app.tubeless.engine.Bell
+import app.tubeless.engine.Notifications
+import app.tubeless.engine.WatchTime
+import app.tubeless.engine.YouTubeAccount
+import app.tubeless.engine.chaptersIn
+import app.tubeless.engine.continuationOf
+import app.tubeless.engine.parseItems
+import app.tubeless.engine.parsePosts
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
-import app.tubehaus.engine.at
-import app.tubehaus.engine.findAll
-import app.tubehaus.engine.str
+import app.tubeless.engine.at
+import app.tubeless.engine.findAll
+import app.tubeless.engine.str
 
 /**
  * The parsers golden tests can run. The key is the folder name under tests/golden/fixtures.
@@ -56,16 +56,16 @@ val PARSERS: Map<String, (JsonElement) -> Any?> = mapOf(
         else YouTubeAccount.bellParams(a[0], Bell.valueOf(a[1])).let { it to AccountParse.prefIndex(it) }
     },
     // FIX1: YouTube's Shorts sequence (reel/reel_watch_sequence) and a seeded sequence's params
-    "reelSequence" to { j -> app.tubehaus.engine.Ads.clear(); app.tubehaus.engine.ReelSequence.parse(j) },
+    "reelSequence" to { j -> app.tubeless.engine.Ads.clear(); app.tubeless.engine.ReelSequence.parse(j) },
     // FIX2: the ads among Shorts and list items: what is left out, and the ad ids the player will refuse
     "adsLeftOut" to { j ->
-        app.tubehaus.engine.Ads.clear()
-        val kept = if (j.at("entries") != null) app.tubehaus.engine.ReelSequence.parse(j).map { it.video.id } else parseItems(j).map { it.id }
-        val refused = j.findAll("videoId", emptySet()).mapNotNull { it.str }.distinct().filter { app.tubehaus.engine.Ads.isAd(it) }
-        val played = refused.map { id -> kotlinx.coroutines.runBlocking { runCatching { app.tubehaus.engine.YouTube.stream(id) }.exceptionOrNull()?.message } }
+        app.tubeless.engine.Ads.clear()
+        val kept = if (j.at("entries") != null) app.tubeless.engine.ReelSequence.parse(j).map { it.video.id } else parseItems(j).map { it.id }
+        val refused = j.findAll("videoId", emptySet()).mapNotNull { it.str }.distinct().filter { app.tubeless.engine.Ads.isAd(it) }
+        val played = refused.map { id -> kotlinx.coroutines.runBlocking { runCatching { app.tubeless.engine.YouTube.stream(id) }.exceptionOrNull()?.message } }
         mapOf("kept" to kept, "refused" to refused, "playerSays" to played.distinct())
     },
-    "reelSeed" to { j -> app.tubehaus.engine.ReelSequence.seedParams((j as JsonPrimitive).content) },
+    "reelSeed" to { j -> app.tubeless.engine.ReelSequence.seedParams((j as JsonPrimitive).content) },
     // input: {base, cpn, cmt, st, et, len, state?, rt, rtn}
     "watchTimeUrl" to { j ->
         val o = j as kotlinx.serialization.json.JsonObject

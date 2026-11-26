@@ -27,7 +27,7 @@ object WebAuth {
     fun apply() {
         val now = on && browserSignedIn
         // through Accounts, so the shared UI (You header, menus) knows it is signed in; same SAPISIDHASH headers
-        app.tubehaus.engine.Accounts.useBrowserSession(if (now) ({ jsSapisid() }) else null)
+        app.tubeless.engine.Accounts.useBrowserSession(if (now) ({ jsSapisid() }) else null)
         if (now != applied) { applied = now; onChange?.invoke() }
     }
 

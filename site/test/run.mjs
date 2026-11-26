@@ -1,7 +1,7 @@
 // Drives the built website (site/dist) in a throwaway headless Chrome or Firefox (own temporary profile; the
 // user's browsers, settings and YouTube session are never touched) and checks Instant mode end to end.
 //   node site/test/run.mjs chrome|firefox <scenario...>    scenarios: home search watch seek shorts sponsor drift save
-//   Tubeless on youtube.com (the bookmark): ythome ywatch yfx ydl yover; build the site with SITE_URL=http://127.0.0.1:<PORT>/tubeless-publik/
+//   Tubeless on youtube.com (the bookmark): ythome ywatch yfx ydl yover; build the site with SITE_URL=http://127.0.0.1:<PORT>/tubeless/
 //   and pass the same PORT (the bookmark loads yt.js from there into www.youtube.com, as from GitHub Pages)
 // env: BIN=<browser binary>, DIST=<site dir> (site/dist), SHOTS=<dir for screenshots>, DRIFT_S=<seconds> (600),
 //      EXT=<unpacked Chrome extension dir> (Full-mode hand-over check, chrome only), PORT
@@ -25,7 +25,7 @@ const ok = (name, pass, detail) => { if (process.env.XMODE) name = name.replace(
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8", ".wasm": "application/wasm",
   ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".ttf": "font/ttf", ".txt": "text/plain" };
 const server = createServer((req, res) => {
-  const p = decodeURIComponent(new URL(req.url, "http://x").pathname).replace(/^\/tubeless-publik/, "");
+  const p = decodeURIComponent(new URL(req.url, "http://x").pathname).replace(/^\/tubeless/, "");
   let f = join(dist, p.endsWith("/") ? p + "index.html" : p);
   if (!f.startsWith(dist) || !existsSync(f) || statSync(f).isDirectory()) { res.writeHead(404); return res.end("not found"); }
   // GitHub Pages answers with ACAO *: the bookmark loads the app's modules and wasm from youtube.com
@@ -33,7 +33,7 @@ const server = createServer((req, res) => {
   res.end(readFileSync(f));
 });
 await new Promise((r) => server.listen(+process.env.PORT || 0, "127.0.0.1", r));
-const base = process.env.LIVE || `http://127.0.0.1:${server.address().port}/tubeless-publik/`;
+const base = process.env.LIVE || `http://127.0.0.1:${server.address().port}/tubeless/`;
 console.log("serving", dist, "at", base);
 
 // ------------------------------------------------------------------ browser drivers: open(url), eval(expr), shot(file), click(x,y), key(k), type(s), wheel(x,y,dy)
@@ -200,7 +200,7 @@ async function playing(minT = 3, secs = 60) {
 // ------------------------------------------------------------------ scenarios
 const VIDEO = process.env.VIDEO || "aqz-KE-bpKQ";  // Big Buck Bunny 60fps 4K (Blender, CC-BY)
 // ------------------------------------------------------------------ Tubeless on youtube.com (the bookmark, site/bookmarklet.js)
-// dist must be built with SITE_URL=http://127.0.0.1:<PORT>/tubeless-publik/ (and PORT set here) so the bookmark loads from this server
+// dist must be built with SITE_URL=http://127.0.0.1:<PORT>/tubeless/ (and PORT set here) so the bookmark loads from this server
 const bookmarklet = () => readFileSync(join(dist, "bookmarklet.txt"), "utf8").trim();
 async function ytOpen(q = "") {
   if (XMODE) {

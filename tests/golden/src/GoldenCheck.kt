@@ -1,4 +1,4 @@
-package app.tubehaus.golden
+package app.tubeless.golden
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray

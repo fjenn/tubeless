@@ -1,5 +1,4 @@
-//! Tubeless's desktop sign-in (docs/PLAN.md §1.3, stream S3). Ported from Spotless
-//! `src-tauri/src/session.rs` + `crates/core/src/login.rs`, without Tauri.
+//! Tubeless's desktop sign-in (docs/PLAN.md §1.3, stream S3).
 //!
 //! Opens Google's own sign-in page in the system web view (WKWebView, WebView2, WebKitGTK). The user
 //! types into Google, never into Tubeless. The page continues through YouTube's sign-in hand-off to
@@ -156,7 +155,7 @@ fn google_session(cookies: &[wry::cookie::Cookie<'static>]) -> bool {
 
 /// TUBELESS_SIGNIN_DEBUG=1: page loads and the polled URL on stderr (never cookie values)
 fn debug() -> bool {
-    std::env::var_os("TUBELESS_SIGNIN_DEBUG").is_some() || std::env::var_os("KESTREL_SIGNIN_DEBUG").is_some() // old name still counts
+    std::env::var_os("TUBELESS_SIGNIN_DEBUG").is_some()
 }
 
 fn print(v: Value) {

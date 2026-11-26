@@ -1,6 +1,6 @@
-// macOS Control Center and the media keys for TubeHaus: what plays (title, artist, cover, position)
+// macOS Control Center and the media keys for Tubeless: what plays (title, artist, cover, position)
 // and its buttons. Built by Gradle into the jar as /nowplaying/libnowplaying.dylib and loaded into
-// the app's own process through JNA (MacMediaControls.kt), so Control Center names TubeHaus.
+// the app's own process through JNA (MacMediaControls.kt), so Control Center names Tubeless.
 // A helper process wouldn't do: Now Playing belongs to the process that sets it.
 import AppKit
 import MediaPlayer

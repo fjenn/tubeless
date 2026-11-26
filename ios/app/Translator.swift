@@ -1,7 +1,7 @@
 import SwiftUI
 import NaturalLanguage
 import Translation
-import TubeHausKit
+import TubelessKit
 
 // Comment translation for the Kotlin side (ios/src/.../CommentTranslation.kt) with Apple's
 // Translation framework (iOS 18+, on the device). Its sessions come from SwiftUI's

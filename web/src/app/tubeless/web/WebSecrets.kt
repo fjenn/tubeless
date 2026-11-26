@@ -1,6 +1,6 @@
 package app.tubeless.web
 
-import app.tubehaus.engine.SecretStore
+import app.tubeless.engine.SecretStore
 
 /** The website's secrets (TvSignIn's refresh token): this origin's localStorage, nothing leaves the browser */
 object WebSecrets : SecretStore {

@@ -4,11 +4,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.Font
-import app.tubehaus.ui.Platform
-import app.tubehaus.ui.Speech
-import app.tubehaus.ui.VideoPlayer
-import app.tubehaus.web.WebFs
-import app.tubehaus.web.toArrayBuffer
+import app.tubeless.ui.Platform
+import app.tubeless.ui.Speech
+import app.tubeless.ui.VideoPlayer
+import app.tubeless.web.WebFs
+import app.tubeless.web.toArrayBuffer
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.await
 import kotlinx.coroutines.launch

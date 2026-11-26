@@ -9,7 +9,7 @@
 #
 # Signing: Xcode automatic signing driven by the App Store Connect API key
 # (-allowProvisioningUpdates -authenticationKey*), cloud-managed Apple Distribution certificate,
-# nothing stored in the repo. Same flow as Spotless (music-app .github/workflows/release-ios.yml).
+# nothing stored in the repo.
 # Key: ASC_KEY_PATH / ASC_KEY_ID / ASC_ISSUER (defaults: the team's Admin key on this Mac).
 # Needs the App Store Connect app record for dev.tubeless.app (Apple's API cannot create one:
 # appstoreconnect.apple.com > Apps > + > New App, once).
@@ -70,7 +70,7 @@ else
 echo "== Kotlin framework (release, iosArm64)"
 ./gradlew -q :ios:linkReleaseFrameworkIosArm64
 rm -rf ios/build/kit && mkdir -p ios/build/kit
-cp -R ios/build/bin/iosArm64/releaseFramework/TubeHausKit.framework ios/build/kit/
+cp -R ios/build/bin/iosArm64/releaseFramework/TubelessKit.framework ios/build/kit/
 
 echo "== Xcode project"
 (cd ios/app && xcodegen generate --quiet)

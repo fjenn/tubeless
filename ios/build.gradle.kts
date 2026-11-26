@@ -13,7 +13,7 @@ kotlin {
     // check); iosX64: the simulator on an Intel Mac
     listOf(iosArm64(), iosSimulatorArm64(), iosX64()).forEach {
         it.binaries.framework {
-            baseName = "TubeHausKit"
+            baseName = "TubelessKit"
             isStatic = true
         }
     }

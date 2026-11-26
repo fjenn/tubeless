@@ -1,6 +1,6 @@
 package app.tubeless.web
 
-import app.tubehaus.ui.FullMode
+import app.tubeless.ui.FullMode
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,15 +21,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import app.tubehaus.ui.AppState
-import app.tubehaus.ui.CodeSignIn
-import app.tubehaus.engine.Accounts
-import app.tubehaus.engine.TvSignIn
+import app.tubeless.ui.AppState
+import app.tubeless.ui.CodeSignIn
+import app.tubeless.engine.Accounts
+import app.tubeless.engine.TvSignIn
 import androidx.compose.foundation.clickable
-import app.tubehaus.ui.Screen
-import app.tubehaus.ui.tr
-import app.tubehaus.ui.SettingsSections
-import app.tubehaus.ui.Sym
+import app.tubeless.ui.Screen
+import app.tubeless.ui.tr
+import app.tubeless.ui.SettingsSections
+import app.tubeless.ui.Sym
 import kotlinx.coroutines.launch
 
 /** Settings → Account (browser): the switch for signed-in mode through the browser's youtube.com session. */

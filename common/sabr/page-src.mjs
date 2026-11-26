@@ -1,4 +1,4 @@
-// TubeHaus SABR in a browser page whose origin is https://www.youtube.com (a hidden WebView on Android, Edge or
+// Tubeless SABR in a browser page whose origin is https://www.youtube.com (a hidden WebView on Android, Edge or
 // Chrome on a computer, WKWebView on an iPad): the page's own fetch talks to YouTube and its video servers as
 // YouTube's web player does, and BotGuard runs in a real browser engine. Bundled into common/sabr/sabr-page.js
 // with googlevideo and bgutils-js (MIT); yt-dlp's EJS solver (common/ejs) is loaded into the same page first.

@@ -1,6 +1,6 @@
 # CI (Windows runner): libmpv-2.dll (shinchiro's mpv-winbuild-cmake, plain build: -v3 needs AVX2) and
 # the Khronos Vulkan loader (Apache-2.0) next to it, into the app's resources/windows. From upstream
-# TubeHaus build.yml.
+# Tubeless build.yml.
 #   packaging/windows/fetch-libmpv.ps1 -Arch x86_64 -VulkanArch x64 -Out desktop/resources/windows
 param([string]$Arch = "x86_64", [string]$VulkanArch = "x64", [string]$Out = "desktop/resources/windows")
 $ErrorActionPreference = "Stop"

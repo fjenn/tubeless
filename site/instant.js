@@ -17,7 +17,7 @@
   const gecko = /Gecko\/\d/.test(navigator.userAgent) && /Firefox\//.test(navigator.userAgent);
   const apple = /Apple/.test(navigator.vendor) && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
   const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  const LINKS = { extension: "youtube.html", app: "https://github.com/fjenn/tubeless-publik/releases" };
+  const LINKS = { extension: "youtube.html", app: "https://github.com/fjenn/tubeless/releases" };
 
   // ------------------------------------------------------------------ notices (HTML over the canvas)
   const notice = (() => {

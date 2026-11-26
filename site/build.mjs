@@ -43,7 +43,7 @@ execFileSync("unzip", ["-q", "-o", skikoJar(), "skiko.mjs", "skiko.wasm", "-d", 
 cpSync(join(root, "common/fonts/RobotoVariable.ttf"), join(out, "RobotoVariable.ttf"));
 cpSync(join(root, "common/fonts/PretendardVariable.ttf"), join(out, "PretendardVariable.ttf"));
 // Tubeless on youtube.com (the bookmark, youtube.html): yt.js loads the extension's own host code and the same app there
-const SITE_URL = process.env.SITE_URL || "https://fjenn.github.io/tubeless-publik/";
+const SITE_URL = process.env.SITE_URL || "https://fjenn.github.io/tubeless/";
 cpSync(join(here, "yt.js"), join(out, "yt.js"));
 for (const f of ["tubeless.js", "sabr-frame.js"]) cpSync(join(root, "extension/src", f), join(out, f));
 for (const f of ["shaka-player.compiled.js", "mediabunny.min.mjs"]) cpSync(join(root, "extension/vendor", f), join(out, "vendor", f));
@@ -54,7 +54,7 @@ const bookmarklet = "javascript:" + encodeURIComponent(readFileSync(join(here, "
 // the browser extension, served from the site itself so the install page's button always gets the newest one:
 // Chrome's zip (built by extension/build.mjs from the same wasm; EXT_ZIP=<path> to pick another) as Tubeless.zip (it
 // unzips to a "Tubeless" folder for Load unpacked), and Firefox's add-on only when signed (FIREFOX_XPI=<path>, AMO)
-const RELEASES = "https://github.com/fjenn/tubeless-publik/releases";
+const RELEASES = "https://github.com/fjenn/tubeless/releases";
 const extZip = process.env.EXT_ZIP || join(root, `extension/dist/tubeless-${version}-chrome.zip`);
 const ext = { releases: RELEASES, chrome: null, firefox: null, version };
 if (existsSync(extZip)) { cpSync(extZip, join(out, "Tubeless.zip")); ext.chrome = "Tubeless.zip"; }

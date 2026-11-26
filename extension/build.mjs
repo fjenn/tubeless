@@ -28,7 +28,7 @@ function skikoJar() {
 }
 
 // where the Tubeless website is served (site/); SITE_MATCHES="pattern,pattern" adds more (a test server, a custom domain)
-const SITE_MATCHES = ["https://fjenn.github.io/tubeless-publik/*", ...(process.env.SITE_MATCHES || "").split(",").filter(Boolean)];
+const SITE_MATCHES = ["https://fjenn.github.io/tubeless/*", ...(process.env.SITE_MATCHES || "").split(",").filter(Boolean)];
 
 const manifest = (browser) => ({
   manifest_version: 3,

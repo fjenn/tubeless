@@ -1,10 +1,10 @@
 # kotlinx.serialization: keep the generated serializers of the library classes
 -keepattributes *Annotation*, InnerClasses
--keepclassmembers class app.tubehaus.data.** {
+-keepclassmembers class app.tubeless.data.** {
     *** Companion;
     kotlinx.serialization.KSerializer serializer(...);
 }
--keep,includedescriptorclasses class app.tubehaus.data.**$$serializer { *; }
+-keep,includedescriptorclasses class app.tubeless.data.**$$serializer { *; }
 
 # OkHttp / Okio
 -dontwarn okhttp3.internal.platform.**

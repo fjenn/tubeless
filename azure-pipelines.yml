@@ -26,24 +26,24 @@ jobs:
       - script: |
           set -e
           ./gradlew :ios:linkReleaseFrameworkIosArm64 --no-configuration-cache --stacktrace
-          mkdir -p ios/build/kit && cp -R ios/build/bin/iosArm64/releaseFramework/TubeHausKit.framework ios/build/kit/
-        displayName: Kotlin → TubeHausKit.framework
+          mkdir -p ios/build/kit && cp -R ios/build/bin/iosArm64/releaseFramework/TubelessKit.framework ios/build/kit/
+        displayName: Kotlin → TubelessKit.framework
       - script: |
           set -e
           brew install xcodegen
           cd ios/app && xcodegen generate
         displayName: Xcode project
       - script: >-
-          xcodebuild -project ios/app/TubeHaus.xcodeproj -scheme TubeHaus -sdk iphoneos -configuration Release
+          xcodebuild -project ios/app/Tubeless.xcodeproj -scheme Tubeless -sdk iphoneos -configuration Release
           -derivedDataPath build/xcode CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
         displayName: Build the app (unsigned)
       - script: |
           set -e
-          app=build/xcode/Build/Products/Release-iphoneos/TubeHaus.app
-          test -x "$app/TubeHaus"
+          app=build/xcode/Build/Products/Release-iphoneos/Tubeless.app
+          test -x "$app/Tubeless"
           mkdir -p out/Payload && cp -R "$app" out/Payload/
-          cd out && zip -qr TubeHaus.ipa Payload && unzip -l TubeHaus.ipa | tail -3
-          du -h TubeHaus.ipa
-        displayName: Package TubeHaus.ipa
-      - publish: out/TubeHaus.ipa
-        artifact: TubeHaus-iPad
+          cd out && zip -qr Tubeless.ipa Payload && unzip -l Tubeless.ipa | tail -3
+          du -h Tubeless.ipa
+        displayName: Package Tubeless.ipa
+      - publish: out/Tubeless.ipa
+        artifact: Tubeless-iPad

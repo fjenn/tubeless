@@ -4,6 +4,7 @@ name: Smoke
 #   desktop   Windows (MSI installed), Linux (.deb installed, Xvfb), macOS (Tubeless.app): built like
 #             release.yml, then scripts/smoke/desktop.sh drives it with the QA driver (parity-cmd.txt) and
 #             reads its E2E log: start → Home → search → open a video → playback → Shorts swipe → Settings → quit
+#   ubuntu24  the .deb and AppImage on a fresh ubuntu:24.04 container (scripts/smoke/ubuntu24.sh)
 #   android   debug APK on an API 34 x86_64 emulator: scripts/smoke/android.sh (adb, screencap, uiautomator,
 #             a real swipe, logcat crash check)
 # Playback blocked by YouTube's bot wall (GitHub's datacenter IPs) is reported as BLOCKED, not as a failure;
@@ -40,7 +41,7 @@ jobs:
       - name: Packages (build + Xvfb)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev xvfb imagemagick libgl1-mesa-dri fonts-noto-cjk
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev xvfb imagemagick libgl1-mesa-dri fonts-noto-cjk libmpv1
       - name: Sign-in helper
         run: |
           (cd tools/signin-helper && cargo build --release --locked)
@@ -73,6 +74,34 @@ jobs:
         if: always()
         with:
           name: smoke-linux
+          path: smoke/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            tubeless.deb
+            Tubeless.AppImage
+          retention-days: 3
+
+  # a fresh Ubuntu 24.04 (the plain ubuntu:24.04 image): the AppImage without any libmpv, then the .deb
+  # installed with apt, its menu entry, AppStream data and icon checked, and each one run through the smoke flow
+  ubuntu24:
+    needs: linux
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    container: ubuntu:24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-packages
+      - name: Fresh install + smoke
+        run: bash scripts/smoke/ubuntu24.sh tubeless.deb Tubeless.AppImage smoke/ubuntu24
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-ubuntu24
           path: smoke/
 
   windows:

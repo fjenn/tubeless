@@ -1,5 +1,5 @@
 {
-  "_comment": "Read by the TubeHaus apps once a day (common/src/app/tubehaus/engine/Remote.kt): the InnerTube clients asked for video streams, in order. Update the versions here when YouTube retires one; installed apps pick it up without a new release.",
+  "_comment": "Read by the Tubeless apps once a day (common/src/app/tubeless/engine/Remote.kt): the InnerTube clients asked for video streams, in order. Update the versions here when YouTube retires one; installed apps pick it up without a new release.",
   "players": [
     {
       "name": "VISIONOS",

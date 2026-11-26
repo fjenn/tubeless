@@ -1,13 +1,15 @@
 name: Release
 
-# Every platform's release files from one tag, collected into one DRAFT GitHub release (publish it by
-# hand after a look; the in-app updater and the AltStore source only see published releases).
+# Every platform's release files, built from one run; the released ones are collected into one DRAFT
+# GitHub release (publish it by hand after a look; the in-app updater only sees published releases).
 #
-#   git tag -a app-v1.9.0 -m "Tubeless 1.9.0" && git push origin app-v1.9.0
-#   or Actions → Release → Run workflow (no tag: a dry run that only uploads build artifacts)
+#   Actions → Release → Run workflow, tag v<app.version>   (no tag: a dry run that only uploads build artifacts)
 #
-# Tags are app-v<app.version from gradle.properties>; the app's update check (Remote.kt) looks for
-# exactly that prefix. Files:
+# Tags are v<app.version from gradle.properties>; the app's update check (Remote.kt) looks for exactly
+# that prefix. Released today: Linux (AppImage, .deb) and the browser extension; the macOS DMGs go in
+# when they are Developer ID signed + notarized (here with the secrets, or signed on a Mac with
+# packaging/macos/sign-dmg.sh and uploaded to the draft). Windows, Android and iOS are built but not
+# released yet (signing pending). Files:
 #   mac        Tubeless-<v>-mac-{arm64,x64}.dmg    Developer ID signed + notarized when the secrets are
 #                                                 set, ad hoc otherwise (packaging/macos/sign-dmg.sh)
 #   windows    Tubeless-<v>-win-x64.msi (+ portable .zip)      unsigned (SignPath/Azure signing: later)
@@ -26,12 +28,10 @@ name: Release
 #   AMO_JWT_ISSUER, AMO_JWT_SECRET                    addons.mozilla.org API key (unlisted XPI signing)
 #   SNAPCRAFT_STORE_CREDENTIALS                       `snapcraft export-login` output
 on:
-  push:
-    tags: ["app-v*"]
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag app-v<version> (empty: dry run, artifacts only)"
+        description: "Release tag v<version> (empty: dry run, artifacts only)"
         required: false
         type: string
 
@@ -39,7 +39,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.event_name == 'push' && github.ref_name || inputs.tag || github.run_id }}
+  group: release-${{ inputs.tag || github.run_id }}
   cancel-in-progress: false
 
 env:
@@ -55,11 +55,11 @@ jobs:
       - uses: actions/checkout@v4
       - id: v
         env:
-          TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+          TAG: ${{ inputs.tag }}
         run: |
           version=$(sed -n 's/^app.version=//p' gradle.properties)
-          if [ -n "$TAG" ] && [ "$TAG" != "app-v$version" ]; then
-            echo "::error::tag $TAG does not match app.version=$version in gradle.properties (expected app-v$version)"; exit 1
+          if [ -n "$TAG" ] && [ "$TAG" != "v$version" ]; then
+            echo "::error::tag $TAG does not match app.version=$version in gradle.properties (expected v$version)"; exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
@@ -230,7 +230,8 @@ jobs:
       - name: Sign-in helper
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
+          # libmpv: make-appimage.sh puts the build machine's copy inside the AppImage
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libmpv1
           (cd tools/signin-helper && cargo build --release --locked)
           mkdir -p desktop/resources/linux
           cp tools/signin-helper/target/release/signin-helper desktop/resources/linux/
@@ -240,7 +241,7 @@ jobs:
           ./gradlew --no-daemon :desktop:packageReleaseDeb :desktop:packageReleaseRpm :desktop:createReleaseDistributable
           out=desktop/build/compose/binaries/main-release
           cp "$(find $out/deb -name '*.deb' | head -1)" "Tubeless-$VERSION-linux-${{ matrix.deb }}.deb"
-          packaging/linux/fix-deb.sh "Tubeless-$VERSION-linux-${{ matrix.deb }}.deb"
+          packaging/linux/fix-deb.sh "Tubeless-$VERSION-linux-${{ matrix.deb }}.deb" "$GITHUB_REPOSITORY"
           cp "$(find $out/rpm -name '*.rpm' | head -1)" "Tubeless-$VERSION-linux-${{ matrix.arch }}.rpm"
           tar -C "$out/app/Tubeless" -cf "app-${{ matrix.arch }}.tar" .
       - name: Build .AppImage
@@ -358,16 +359,16 @@ jobs:
           ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
         run: |
           (umask 077; echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks")
-          echo "TUBEHAUS_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          echo "TUBELESS_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
       - name: Build the APK
         env:
-          TUBEHAUS_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          TUBEHAUS_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          TUBEHAUS_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          TUBELESS_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          TUBELESS_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          TUBELESS_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          # android/build.gradle.kts signs with TUBEHAUS_KEYSTORE when it is set, else with the debug key
-          [ -n "${TUBEHAUS_KEY_ALIAS:-}" ] || unset TUBEHAUS_KEY_ALIAS
-          [ -n "${TUBEHAUS_KEY_PASSWORD:-}" ] || unset TUBEHAUS_KEY_PASSWORD
+          # android/build.gradle.kts signs with TUBELESS_KEYSTORE when it is set, else with the debug key
+          [ -n "${TUBELESS_KEY_ALIAS:-}" ] || unset TUBELESS_KEY_ALIAS
+          [ -n "${TUBELESS_KEY_PASSWORD:-}" ] || unset TUBELESS_KEY_PASSWORD
           ./gradlew --no-daemon :android:assembleRelease
           apk=$(find android/build/outputs/apk/release -name '*.apk' | head -1)
           # "Tubeless-release-": the in-app updater of a release-key install looks for that prefix
@@ -420,7 +421,7 @@ jobs:
           prev=""
           if gh release download --repo "$GITHUB_REPOSITORY" --pattern altstore.json --dir prev 2>/dev/null; then prev=prev/altstore.json; fi
           notes=$(git tag -l --format='%(contents:subject)' "$TAG" 2>/dev/null | head -1)
-          python3 altstore/make-source.py --repo "$GITHUB_REPOSITORY" --tag "${TAG:-app-v$VERSION}" \
+          python3 altstore/make-source.py --repo "$GITHUB_REPOSITORY" --tag "${TAG:-v$VERSION}" \
             --ipa "Tubeless-$VERSION-ios.ipa" --build "$(sed -n 's/^app.versionCode=//p' gradle.properties)" \
             --notes "${notes:-Tubeless $VERSION}" --branch "${{ github.event.repository.default_branch }}" \
             ${prev:+--previous "$prev"} -o altstore.json
@@ -474,9 +475,9 @@ jobs:
             Tubeless-*.xpi
 
   publish:
-    needs: [meta, mac, windows, linux, flatpak, snap, android, ios, extension]
-    # a best-effort file that failed (snap) is just missing; the core platforms must all be there
-    if: ${{ !cancelled() && needs.meta.outputs.tag != '' && needs.mac.result == 'success' && needs.windows.result == 'success' && needs.linux.result == 'success' && needs.android.result == 'success' && needs.ios.result == 'success' }}
+    needs: [meta, mac, linux, extension]
+    # released files: Linux (AppImage, .deb) and the extension; the macOS DMGs only when Developer ID signed here
+    if: ${{ !cancelled() && needs.meta.outputs.tag != '' && needs.linux.result == 'success' && needs.extension.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -484,6 +485,7 @@ jobs:
       TAG: ${{ needs.meta.outputs.tag }}
       VERSION: ${{ needs.meta.outputs.version }}
       GH_TOKEN: ${{ github.token }}
+      SIGNED_MAC: ${{ secrets.MACOS_CERTIFICATE != '' && secrets.APPLE_API_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -492,13 +494,16 @@ jobs:
       - name: Draft release
         run: |
           mkdir -p files
-          find dl -type f ! -path 'dl/app-linux-*' \( -name 'Tubeless-*' -o -name altstore.json \) -exec cp {} files/ \;
-          (cd files && sha256sum Tubeless-* > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          find dl/linux-* -type f \( -name 'Tubeless-*.AppImage' -o -name 'Tubeless-*.deb' \) -exec cp {} files/ \;
+          find dl/extension -type f \( -name 'Tubeless-*-chrome.zip' -o -name 'Tubeless-*.xpi' \) -exec cp {} files/ \;
+          if [ "$SIGNED_MAC" = true ]; then find dl/mac-* -type f -name 'Tubeless-*.dmg' -exec cp {} files/ \; ; fi
+          ls -la files
           notes=$(git tag -l --format='%(contents)' "$TAG" 2>/dev/null)
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" files/* --clobber
+            # never replaces a file already there (e.g. DMGs signed and uploaded from a Mac)
+            gh release upload "$TAG" files/*
           else
-            gh release create "$TAG" --draft --verify-tag=false --title "Tubeless $VERSION" \
+            gh release create "$TAG" --draft --target "$GITHUB_SHA" --title "Tubeless $VERSION" \
               --notes "${notes:-Tubeless $VERSION}" files/*
           fi
-          echo "::notice::draft release $TAG ready: check it, then publish it on GitHub"
+          echo "::notice::draft release $TAG ready: add the signed DMGs if they are not in, update SHA256SUMS.txt, then publish it"

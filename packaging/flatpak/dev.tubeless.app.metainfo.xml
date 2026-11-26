@@ -4,14 +4,14 @@
   <name>Tubeless</name>
   <summary>Ad-free video player with or without a Google account</summary>
   <metadata_license>CC0-1.0</metadata_license>
-  <project_license>AGPL-3.0-or-later</project_license>
+  <project_license>GPL-3.0-only</project_license>
   <developer id="dev.tubeless">
     <name>Tubeless contributors</name>
   </developer>
   <description>
     <p>
-      Tubeless plays YouTube without a Google account, without ads and without tracking. Your
-      subscriptions, history, playlists and recommendations stay on your computer.
+      Tubeless plays YouTube without ads, signed in with your Google account or without one. Signed
+      out, your subscriptions, history, playlists and recommendations stay on your computer.
     </p>
     <ul>
       <li>Subscriptions, Watch later, playlists and history, imported from Google Takeout or NewPipe if you like</li>

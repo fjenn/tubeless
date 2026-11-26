@@ -9,7 +9,7 @@ val appVersion = providers.gradleProperty("app.version").get()
 val appVersionCode = providers.gradleProperty("app.versionCode").get().toInt()
 
 android {
-    namespace = "app.tubehaus.android"
+    namespace = "app.tubeless.android"
     compileSdk = 36
 
     defaultConfig {
@@ -33,12 +33,12 @@ android {
 
     signingConfigs {
         // the release key lives outside the repository; without it the APK is signed with the debug key
-        val ks = providers.environmentVariable("TUBEHAUS_KEYSTORE").orNull
+        val ks = providers.environmentVariable("TUBELESS_KEYSTORE").orNull
         if (ks != null) create("release") {
             storeFile = file(ks)
-            storePassword = providers.environmentVariable("TUBEHAUS_KEYSTORE_PASSWORD").get()
-            keyAlias = providers.environmentVariable("TUBEHAUS_KEY_ALIAS").getOrElse("tubehaus")
-            keyPassword = providers.environmentVariable("TUBEHAUS_KEY_PASSWORD").orNull ?: storePassword
+            storePassword = providers.environmentVariable("TUBELESS_KEYSTORE_PASSWORD").get()
+            keyAlias = providers.environmentVariable("TUBELESS_KEY_ALIAS").getOrElse("tubeless")
+            keyPassword = providers.environmentVariable("TUBELESS_KEY_PASSWORD").orNull ?: storePassword
         }
     }
 

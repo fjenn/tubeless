@@ -1,0 +1,285 @@
+package app.tubeless.data
+
+import app.tubeless.engine.Video
+import kotlinx.serialization.Serializable
+
+// The whole library lives in one JSON file on this device. Its shape matches the upstream
+// server's ytlib.json (see Legacy), so a backup file moves between the app and such a server unchanged.
+
+@Serializable
+data class Meta(
+    val id: String,
+    val title: String = "",
+    val author: String = "",
+    val authorId: String = "",
+    val len: Int = 0,
+    val published: Long = 0,
+    val views: Long = 0,
+    val live: Boolean = false,
+    /** when it was watched (history only), epoch seconds */
+    val at: Long = 0,
+) {
+    fun video() = Video(id, title, author, authorId, len, views = views, publishedAt = published, live = live)
+}
+
+fun Video.meta(at: Long = 0) = Meta(id, title, author, channelId, lengthSec, publishedAt, views, live, at)
+
+@Serializable
+data class Sub(val name: String = "", val thumb: String = "", val at: Long = 0)
+
+@Serializable
+data class PlaylistData(val title: String, val items: List<Meta> = emptyList(), val updated: Long = 0)
+
+/** A named set of subscribed channels (like PocketTube's), shown as its own tab in Subscriptions. */
+@Serializable
+data class SubGroup(val name: String, val channels: List<String> = emptyList())
+
+@Serializable
+data class Library(
+    val subs: Map<String, Sub> = emptyMap(),
+    val hist: List<Meta> = emptyList(),
+    /** id -> [seconds, length, when] */
+    val pos: Map<String, List<Long>> = emptyMap(),
+    val wl: List<Meta> = emptyList(),
+    val likes: List<Meta> = emptyList(),
+    val dislikes: List<String> = emptyList(),
+    val playlists: Map<String, PlaylistData> = emptyMap(),
+    /** subscription groups, in the order of their tabs (kept on this device; a server doesn't have them) */
+    val groups: List<SubGroup> = emptyList(),
+)
+
+/** What the recommenders learned. Everything here can be seen and wiped in Settings. */
+@Serializable
+data class Taste(
+    /** channel id -> affinity, about -10..10 */
+    val ch: Map<String, Double> = emptyMap(),
+    /** keyword -> affinity */
+    val kw: Map<String, Double> = emptyMap(),
+    /** videos already shown as Shorts, id -> when */
+    val seen: Map<String, Long> = emptyMap(),
+    val names: Map<String, String> = emptyMap(),
+    val decayed: Long = 0,
+    /** related videos of recently watched ones, the home feed's main candidates */
+    val related: Map<String, List<Meta>> = emptyMap(),
+    /** "not interested": hidden videos and channels */
+    val hiddenVideos: List<String> = emptyList(),
+    val hiddenChannels: List<String> = emptyList(),
+    /** keyword -> affinity by the time it was watched ("wdm" weekday morning ... "wen" weekend night) */
+    val kwTime: Map<String, Map<String, Double>> = emptyMap(),
+)
+
+@Serializable
+data class Settings(
+    /** interface language, "" until chosen (then English is used) */
+    val lang: String = "",
+    val region: String = "",
+    /** highest video height to play, 0 = no limit */
+    val maxHeight: Int = 1080,
+    val maxHeightMobileData: Int = 480,
+    val autoplay: Boolean = true,
+    val captions: Boolean = false,
+    val captionLang: String = "",
+    /** captions: text size in % (50..200), the box behind them in % opacity (0 = no box, an outline instead),
+     *  and where they sit: 0 at the bottom, 1 a little higher, 2 at the top (#54) */
+    val captionSize: Int = 100,
+    val captionBg: Int = 75,
+    val captionPos: Int = 0,
+    /** player gestures on touch screens, each its own switch (#57): double-tap the sides to skip 10 s; swipe for brightness and volume */
+    val doubleTapSeek: Boolean = true,
+    val swipeGestures: Boolean = true,
+    /** touch screens: a small vibration on gestures and toggles (jumps, likes, the player sheet landing) */
+    val haptics: Boolean = true,
+    /** phones: turning sideways while a video plays goes full screen, upright leaves it (#58) */
+    val rotateFull: Boolean = true,
+    /** hidden by choice (#57): the Music tab, the AirPlay/cast button on the player, the logo in the top bar */
+    val hideMusicTab: Boolean = false,
+    val hideCastButton: Boolean = false,
+    val hideLogo: Boolean = false,
+    val speed: Float = 1f,
+    val backgroundPlay: Boolean = true,
+    /** calm mode: no view counts, no Shorts tab, no autoplay of the next video */
+    val calm: Boolean = false,
+    val dark: Int = 0,            // 0 follow system, 1 light, 2 dark
+    /** following the system: the dark theme it switches to, 2 dark or 3 black (#78) */
+    val nightTheme: Int = 2,
+    val historyOff: Boolean = false,
+    /** the taste profile in use (rec/Profiles): "" = the main one */
+    val profile: String = "",
+    /** the desktop player's own volume, 0..1 */
+    val volume: Float = 1f,
+    /** the first-start screen that offers to bring subscriptions over has been seen */
+    val welcomed: Boolean = false,
+    // focus: take away the parts of YouTube that pull you in, one switch each
+    val hideThumbs: Boolean = false,
+    val hideComments: Boolean = false,
+    val homeOff: Boolean = false,
+    /** watched videos drawn faded in Subscriptions */
+    val dimWatched: Boolean = false,
+    /** how far back a subscription group's feed goes, in days */
+    val groupDays: Int = 7,
+    /** nothing is learned from what you watch (no taste profile) */
+    val learnOff: Boolean = false,
+    /** leaving the video page: 0 the mini player, 1 pause, 2 stop */
+    val leaveVideo: Int = 0,
+    /** videos watched for a while, counted up to the one-time GitHub star note */
+    val watchedCount: Int = 0,
+    /** the GitHub star note was shown (once, ever) */
+    val starAsked: Boolean = false,
+    /** the playback method picked in the player: "" the usual order, else a client (YouTube.methods) */
+    val playMethod: String = "",
+    /** the desktop window as it was left: size in dp, maximised */
+    val winW: Int = 0,
+    val winH: Int = 0,
+    val winMax: Boolean = false,
+    val subsFeedOff: Boolean = false,
+    /** with groups: Subscriptions shows only the groups' tabs, not the feed of every channel */
+    val subsHideAll: Boolean = false,
+    /** the tab Subscriptions opens on: a group's name, "" = all */
+    val subsGroup: String = "",
+    /** what you searched for lately, newest first (none kept while history is off) */
+    val recentSearches: List<String> = emptyList(),
+    val hideShorts: Boolean = false,
+    val hideRelated: Boolean = false,
+    /** a Tubeless server the library syncs with ("" = none, see ServerSync), and its login if it has one */
+    val server: String = "",
+    val serverUser: String = "",
+    val serverPass: String = "",
+    /** a sign-in from the server's page in the browser (single sign-on), used instead of a password */
+    val serverToken: String = "",
+    /** once a day: a newer app version, and the stream client list (engine/Remote.kt) */
+    val checkUpdates: Boolean = true,
+    /** text size: 1 normal, up to 1.5 */
+    val textScale: Float = 1f,
+    /** search results as a grid of cards on wide screens (a list by default) */
+    val searchGrid: Boolean = false,
+    /** Android: hide the status and navigation bars everywhere, not only in full screen */
+    val hideBars: Boolean = false,
+    /** phones: the bottom tabs slide away while scrolling down and come back scrolling up */
+    val autoHideNav: Boolean = true,
+    /** touch screens: a tap on the video plays or pauses it (else it shows the controls) */
+    val tapToPause: Boolean = false,
+    /** read about 20 minutes ahead instead of 5 (more memory) */
+    val longBuffer: Boolean = false,
+    /** the desktop player's memory for the video in MB, ahead and behind together; 0 = automatic */
+    val bufferMb: Int = 0,
+    /** what the panel beside the video shows first on wide screens: "next" or "comments" */
+    val sideTab: String = "next",
+    /** phones: the search box at the bottom, within reach of a thumb */
+    val searchAtBottom: Boolean = false,
+    /** under the video: 0 everything, 1 only the title, 2 nothing (just the player) */
+    val underVideo: Int = 0,
+    /** with "everything" under the video: the parts switched off one by one (see UNDER_PARTS) */
+    val hideUnder: List<String> = emptyList(),
+    /** desktop and tablets: the side menu folded into a small button */
+    val railCollapsed: Boolean = false,
+    /** the quality a download is saved in (the last one chosen) */
+    val offlineHeight: Int = 720,
+    /** desktop: where downloads are kept; "" = the app's own folder */
+    val offlineDir: String = "",
+    /** desktop: the sound output mpv plays to (a name from its list); "" = the system's default */
+    val audioDevice: String = "",
+    /** Android: the TV layout and remote keys; 0 when the device is a TV, 1 always, 2 never */
+    val tvMode: Int = 0,
+    /** dark theme: the video's colours glow softly around it, as on YouTube */
+    val ambient: Boolean = true,
+    /** computer: a video card shows the video's frames after the pointer rests on it a second */
+    val hoverPreview: Boolean = true,
+    /** phones: "Playback in feeds", the top card of a feed plays muted: 0 always, 1 on Wi-Fi only, 2 off (YouTube's setting) */
+    val feedPlayback: Int = 1,
+    /** the "Most replayed" wave over the seek bar */
+    val heatmap: Boolean = true,
+    /** DeArrow: titles (and with [dearrowThumbs] thumbnails) people chose instead of clickbait */
+    val dearrow: Boolean = true,
+    val dearrowThumbs: Boolean = true,
+    /** the dislike count under a video (Return YouTube Dislike's estimate) */
+    val showDislikes: Boolean = true,
+    /** SponsorBlock: the parts people marked in videos; the kinds in [sponsorCats] are skipped by themselves */
+    val sponsor: Boolean = true,
+    val sponsorCats: List<String> = listOf("sponsor", "selfpromo", "interaction"),
+    val checkedAt: Long = 0,
+    val skipVersion: String = "",
+    /** the version last opened: when the app opens on a newer one, it shows what's new */
+    val seenVersion: String = "",
+    /** the speed you chose for a channel (id -> speed): its videos start at it */
+    val channelSpeed: Map<String, Float> = emptyMap(),
+    /** a speed changed while watching is kept for that channel (else it becomes the speed of every video) */
+    val speedPerChannel: Boolean = true,
+    /** the video codec the player prefers: "" automatic, "h264", "vp9" or "av1" */
+    val codec: String = "",
+    /** music: only the sound is downloaded (less data), the picture comes back with "Watch video" */
+    val musicAudioOnly: Boolean = true,
+    /** where the sung line sits, percent from the top of the lyrics */
+    val lyricsAt: Int = 45,
+    /** wellbeing: a reminder after this many minutes of watching in a row; 0 off */
+    val breakMinutes: Int = 0,
+    /** wellbeing: a reminder once a day past this many minutes; 0 off */
+    val dailyMinutes: Int = 0,
+    /** Settings → Display → Design: 0 classic, 1 cards, 2 glass (ui/Theme.kt, Components.kt) */
+    val look: Int = 3,
+    /** kids mode (ui/Kids.kt): only [kidsChannels], [kidsMinutes] a day (0 no limit), [kidsPin] to leave it;
+     *  [kidsSaved] the Music tab, Shorts and comments switches as they were before it */
+    val kids: Boolean = false,
+    val kidsPin: String = "",
+    val kidsChannels: List<String> = emptyList(),
+    val kidsMinutes: Int = 0,
+    val kidsSaved: List<Boolean> = emptyList(),
+    /** "This video at a glance" under the video (ui/Smart.kt) */
+    val smart: Boolean = true,
+    /** nearby devices (ui/Nearby.kt): on, this device's id and name, the devices allowed to steer it */
+    val nearby: Boolean = false,
+    val nearId: String = "",
+    val nearName: String = "",
+    val nearAllowed: List<String> = emptyList(),
+    /** channels whose new videos are saved by themselves (ui/AutoSave.kt): channel id → from when (epoch s) */
+    val autoSave: Map<String, Long> = emptyMap(),
+)
+
+/** One day of watching, kept on this device only: seconds of video and music, per channel and artist. */
+@Serializable
+data class DayStats(
+    val video: Long = 0,
+    val music: Long = 0,
+    /** channel id -> seconds (videos) */
+    val ch: Map<String, Long> = emptyMap(),
+    /** artist -> seconds (music) */
+    val art: Map<String, Long> = emptyMap(),
+    /** how many videos and songs were started */
+    val n: Int = 0,
+)
+
+/** Watch time by day ("2026-11-07"), for Settings → Wellbeing and the monthly recap; a year is kept. */
+@Serializable
+data class WatchStats(
+    val days: Map<String, DayStats> = emptyMap(),
+    /** channel id -> its name, for the lists */
+    val names: Map<String, String> = emptyMap(),
+    /** the day the daily reminder was last shown */
+    val remindedOn: String = "",
+)
+
+/** a song as the music tab remembers it */
+@Serializable
+data class SongMeta(
+    val id: String,
+    val title: String = "",
+    val artist: String = "",
+    val artistId: String = "",
+    val album: String = "",
+    val albumId: String = "",
+    val len: Int = 0,
+    val art: String = "",
+)
+
+/** an album or an artist as the music tab remembers it */
+@Serializable
+data class CardMeta(val id: String, val title: String = "", val subtitle: String = "", val art: String = "", val kind: String = "")
+
+/** The music tab's memory, on this device: songs played, searches, albums and artists opened, newest first. */
+@Serializable
+data class MusicData(
+    val recent: List<SongMeta> = emptyList(),
+    val searches: List<String> = emptyList(),
+    val opened: List<CardMeta> = emptyList(),
+    /** songs liked in the music player (also in Liked videos) */
+    val liked: List<SongMeta> = emptyList(),
+)

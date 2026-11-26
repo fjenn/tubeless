@@ -19,7 +19,7 @@ allprojects { p ->
             group = 'verification'
             description = 'Golden-JSON parser tests (tests/golden/fixtures)'
             classpath = golden.runtimeClasspath + p.sourceSets.getByName('main').runtimeClasspath
-            mainClass.set('app.tubehaus.golden.GoldenCheckKt')
+            mainClass.set('app.tubeless.golden.GoldenCheckKt')
             args(p.rootProject.file('tests/golden/fixtures').path, p.layout.buildDirectory.dir('golden-actual').get().asFile.path)
             if (p.hasProperty('update')) args('--update')
         }

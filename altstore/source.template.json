@@ -12,7 +12,7 @@
       "bundleIdentifier": "dev.tubeless.app",
       "developerName": "Tubeless contributors",
       "subtitle": "Ad-free videos on iPhone and iPad",
-      "localizedDescription": "Tubeless plays videos without ads.\n\n- Background play and picture-in-picture\n- Downloads that keep working offline\n- Sign in to your YouTube account for your own Home, subscriptions and history, or use it with no account\n- SponsorBlock, DeArrow and dislike counts\n\nBased on TubeHaus. Not affiliated with YouTube or Google.",
+      "localizedDescription": "Tubeless plays videos without ads.\n\n- Background play and picture-in-picture\n- Downloads that keep working offline\n- Sign in to your YouTube account for your own Home, subscriptions and history, or use it with no account\n- SponsorBlock, DeArrow and dislike counts\n\nBased on Tubeless. Not affiliated with YouTube or Google.",
       "iconURL": "https://raw.githubusercontent.com/@REPO@/@BRANCH@/ios/app/Assets.xcassets/AppIcon.appiconset/icon-1024.png",
       "tintColor": "#F59E0B",
       "category": "entertainment",

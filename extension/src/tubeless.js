@@ -1,5 +1,5 @@
 // The browser side of the Kotlin/Wasm app (window.tubeless). The Kotlin code calls in through js()
-// functions in common/web/app/tubehaus/web/*.kt and web/src/**; bytes (video pieces, downloads)
+// functions in common/web/app/tubeless/web/*.kt and web/src/**; bytes (video pieces, downloads)
 // stay on this side, Kotlin gets text and small files.
 "use strict";
 (() => {

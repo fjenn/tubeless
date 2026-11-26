@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   canary:
-    if: github.repository == 'fjenn/tubeless-publik'
+    if: github.repository == 'fjenn/tubeless'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

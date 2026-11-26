@@ -10,7 +10,7 @@ export OUT=${2:?usage: android.sh <apk> <out dir>}
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 PKG=dev.tubeless.app
 QUERY=${SMOKE_QUERY:-Rick Astley Never Gonna Give You Up}
-D=files/tubehaus
+D=files/tubeless
 mkdir -p "$OUT"
 # shellcheck source=scripts/smoke/lib.sh
 . "$here/lib.sh"
@@ -114,7 +114,7 @@ if alive; then result back PASS "screen after Back: $(screen_now)"; else result 
 
 # crashes
 adb logcat -d > "$OUT/logcat.txt"
-if grep -A20 'FATAL EXCEPTION' "$OUT/logcat.txt" | grep -q "$PKG\|app.tubehaus"; then
+if grep -A20 'FATAL EXCEPTION' "$OUT/logcat.txt" | grep -q "$PKG\|app.tubeless"; then
   result crash FAIL "$(grep -A6 'FATAL EXCEPTION' "$OUT/logcat.txt" | head -8 | tr '\n' ' ' | cut -c1-400)"
 else result crash PASS "no FATAL EXCEPTION for $PKG in logcat"; fi
 read_events > "$OUT/events.jsonl"

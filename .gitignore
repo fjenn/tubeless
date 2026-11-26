@@ -14,7 +14,7 @@ desktop/resources/windows/*.dll
 hs_err_pid*.log
 
 # made by XcodeGen in CI (ios/app/project.yml)
-ios/app/TubeHaus.xcodeproj/
+ios/app/Tubeless.xcodeproj/
 ios/app/Tubeless.xcodeproj/
 
 # the app CI puts next to the Flatpak manifest

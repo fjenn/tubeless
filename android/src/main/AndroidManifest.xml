@@ -39,8 +39,8 @@
         android:label="${appLabel}"
         android:banner="@drawable/tv_banner"
         android:supportsRtl="true"
-        android:theme="@style/Theme.TubeHaus">
-        <meta-data android:name="tubehaus.sabrOnly" android:value="${sabrOnly}" />
+        android:theme="@style/Theme.Tubeless">
+        <meta-data android:name="tubeless.sabrOnly" android:value="${sabrOnly}" />
 
         <!-- Google sign-in in a WebView (S3, SignInActivity.kt) -->
         <activity
@@ -75,7 +75,7 @@
                 <data android:host="youtu.be" />
                 <data android:host="music.youtube.com" />
             </intent-filter>
-            <!-- "Share" a link to TubeHaus -->
+            <!-- "Share" a link to Tubeless -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />

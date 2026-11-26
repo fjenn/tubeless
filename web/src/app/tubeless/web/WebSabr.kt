@@ -1,8 +1,8 @@
 package app.tubeless.web
 
-import app.tubehaus.engine.Sabr
-import app.tubehaus.engine.SabrHost
-import app.tubehaus.web.jsLog
+import app.tubeless.engine.Sabr
+import app.tubeless.engine.SabrHost
+import app.tubeless.web.jsLog
 import kotlinx.coroutines.await
 import kotlin.js.Promise
 

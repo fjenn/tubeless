@@ -11,8 +11,9 @@
 # Without SIGN_IDENTITY: ad hoc (`codesign -s -`), the M3 fallback. Users then right-click → Open once
 # (or `xattr -dr com.apple.quarantine /Applications/Tubeless.app`).
 #
-# Native libraries inside jars (skiko, JNA, ...) are signed by Compose when Gradle runs with
-# -Pcompose.desktop.mac.sign=true -Pcompose.desktop.mac.signing.identity=...; release.yml does that.
+# Native code inside the jars (skiko, JNA, Javet's Node.js, the Swift helpers) is signed here too (Apple's
+# notary service looks inside jars), so an app built without Compose's signing options can be signed later,
+# e.g. a CI-built .app on a Mac that holds the Developer ID.
 set -euo pipefail
 APP=${1:?usage: sign-dmg.sh <app> <out.dmg>}
 DMG=${2:?usage: sign-dmg.sh <app> <out.dmg>}
@@ -32,6 +33,29 @@ machos() {
 step "signing ($( [ -n "${SIGN_IDENTITY:-}" ] && echo "Developer ID" || echo "ad hoc" ))"
 if [ -n "${SIGN_IDENTITY:-}" ]; then
   [ -f "$ENT" ] || die "no entitlements at $ENT"
+  # Mach-O files inside jars: unpacked, signed, put back (the jar is updated in place)
+  jn=0
+  while IFS= read -r -d '' jar; do
+    unzip -Z1 "$jar" 2>/dev/null | grep -q -E '\.(dylib|jnilib)$|(^|/)[^./]+$' || continue
+    jt=$(mktemp -d)
+    unzip -q -o "$jar" -d "$jt" -x 'META-INF/*' 2>/dev/null || true
+    signed=()
+    while IFS= read -r -d '' f; do
+      file -b "$f" | grep -q 'Mach-O' || continue
+      if file -b "$f" | grep -q 'executable'; then
+        codesign --force --timestamp --options runtime --entitlements "$ENT" -s "$SIGN_IDENTITY" "$f"
+      else
+        codesign --force --timestamp --options runtime -s "$SIGN_IDENTITY" "$f"
+      fi
+      signed+=("${f#"$jt"/}")
+    done < <(find "$jt" -type f -print0)
+    if [ ${#signed[@]} -gt 0 ]; then
+      (cd "$jt" && zip -q "$jar" "${signed[@]}")
+      jn=$((jn + ${#signed[@]}))
+    fi
+    rm -rf "$jt"
+  done < <(find "$APP/Contents" -name '*.jar' -print0)
+  echo "$jn Mach-O files inside jars signed"
   n=0
   while IFS= read -r f; do
     # executables (java, jspawnhelper, the launcher) need the entitlements too, plain libraries don't

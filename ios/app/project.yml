@@ -1,6 +1,6 @@
 # XcodeGen: `xcodegen generate` here makes Tubeless.xcodeproj (not kept in git).
 # The Kotlin side is built first (./gradlew :ios:linkReleaseFrameworkIosArm64) and its
-# TubeHausKit.framework (the Kotlin module's name, kept) copied to ios/build/kit (the workflow does both).
+# TubelessKit.framework (the Kotlin module) copied to ios/build/kit (the workflow does both).
 name: Tubeless
 options:
   deploymentTarget:
@@ -27,7 +27,7 @@ targets:
       - path: ../../common/fonts/Roboto-OFL.txt
         buildPhase: resources
     dependencies:
-      - framework: ../build/kit/TubeHausKit.framework
+      - framework: ../build/kit/TubelessKit.framework
         embed: false
       # comment translation (iOS 18+): linked weakly so the app still opens on iOS 16 and 17,
       # where this framework is missing or has no TranslationSession

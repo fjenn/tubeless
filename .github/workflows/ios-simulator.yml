@@ -27,7 +27,7 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
-      - name: Kotlin → TubeHausKit.framework (simulator)
+      - name: Kotlin → TubelessKit.framework (simulator)
         run: |
           ./gradlew :ios:linkDebugFrameworkIosSimulatorArm64 --no-configuration-cache --stacktrace
           mkdir -p ios/build/kit && cp -R ios/build/bin/iosSimulatorArm64/debugFramework/*.framework ios/build/kit/
@@ -55,8 +55,8 @@ jobs:
           xcrun simctl terminate "$udid" dev.tubeless.app || true
           # past the first questions, in English
           data=$(xcrun simctl get_app_container "$udid" dev.tubeless.app data)
-          mkdir -p "$data/Library/Application Support/tubehaus"
-          echo '{"lang":"en","welcomed":true}' > "$data/Library/Application Support/tubehaus/settings.json"
+          mkdir -p "$data/Library/Application Support/tubeless"
+          echo '{"lang":"en","welcomed":true}' > "$data/Library/Application Support/tubeless/settings.json"
           xcrun simctl launch "$udid" dev.tubeless.app; sleep 40
           xcrun simctl io "$udid" screenshot shots/2-home.png
           xcrun simctl terminate "$udid" dev.tubeless.app || true
@@ -67,7 +67,7 @@ jobs:
           # over and over: three videos, full screen on and off, twice (the app does it by itself with -stress)
           xcrun simctl terminate "$udid" dev.tubeless.app || true; sleep 2
           # 360p: this checks the picture moving between places, not how fast the simulator decodes
-          echo '{"lang":"en","welcomed":true,"maxHeight":360}' > "$data/Library/Application Support/tubehaus/settings.json"
+          echo '{"lang":"en","welcomed":true,"maxHeight":360}' > "$data/Library/Application Support/tubeless/settings.json"
           xcrun simctl launch --terminate-running-process "$udid" dev.tubeless.app -stress
           for i in $(seq -w 1 16); do sleep 8; xcrun simctl io "$udid" screenshot "shots/5-stress-$i.png" || echo "screenshot $i failed"; done
           xcrun simctl terminate "$udid" dev.tubeless.app || true

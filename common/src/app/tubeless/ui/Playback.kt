@@ -1,0 +1,778 @@
+package app.tubeless.ui
+
+import app.tubeless.engine.SponsorBlock
+import app.tubeless.engine.Sys
+import app.tubeless.engine.Ads
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import app.tubeless.engine.Caption
+import app.tubeless.engine.Chapter
+import app.tubeless.engine.Storyboard
+import app.tubeless.engine.chaptersIn
+import app.tubeless.engine.Details
+import app.tubeless.engine.Stream
+import app.tubeless.engine.Video
+import app.tubeless.engine.YouTube
+import app.tubeless.engine.YouTubeAccount
+import app.tubeless.engine.YtError
+import app.tubeless.rec.Learn
+import app.tubeless.data.SongMeta
+import app.tubeless.engine.Music
+import app.tubeless.engine.Song
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+
+/**
+ * What is playing: loads a video's streams and its watch page, resumes where you left off,
+ * keeps the history and resume point up to date, learns from how much you watched and
+ * plays the next one (your queue, else the top related video).
+ */
+class Playback(private val app: AppState) {
+    companion object {
+        const val END = -1L
+        // M0 hooks (docs/PLAN.md §3): other features follow playback without editing this file.
+        // Register once at start; each is called on the main/UI scope and must return quickly.
+        /** a stream was handed to the player (a new video, or the same one reloaded) */
+        val onStart = mutableListOf<(Playback, Video, Stream) -> Unit>()
+        /** every player state change of the current video (position, play/pause, buffering) */
+        val onTick = mutableListOf<(Playback, Video, PlayerState) -> Unit>()
+        /** the current video played to its end */
+        val onEnd = mutableListOf<(Playback, Video) -> Unit>()
+    }
+
+    var video by mutableStateOf<Video?>(null)
+        private set
+    var stream by mutableStateOf<Stream?>(null)
+        private set
+    var details by mutableStateOf<Details?>(null)
+        private set
+    var error by mutableStateOf<String?>(null)
+    /** the error is YouTube's age check, which needs a signed-in account: the player offers YouTube instead */
+    var errorAge by mutableStateOf(false)
+        private set
+    var loading by mutableStateOf(false)
+        private set
+    /** videos to play after this one (a playlist you started) */
+    var queue by mutableStateOf<List<Video>>(emptyList())
+        private set
+    /** a video ended on its own: the one about to start, counted down on the player (5 s) */
+    var upNext by mutableStateOf<Video?>(null)
+    private var upNextJob: Job? = null
+    /** the countdown's "Cancel": the video stays at its end */
+    fun cancelUpNext() { upNextJob?.cancel(); upNextJob = null; upNext = null }
+    /** "Play now" */
+    fun playUpNext() { val n = upNext ?: return; cancelUpNext(); goNext(n) }
+    private fun goNext(n: Video) {
+        open(n, rest(n))
+        if (app.current is Screen.Watch) app.stack[app.stack.size - 1] = Screen.Watch(n.id)
+    }
+    /** "Up next" when there is no queue */
+    val next: Video?
+        get() = if (music) (songs.getOrNull(songAt + 1) ?: songs.firstOrNull()?.takeIf { repeat == 1 })?.video()
+        else queue.firstOrNull() ?: round.firstOrNull()?.takeIf { loopList && round.size > 1 } ?: details?.related?.filterIsInstance<Video>()?.firstOrNull { !it.live && !it.short }
+
+    /** the playlist or queue that was started, all of it: "Repeat playlist" (#91) starts it again after the last one */
+    private var round: List<Video> = emptyList()
+    var loopList by mutableStateOf(false)
+    /** the videos after [n]: the queue, or the whole list again when it starts over */
+    private fun rest(n: Video): List<Video> =
+        if (queue.isEmpty() && loopList && round.firstOrNull()?.id == n.id) round.drop(1)
+        else queue.drop(if (queue.firstOrNull()?.id == n.id) 1 else 0)
+
+    // ------------------------------------------------------------------ music
+    /** what plays came from the music tab: the cover instead of the picture, songs one after another */
+    var music by mutableStateOf(false)
+        private set
+    /** the music queue, the songs already heard included (so Previous works); [songAt] is the one playing */
+    var songs by mutableStateOf<List<Song>>(emptyList())
+        private set
+    var songAt by mutableStateOf(0)
+        private set
+    val song: Song? get() = if (music) songs.getOrNull(songAt) else null
+    /** 0 off, 1 the whole queue, 2 this song */
+    var repeat by mutableStateOf(0)
+    var shuffle by mutableStateOf(false)
+        private set
+    /** the queue comes from a radio and grows by itself near its end */
+    private var radio = false
+    /** "Watch video" in music: this song with its picture */
+    var withVideo by mutableStateOf(false)
+        private set
+
+    /** A-B repeat: the part between [abA] and [abB] (ms) plays over and over; -1 when not set */
+    var abA by mutableStateOf(-1L)
+        private set
+    var abB by mutableStateOf(-1L)
+        private set
+
+    /** the transcript was asked for (the player's menu, the button under the video): the watch page opens it */
+    var transcriptAsked by mutableStateOf(false)
+    /** a word to search the transcript for when it opens */
+    var transcriptSearch by mutableStateOf("")
+    /** chapters made from the captions (ui/Smart.kt) for a video without its own, by video id */
+    var autoChapters by mutableStateOf<Pair<String, List<Chapter>>>("" to emptyList())
+
+    /** "Loop video": this one plays again from the start; off again for the next video */
+    var loop by mutableStateOf(false)
+        private set
+    /** the sleep timer: when it pauses (epoch ms), [END] for the end of this video, 0 when off */
+    var sleepAt by mutableStateOf(0L)
+        private set
+    private var sleepJob: Job? = null
+
+    /** SponsorBlock: the parts of this video people marked (empty while switched off or unknown) */
+    var segments by mutableStateOf<List<SponsorBlock.Segment>>(emptyList())
+        private set
+    /** the part playing now that isn't skipped by itself, or the highlight near the start: the player offers a button */
+    var skippable by mutableStateOf<SponsorBlock.Segment?>(null)
+        private set
+    /** the part just skipped by itself: the player says so for a few seconds, with Undo */
+    var justSkipped by mutableStateOf<SponsorBlock.Segment?>(null)
+        private set
+    private val skipped = HashSet<String>()
+    private var noticeJob: Job? = null
+
+    /** the button: past the part, or to the highlight */
+    fun skipSegment() {
+        val s = skippable ?: return
+        skipped += s.uuid
+        skippable = null
+        player.seekTo(if (s.category == SponsorBlock.HIGHLIGHT) s.startMs else s.endMs)
+        E2E.log("sb_skip", "videoId" to video?.id, "category" to s.category, "fromMs" to s.startMs, "toMs" to s.endMs, "auto" to false)
+    }
+
+    /** back to where the skipped part began; it then plays through */
+    fun undoSkip() {
+        val s = justSkipped ?: return
+        justSkipped = null
+        player.seekTo(s.startMs)
+    }
+
+    private fun sponsorCheck(st: PlayerState) {
+        val set = store.settings.value
+        if (!set.sponsor || segments.isEmpty()) { skippable = null; return }
+        // a channel on the whitelist (Perks): nothing goes by itself, the button still offers each part
+        val auto = if (Perks.sponsorAllowed(video?.channelId)) emptyList() else set.sponsorCats
+        val pos = st.positionMs
+        // where parts overlap, one skipped by itself wins
+        val hits = segments.filter { it.category != SponsorBlock.HIGHLIGHT && pos >= it.startMs && pos < it.endMs - 300 }
+        val seg = hits.firstOrNull { it.category in auto && it.uuid !in skipped } ?: hits.firstOrNull()
+        if (seg != null && seg.category in auto && seg.uuid !in skipped) {
+            if (!st.playing) return
+            skipped += seg.uuid
+            skippable = null
+            player.seekTo(seg.endMs)
+            justSkipped = seg
+            E2E.log("sb_skip", "videoId" to video?.id, "category" to seg.category, "fromMs" to pos, "toMs" to seg.endMs, "auto" to true)
+            noticeJob?.cancel()
+            noticeJob = app.scope.launch { delay(5000); justSkipped = null }
+            return
+        }
+        // the highlight: offered in the first 20 seconds, while it is still ahead
+        val hl = segments.firstOrNull { it.category == SponsorBlock.HIGHLIGHT && it.uuid !in skipped && pos < it.startMs - 2000 && pos < 20_000 }
+        skippable = seg?.takeIf { it.category !in auto } ?: hl
+    }
+
+    fun loopVideo(on: Boolean) { loop = on; player.setLoop(on) }
+
+    /** pause after [minutes]; [END] at the end of this video; 0 turns the timer off */
+    fun sleep(minutes: Int) {
+        sleepJob?.cancel()
+        sleepAt = when { minutes == 0 -> 0L; minutes < 0 -> END; else -> Sys.nowMs() + minutes * 60_000L }
+        E2E.log("sleep_timer", "minutes" to minutes)
+        if (minutes > 0) sleepJob = app.scope.launch {
+            delay(minutes * 60_000L)
+            player.pause(); sleepAt = 0L
+            E2E.log("sleep_paused", "videoId" to video?.id)
+            app.toast(tr("Sleep timer: paused"))
+        }
+    }
+
+    /** the video's chapters: YouTube's, or the ones written in its description */
+    val chapters: List<Chapter>
+        get() = details?.chapters?.takeIf { it.isNotEmpty() } ?: stream?.let { s ->
+            if (chapterCache.first != s.id) chapterCache = s.id to chaptersIn(s.description)
+            chapterCache.second
+        }.orEmpty().ifEmpty { autoChapters.takeIf { it.first == video?.id && store.settings.value.smart }?.second ?: emptyList() }
+    private var chapterCache: Pair<String, List<Chapter>> = "" to emptyList()
+
+    /** the pictures the seek bar shows while dragging */
+    val storyboard: Storyboard?
+        get() = stream?.let { s ->
+            if (boardCache.first != s.id) boardCache = s.id to Storyboard.parse(s.storyboard)
+            boardCache.second
+        }
+    private var boardCache: Pair<String, Storyboard?> = "" to null
+
+    private var job: Job? = null
+    private var watchedMs = 0L          // the furthest point reached, for learning
+    private var prefetched = false      // the next video was asked for ahead (Streams)
+    private var learned = false
+    private var endHandled = false
+    private var refreshed = false       // the streams were asked for again once after the player failed
+    private var openedAt = 0L           // when this video was opened (the E2E log's time to first frame)
+    private var playLogged = false
+    private val player get() = app.player
+    private val store get() = app.store
+
+    init {
+        Perks.init(app)
+        // follow the player: save the resume point every few seconds, react to the end
+        app.scope.launch {
+            var lastSave = 0L
+            player.state.collectLatest { s ->
+                val v = video ?: return@collectLatest
+                if (s.videoId != v.id) return@collectLatest
+                if (s.error != null && !refreshed) { refreshed = true; refresh(v, s.positionMs); return@collectLatest }
+                if (s.error != null && !playLogged) { playLogged = true; E2E.log("player_error", "videoId" to v.id, "message" to s.error, "client" to stream?.client) }
+                if (s.positionMs > watchedMs) watchedMs = s.positionMs
+                if (!prefetched && s.durationMs > 0 && s.positionMs > s.durationMs - 20_000 && !store.settings.value.calm) {
+                    prefetched = true
+                    next?.let { n -> if (!app.platform.metered() || queue.isNotEmpty() || music) Streams.prefetch(app.scope, n.id) }
+                }
+                sponsorCheck(s)
+                AutoSpeed.tick(app, s)
+                chapterLoopCheck(s)
+                if (!playLogged && s.playing && s.positionMs > 0) {
+                    playLogged = true
+                    val cap = if (app.platform.metered()) store.settings.value.maxHeightMobileData else store.settings.value.maxHeight
+                    val h = s.height.takeIf { it > 0 } ?: stream?.video?.map { it.height }?.filter { cap <= 0 || it <= cap }?.maxOrNull() ?: 0
+                    E2E.log("play", "videoId" to v.id, "firstFrameMs" to (Sys.nowMs() - openedAt), "height" to h, "ads" to Ads.requests, "adsLeftOut" to Ads.count,
+                        "client" to stream?.client, "offline" to (stream?.client == "offline"))
+                    if (stream?.client == "offline") E2E.log("play_offline", "videoId" to v.id)
+                }
+                for (f in onTick) f(this@Playback, v, s)
+                if (abB > 0 && s.playing && s.positionMs >= abB) player.seekTo(abA.coerceAtLeast(0))
+                val now = Sys.nowMs()
+                countTime(v, s.playing, now)
+                if (s.playing && now - lastSave > 5000) {
+                    lastSave = now
+                    store.savePosition(v.copy(lengthSec = v.lengthSec.takeIf { it > 0 } ?: (s.durationMs / 1000).toInt()), s.positionMs / 1000, s.durationMs / 1000)
+                }
+                if (s.ended && !endHandled) { endHandled = true; onEnded() }
+            }
+        }
+    }
+
+    fun open(v: Video, newQueue: List<Video> = emptyList(), startSec: Long? = null) {
+        openVideo(v, newQueue, startSec, asSong = false)
+    }
+
+    private fun openVideo(v: Video, newQueue: List<Video>, startSec: Long?, asSong: Boolean) {
+        if (upNextJob?.isActive == true && upNext?.id != v.id) cancelUpNext()
+        upNext = null
+        finishCurrent()
+        if (!asSong) { music = false; songs = emptyList(); songAt = 0; radio = false }
+        withVideo = false
+        abA = -1L; abB = -1L; loopedChapter = -1L
+        countedStart = false
+        openedAt = Sys.nowMs(); playLogged = false
+        JumpAhead.dismiss()
+        video = v
+        // a queue made by hand (#59) keeps going when another video is opened on the way, and as it plays;
+        // a playlist's list replaces it
+        val mine = ownQueue && !asSong && newQueue.all { n -> queue.any { it.id == n.id } }
+        queue = (if (mine && newQueue.isEmpty()) queue else newQueue).filter { it.id != v.id }
+        ownQueue = mine && queue.isNotEmpty()
+        when {
+            asSong -> { round = emptyList(); loopList = false }
+            // going on through the same list keeps all of it; another list replaces it
+            !mine && newQueue.isNotEmpty() -> if (!(round.any { it.id == v.id } && queue.all { q -> round.any { it.id == q.id } })) round = listOf(v) + queue
+            mine -> if (round.none { it.id == v.id }) round = listOf(v) + queue else round = round + queue.filter { q -> round.none { it.id == q.id } }
+            round.none { it.id == v.id } -> { round = emptyList(); loopList = false }
+        }
+        stream = null
+        details = null
+        error = null; errorAge = false
+        loading = true
+        watchedMs = 0
+        prefetched = false
+        learned = false
+        endHandled = false
+        refreshed = false
+        loop = false
+        segments = emptyList(); skippable = null; justSkipped = null; skipped.clear()
+        job?.cancel()
+        // a feed card playing muted hands over (with sound), at the point it reached when it is this video
+        val inlineAt = FeedPlay.handOver(app, v.id)
+        job = app.scope.launch {
+            if (store.settings.value.sponsor) launch {
+                val s = SponsorBlock.segments(v.id, store.settings.value.sponsorCats)
+                if (video?.id == v.id) segments = s
+            }
+            launch {
+                try {
+                    val d = Infos.get(app.scope, v.id)
+                    if (video?.id == v.id) {
+                        details = d
+                        // a video opened from a link or a notification knows only its id; if it then won't play,
+                        // this is where its title and channel come from
+                        video?.let { cur ->
+                            if (cur.title.isEmpty() || cur.author.isEmpty()) video = cur.copy(
+                                title = cur.title.ifEmpty { d.title }, author = cur.author.ifEmpty { d.author },
+                                channelId = cur.channelId.ifEmpty { d.channelId },
+                            )
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+            try {
+                // a saved copy plays from the device, also without internet
+                val s = app.offline.stream(v.id) ?: Streams.get(app.scope, v.id)
+                if (video?.id != v.id) return@launch
+                // kids mode: only the picked channels, and nothing once today's time is used up
+                val up = app.kidsTimeUp()
+                if (up || !app.kidsAllow(s.channelId.ifEmpty { v.channelId })) {
+                    error = tr(if (up) KIDS_TIME_UP else "This video isn't from a channel picked for kids mode.")
+                    loading = false
+                    return@launch
+                }
+                stream = s
+                // the player response knows the exact title, channel and length
+                video = v.copy(
+                    title = s.title.ifEmpty { v.title }, author = s.author.ifEmpty { v.author },
+                    channelId = s.channelId.ifEmpty { v.channelId }, lengthSec = s.lengthSec.takeIf { it > 0 } ?: v.lengthSec,
+                    views = if (s.views > 0) s.views else v.views, live = s.live,
+                )
+                // songs start from the top; a video where you left it
+                // where its card in the feed got to (muted autoplay); where it was left here; else, signed in,
+                // where the account left it on another device
+                val at = startSec ?: inlineAt?.let { it / 1000 } ?: if (asSong || s.live) null else store.position(v.id)
+                    ?: if (app.feedSource.signedIn) runCatching { YouTubeAccount.resumeAt(v.id, s.lengthSec.takeIf { it > 0 } ?: v.lengthSec) }.getOrNull() else null
+                if (video?.id != v.id) return@launch
+                start(s, at)
+            } catch (e: YtError) {
+                // Instant mode (the website without the extension): what the token-free clients can't play goes to
+                // YouTube's own embedded player (WebPlayer says so on screen: ads are possible there)
+                if (app.platform.instant && (e.kind != YtError.Kind.NETWORK || e.http > 0) && video?.id == v.id) { embed(v, startSec); return@launch }
+                errorAge = e.kind == YtError.Kind.AGE
+                error = when (e.kind) {
+                    YtError.Kind.LOGIN -> tr(BOT_CHECK)
+                    YtError.Kind.AGE -> tr("This video has an age check, and YouTube only shows it to a signed-in account. You can watch it on YouTube.")
+                    else -> e.message
+                }
+            } catch (e: Exception) {
+                if (app.platform.instant && e !is kotlinx.coroutines.CancellationException && video?.id == v.id && (e !is okio.IOException || e is app.tubeless.engine.HttpError)) { embed(v, startSec); return@launch }
+                error = e.message ?: e.toString()
+            } finally {
+                loading = false
+                if (error != null && video?.id == v.id) E2E.log("play_error", "videoId" to v.id, "botWall" to (error == tr(BOT_CHECK)), "message" to error,
+                    "tries" to YouTube.tries.joinToString(" / "))
+            }
+        }
+    }
+
+    /** the same video again from [posMs] on whichever player is in use now (casting started or stopped) */
+    /** the codec this video plays with instead of the one in Settings (picked with a quality only it reaches) */
+    var codecFor: Pair<String, String>? = null
+
+    /** the codec family playing now: this video's own pick, else Settings' (empty: the device's choice) */
+    fun codecNow(): String = codecFor?.takeIf { it.first == stream?.id }?.second ?: store.settings.value.codec
+
+    /** plays this video with codec [c] at [height] (a quality the codec playing doesn't reach) */
+    fun playWithCodec(c: String, height: Int) {
+        val s = stream ?: return
+        codecFor = s.id to c
+        replay(player.state.value.positionMs)
+        player.setHeight(height)
+    }
+
+    fun replay(posMs: Long, autoplay: Boolean = true) {
+        val s = stream ?: return
+        endHandled = false
+        start(s, posMs / 1000, autoplay)
+    }
+
+    /** Instant mode: [v] in YouTube's embedded player (a Stream without formats, client EMBED) */
+    private fun embed(v: Video, startSec: Long?) {
+        val s = Stream(v.id, v.title, v.author, v.channelId, v.lengthSec, v.views, "", emptyList(), false, null,
+            emptyList(), emptyList(), emptyList(), Sys.nowMs() / 1000 + 6 * 3600, "EMBED")
+        stream = s
+        start(s, startSec ?: store.position(v.id))
+    }
+
+    private fun start(s: Stream, startSec: Long?, autoplay: Boolean = true) {
+        val set = store.settings.value
+        val cap = if (app.platform.metered()) set.maxHeightMobileData else set.maxHeight
+        val choice = captionChoice(s)
+        player.load(
+            s,
+            PlayOptions(
+                startMs = (startSec ?: 0) * 1000,
+                maxHeight = if (cap <= 0) Int.MAX_VALUE else cap,
+                autoplay = autoplay,
+                speed = if (music) 1f else speedFor(video?.channelId ?: s.channelId),
+                audioOnly = music && set.musicAudioOnly && !withVideo,
+                codec = codecFor?.takeIf { it.first == s.id }?.second ?: set.codec,
+                captions = choice?.first?.takeIf { set.captions || s.client == "offline" },
+                captionLang = set.captionLang.ifEmpty { lang() },
+                standbyCaption = choice?.first,
+                standbyTranslate = choice?.second,
+                volume = set.volume,
+                title = s.title, artist = s.author,
+                artwork = video?.thumbHigh ?: "",
+            ),
+        )
+        Perks.applyFx()
+        AutoSpeed.onStart(app, s)
+        video?.let { v -> for (f in onStart) f(this, v, s) }
+    }
+
+    private fun lang() = store.settings.value.lang.ifEmpty { "en" }
+
+    /** the track in [want], else one that YouTube can translate into it */
+    /** what the captions button shows: the track in your caption language, or YouTube's translation into it */
+    fun captionChoice(s: Stream? = stream): Pair<Caption, String?>? {
+        val want = store.settings.value.captionLang.ifEmpty { lang() }
+        val c = pickCaption(s?.captions ?: return null, want) ?: return null
+        return c to want.takeIf { c.lang.substringBefore('-') != it && s.client != "offline" }
+    }
+
+    fun pickCaption(list: List<Caption>, want: String): Caption? =
+        list.firstOrNull { it.lang.substringBefore('-') == want && !it.auto }
+            ?: list.firstOrNull { it.lang.substringBefore('-') == want }
+            ?: list.firstOrNull { !it.auto } ?: list.firstOrNull()
+
+    fun retry() { video?.let { Streams.forget(it.id); open(it, queue) } }
+
+    /**
+     * The player couldn't load the streams it was given: their addresses are tied to the network
+     * they were asked from, so a device that has since moved (Wi-Fi, mobile data, a VPN) or a
+     * server whose way out to YouTube changed gets them refused ("resource unavailable" on
+     * iPad). Ask for them afresh once and carry on from where it stopped; only if that fails too
+     * does the error stay on screen. A saved copy plays from the device and isn't asked again.
+     */
+    private fun refresh(v: Video, atMs: Long) {
+        if (app.offline.stream(v.id) != null) return
+        app.scope.launch {
+            val s = try { YouTube.stream(v.id) } catch (e: Exception) { return@launch }
+            if (video?.id != v.id) return@launch
+            stream = s
+            start(s, atMs / 1000)
+        }
+    }
+
+    /** plays this and the next videos the [method] way ("" the usual order), from where this one is */
+    fun playWith(method: String) {
+        store.settings.update { it.copy(playMethod = method) }
+        YouTube.force = method
+        Streams.clear()
+        val v = video ?: return
+        open(v, queue, startSec = player.state.value.positionMs / 1000)
+    }
+
+    private fun onEnded() {
+        val v = video ?: return
+        for (f in onEnd) f(this, v)
+        learnNow()
+        store.savePosition(v, v.lengthSec.toLong(), v.lengthSec.toLong())
+        if (sleepAt == END) { sleepAt = 0L; E2E.log("sleep_paused", "videoId" to v.id, "end" to true); app.toast(tr("Sleep timer: paused")); return }
+        if (music) {
+            app.scope.launch {
+                delay(300)
+                if (video?.id != v.id) return@launch
+                when {
+                    repeat == 2 -> { endHandled = false; player.seekTo(0); player.play() }
+                    songAt + 1 < songs.size -> playSongAt(songAt + 1)
+                    repeat == 1 && songs.isNotEmpty() -> playSongAt(0)
+                }
+            }
+            return
+        }
+        if (app.store.settings.value.calm) return       // calm mode: nothing starts by itself
+        if (!app.store.settings.value.autoplay && queue.isEmpty() && !(loopList && round.size > 1)) return
+        val n = next ?: return
+        // a playlist goes straight on; a suggestion is counted down first, so it can be stopped
+        val wait = if (queue.isNotEmpty() || app.platform.tv) 800L else UP_NEXT_MS
+        upNextJob?.cancel()
+        upNextJob = app.scope.launch {
+            if (wait > 800L) upNext = n
+            Streams.prefetch(app.scope, n.id)
+            delay(wait)
+            upNext = null; upNextJob = null
+            if (video?.id == v.id) goNext(n)
+        }
+    }
+
+    private fun learnNow() {
+        val v = video ?: return
+        if (learned || app.store.settings.value.historyOff || app.store.settings.value.learnOff) return
+        learned = true
+        val len = (v.lengthSec.takeIf { it > 0 } ?: (player.state.value.durationMs / 1000).toInt()).toDouble()
+        Learn.learn(
+            store, v, stream?.keywords ?: emptyList(), watchedMs / 1000.0, len,
+            liked = store.inList("likes", v.id), disliked = store.inList("dislikes", v.id),
+        )
+    }
+
+    private fun finishCurrent() {
+        val v = video ?: return
+        val s = player.state.value
+        if (s.videoId == v.id && s.positionMs > 0) store.savePosition(v, s.positionMs / 1000, s.durationMs / 1000)
+        if (watchedMs > 0) learnNow()
+        if (watchedMs >= 60_000) app.starNote()
+    }
+
+    /** close the video entirely */
+    fun close() {
+        cancelUpNext()
+        finishCurrent()
+        job?.cancel()
+        player.stop()
+        video = null; stream = null; details = null; error = null; errorAge = false; queue = emptyList(); ownQueue = false
+        round = emptyList(); loopList = false
+        segments = emptyList(); skippable = null; justSkipped = null
+        music = false; songs = emptyList(); songAt = 0; radio = false; abA = -1L; abB = -1L
+    }
+
+    fun skipNext() {
+        if (music) { if (songAt + 1 < songs.size) playSongAt(songAt + 1) else if (repeat == 1 && songs.isNotEmpty()) playSongAt(0); return }
+        val n = next ?: return
+        open(n, rest(n))
+        if (app.current is Screen.Watch) app.stack[app.stack.size - 1] = Screen.Watch(n.id)
+    }
+
+    // ------------------------------------------------------------------ speed per channel
+    /** the speed this channel's videos start at: the one you chose for it, else your usual speed */
+    fun speedFor(channelId: String): Float {
+        val set = store.settings.value
+        return set.channelSpeed[channelId] ?: set.speed
+    }
+
+    /** the speed picked in the player: kept for this channel (or for everything, by Settings) */
+    fun setSpeed(x: Float) {
+        // a speed picked by hand: auto speed steps aside
+        if (AutoSpeed.on) { Perks.update { it.copy(autoSpeed = false) }; app.toast(tr("Auto speed off")) }
+        player.setSpeed(x)
+        E2E.log("speed", "videoId" to video?.id, "x" to x)
+        if (music) return
+        val cid = video?.channelId.orEmpty()
+        store.settings.update { set ->
+            if (set.speedPerChannel && cid.isNotEmpty()) {
+                set.copy(channelSpeed = if (x == set.speed) set.channelSpeed - cid else set.channelSpeed + (cid to x))
+            } else set.copy(speed = x)
+        }
+    }
+
+    // ------------------------------------------------------------------ A-B repeat
+    /** first press: A here; second: B here, and the part repeats; third: off */
+    fun abStep() {
+        val pos = player.state.value.positionMs
+        when {
+            abB > 0 -> { abA = -1L; abB = -1L; app.toast(tr("A-B repeat off")) }
+            abA >= 0 && pos > abA + 500 -> { abB = pos; app.toast(tr("Repeating {a} to {b}").replace("{a}", durationMs(abA)).replace("{b}", durationMs(abB))) }
+            else -> { abA = pos; app.toast(tr("A set at {t}. Choose A-B repeat again where it should end.").replace("{t}", durationMs(pos))) }
+        }
+    }
+
+    fun abOff() { abA = -1L; abB = -1L; loopedChapter = -1L }
+
+    // ------------------------------------------------------------------ chapters
+    /** the chapter that plays over and over (its start), -1 when none: YouTube's loop button in the chapters list */
+    var loopedChapter by mutableStateOf(-1L)
+        private set
+
+    /** the end of chapter [c] (the next one's start, else the video's end) */
+    fun chapterEnd(c: Chapter): Long {
+        val i = chapters.indexOf(c)
+        return chapters.getOrNull(i + 1)?.startMs ?: player.state.value.durationMs.takeIf { it > 0 } ?: (video?.lengthSec ?: 0) * 1000L
+    }
+
+    /** loops chapter [c] (again: off) */
+    fun loopChapter(c: Chapter) {
+        if (loopedChapter == c.startMs) { abOff(); app.toast(tr("Chapter loop off")); E2E.log("chapter_loop", "on" to false); return }
+        // the last chapter: a little before the video's end, so it never reaches the end (and the next video)
+        val end = chapterEnd(c).let { if (chapters.lastOrNull() == c) it - 600 else it }
+        if (end <= c.startMs) return
+        abA = c.startMs; abB = end; loopedChapter = c.startMs
+        val pos = player.state.value.positionMs
+        if (pos < c.startMs || pos >= end) player.seekTo(c.startMs)
+        app.toast(tr("Looping chapter: {c}").replace("{c}", c.title))
+        E2E.log("chapter_loop", "on" to true, "fromMs" to c.startMs, "toMs" to end)
+    }
+
+    /** the loop's end reached (A-B repeat does the same in the state collector); here only the chapter's bookkeeping */
+    private fun chapterLoopCheck(s: PlayerState) {
+        if (loopedChapter >= 0 && abB <= 0) loopedChapter = -1L
+    }
+
+    /** Option+← / Option+→: the start of this chapter (or the one before, near its start), or the next one; false without chapters */
+    fun chapterStep(dir: Int): Boolean {
+        val cs = chapters
+        if (cs.size < 2) return false
+        val pos = player.state.value.positionMs
+        val i = cs.indexOfLast { it.startMs <= pos + 1000 }.coerceAtLeast(0)
+        val to = if (dir > 0) cs.getOrNull(i + 1) ?: return true
+            else if (pos - cs[i].startMs > 3_000) cs[i] else cs.getOrNull(i - 1) ?: cs[0]
+        player.seekTo(to.startMs)
+        app.toast(to.title.ifEmpty { durationMs(to.startMs) })
+        E2E.log("chapter_jump", "dir" to dir, "toMs" to to.startMs)
+        return true
+    }
+
+    // ------------------------------------------------------------------ music
+    /** plays [list] from [at] as music; [radio]: when it runs low, songs like the last one are added */
+    fun playSongs(list: List<Song>, at: Int = 0, radio: Boolean = false, shuffled: Boolean = false) {
+        if (list.isEmpty()) return
+        var l = list
+        var i = at.coerceIn(0, list.size - 1)
+        if (shuffled) { val first = l[i]; l = listOf(first) + (l - first).shuffled(); i = 0 }
+        music = true; songs = l; songAt = i; this.radio = radio; shuffle = shuffled
+        playSongAt(i)
+        // a single song: its radio follows it
+        if (radio && l.size < 3) moreRadio()
+    }
+
+    /** one song, then songs like it */
+    fun playRadio(s: Song) = playSongs(listOf(s), 0, radio = true)
+
+    fun playSongAt(i: Int) {
+        val s = songs.getOrNull(i) ?: return
+        songAt = i
+        music = true
+        store.rememberSong(s.meta())
+        openVideo(s.video(), emptyList(), null, asSong = true)
+        if (radio && songs.size - i <= 3) moreRadio()
+    }
+
+    fun previous() {
+        if (!music) { player.seekTo(0); return }
+        // as music players do: a song more than a few seconds in starts over, else the one before
+        if (player.state.value.positionMs > 4000 || songAt == 0) player.seekTo(0) else playSongAt(songAt - 1)
+    }
+
+    fun toggleShuffle() {
+        if (!music) return
+        shuffle = !shuffle
+        if (shuffle) {
+            val head = songs.take(songAt + 1)
+            songs = head + songs.drop(songAt + 1).shuffled()
+        }
+    }
+
+    /** the queue's songs after this one, to reorder or remove (the Up next list) */
+    fun removeSong(i: Int) {
+        if (i == songAt || i !in songs.indices) return
+        songs = songs.toMutableList().also { it.removeAt(i) }
+        if (i < songAt) songAt--
+    }
+
+    /** "Play next" on a song: right after the one playing */
+    fun playNext(s: Song) {
+        if (!music || songs.isEmpty()) { playSongs(listOf(s)); return }
+        val rest = songs.filterIndexed { j, x -> j <= songAt || x.id != s.id }
+        songs = rest.take(songAt + 1) + s + rest.drop(songAt + 1)
+    }
+
+    /** the queue was made by hand with Play next / Add to queue (#59): it stays until it has played or playback stops */
+    var ownQueue by mutableStateOf(false)
+
+    /** a video's ⋮ menu: right after the one playing (nothing playing: it plays now) */
+    fun queueNext(v: Video) {
+        if (video == null || music) { app.watch(v); return }
+        // the rest of the list this video was opened from is not a queue you made: yours starts here (#66)
+        val mine = if (ownQueue) queue else emptyList()
+        queue = listOf(v) + mine.filter { it.id != v.id }
+        ownQueue = true
+    }
+
+    fun queueAdd(v: Video) {
+        if (video == null || music) { app.watch(v); return }
+        val mine = if (ownQueue) queue else emptyList()
+        queue = if (mine.any { it.id == v.id }) mine else mine + v
+        ownQueue = true
+    }
+
+    /** the queue reordered by hand (#85): dragged by its handle, or Move up / Move down */
+    fun moveInQueue(v: Video, to: Int) {
+        val rest = queue.filter { it.id != v.id }
+        if (rest.size == queue.size) return
+        queue = rest.take(to.coerceIn(0, rest.size)) + v + rest.drop(to.coerceIn(0, rest.size))
+        ownQueue = true
+    }
+
+    fun unqueue(v: Video) {
+        queue = queue.filter { it.id != v.id }
+        if (queue.isEmpty()) ownQueue = false
+    }
+
+    fun addToQueue(s: Song) {
+        if (!music || songs.isEmpty()) { playSongs(listOf(s)); return }
+        if (songs.drop(songAt + 1).none { it.id == s.id }) songs = songs + s
+    }
+
+    private var radioJob: Job? = null
+    private fun moreRadio() {
+        if (radioJob?.isActive == true) return
+        val seed = songs.lastOrNull() ?: return
+        radioJob = app.scope.launch {
+            val more = runCatching { Music.radio(seed.id) }.getOrDefault(emptyList())
+            val have = songs.map { it.id }.toHashSet()
+            val add = more.filter { it.id !in have }
+            if (add.isNotEmpty() && music) songs = songs + add
+        }
+    }
+
+    /** music: the same song with its picture ("Watch video"), from where it is */
+    fun showVideo() {
+        if (!music || withVideo) return
+        withVideo = true
+        replay(player.state.value.positionMs)
+    }
+
+    /** music: back to the song alone after [showVideo], from where it is (the sound only when that is set) */
+    fun hideVideo() {
+        if (!music || !withVideo) return
+        withVideo = false
+        replay(player.state.value.positionMs, autoplay = player.state.value.playing)
+    }
+
+    // ------------------------------------------------------------------ watch time
+    private var countedStart = false
+    private var lastTick = 0L
+    private var pending = 0L
+    /** time played without a pause longer than 5 minutes, for the break reminder */
+    private var streakMs = 0L
+    private var lastPlaying = 0L
+
+    private fun countTime(v: Video, playing: Boolean, now: Long) {
+        if (!playing) { lastTick = 0L; return }
+        if (!countedStart) { countedStart = true; store.addWatch(v, 0, music, started = true) }
+        if (lastPlaying > 0 && now - lastPlaying > 5 * 60_000L) streakMs = 0
+        lastPlaying = now
+        val step = if (lastTick == 0L) 0L else (now - lastTick).coerceIn(0, 3000)
+        lastTick = now
+        pending += step
+        streakMs += step
+        if (pending >= 30_000) { store.addWatch(v, pending / 1000, music); pending %= 1000; checkReminders() }
+    }
+
+    /** the reminders of Settings → Wellbeing: a break after so long in a row, a daily amount */
+    private fun checkReminders() {
+        val set = store.settings.value
+        if (app.kidsTimeUp()) { player.pause(); app.reminder = tr(KIDS_TIME_UP); return }
+        if (set.breakMinutes > 0 && streakMs >= set.breakMinutes * 60_000L) {
+            streakMs = 0
+            if (!music) player.pause()
+            app.reminder = tr("You've been watching for {n} minutes. Time for a short break?").replace("{n}", "${set.breakMinutes}")
+        }
+        if (set.dailyMinutes > 0) {
+            val today = Sys.today()
+            val st = store.stats.value
+            val d = st.days[today]
+            if (st.remindedOn != today && d != null && (d.video + d.music) >= set.dailyMinutes * 60L) {
+                store.stats.update { it.copy(remindedOn = today) }
+                app.reminder = tr("You've reached today's {n} minutes.").replace("{n}", "${set.dailyMinutes}")
+            }
+        }
+    }
+}
+
+fun Song.meta() = SongMeta(id, title, artist, artistId, album, albumId, lengthSec, art)
+fun SongMeta.song() = Song(id, title, artist, artistId, album, albumId, len, art)
+
+/** how long a suggested next video is counted down on the player before it starts */
+const val UP_NEXT_MS = 5000L

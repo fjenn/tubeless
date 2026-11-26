@@ -14,7 +14,7 @@ name: Stream health
 # ANONYMOUS ON PURPOSE: no cookies or account secrets, ever (signed-in checks are :desktop:homeCheck,
 # run locally with the owner's cookies).
 #
-# Adapted from upstream TubeHaus's engine-check.yml (GPL-3.0) and Spotless's stream-health.yml.
+# Adapted from upstream TubeHaus's engine-check.yml (GPL-3.0).
 on:
   schedule:
     - cron: "0 4 * * *"   # 04:00 UTC

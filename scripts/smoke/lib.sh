@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Shared helpers of the runtime smoke tests (desktop.sh, android.sh; .github/workflows/smoke.yml).
-# The app is driven with the QA driver (common/src/app/tubehaus/ui/ParityDriver.kt: parity-cmd.txt in its
+# The app is driven with the QA driver (common/src/app/tubeless/ui/ParityDriver.kt: parity-cmd.txt in its
 # data folder) and judged by its E2E event log (TUBELESS_E2E_LOG, one JSON object a line).
 # The caller defines: read_events (prints the log), send_file <file> (puts parity-cmd.txt in place),
 # cmd_pending (0 while the last parity-cmd.txt is not taken yet), shot <name>, alive (0 while the app runs).

@@ -41,11 +41,12 @@ pub const ADD_URL: &str = "https://accounts.google.com/AddSession?service=youtub
 pub const SAFARI_UA: &str =
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15";
 
-/// FNV-1a, 128 bit: the WKWebsiteDataStore identifier of a profile (same as the signin-helper's)
+/// FNV-1a, 128 bit: the WKWebsiteDataStore identifier of a profile (same as the signin-helper's).
+/// The start state is the hash after the store's fixed name prefix (folded in once, so the identifiers
+/// of web view stores saved by earlier versions stay the same).
 pub fn store_id(profile: &str) -> [u8; 16] {
-    let mut h: u128 = 0x6c62272e07bb014262b821756295c58d;
-    // the prefix predates the rename to Tubeless: changing it would orphan every saved web view store
-    for b in format!("kestrel-signin:{profile}").bytes() {
+    let mut h: u128 = 0x5ba9db1babe5ebfc20da6a75edb3ac44;
+    for b in profile.bytes() {
         h ^= b as u128;
         h = h.wrapping_mul(0x0000000001000000000000000000013B);
     }
