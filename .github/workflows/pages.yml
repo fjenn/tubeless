@@ -37,7 +37,15 @@ jobs:
         run: |
           ./gradlew --no-daemon -q :web:compileProductionExecutableKotlinWasmJs
           ./gradlew --no-daemon -q :web:compileProductionExecutableKotlinWasmJsOptimize --rerun
+          # the extension from the same wasm: its Chrome zip is served by the site (youtube.html's "Add Tubeless to Chrome")
+          node extension/build.mjs
+          # Firefox: the signed add-on of the newest release, when it has one (release.yml signs it unlisted on AMO)
+          if gh release download -R "$GITHUB_REPOSITORY" --pattern 'Tubeless-*-firefox.xpi' --dir xpi 2>/dev/null; then
+            export FIREFOX_XPI="$(ls xpi/*.xpi | head -1)"
+          fi
           node site/build.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

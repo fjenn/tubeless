@@ -416,6 +416,13 @@ private fun SettingsRows(
         head()
         val r = Rows(this, cat, q, app.platform.tv, top, starts)
         // ------------------------------------------------------------------ display
+        // Shorts on or off, in one switch (#FIX2): off, no Shorts tab and no Shorts anywhere (AppState.noShorts);
+        // the first row of Settings (SHORTS-ONBOARD), easy to find; the same switch sits again in Feeds & focus
+        val shortsRow: @Composable () -> Unit = {
+            Toggle(tr("Shorts"), if (s.calm || s.kids) tr("Off while calm mode or kids mode is on") else tr("The Shorts tab, and Shorts in Home, search and subscriptions"),
+                !s.hideShorts && !s.calm && !s.kids, enabled = !s.calm && !s.kids) { b -> set { it.copy(hideShorts = !b) } }
+        }
+        r.row("display", tr("Shorts") + " shorts tab reels " + tr("Hide Shorts")) { shortsRow() }
         run {
             val themes = listOf("0" to tr("Follow the system"), "1" to tr("Light"), "2" to tr("Dark"), "3" to tr("Black (AMOLED)")) +
                 // Android 12+: Material You, the colours of the wallpaper
@@ -461,12 +468,6 @@ private fun SettingsRows(
             Choice(tr("Playback in feeds"), tr(listOf("Always on", "Wi-Fi only", "Off")[s.feedPlayback.coerceIn(0, 2)]),
                 listOf("0" to tr("Always on"), "1" to tr("Wi-Fi only"), "2" to tr("Off"))) { c -> set { it.copy(feedPlayback = c.toInt()) } }
         }
-        // Shorts on or off, in one switch (#FIX2): off, no Shorts tab and no Shorts anywhere (AppState.noShorts)
-        val shortsRow: @Composable () -> Unit = {
-            Toggle(tr("Shorts"), if (s.calm || s.kids) tr("Off while calm mode or kids mode is on") else tr("The Shorts tab, and Shorts in Home, search and subscriptions"),
-                !s.hideShorts && !s.calm && !s.kids, enabled = !s.calm && !s.kids) { b -> set { it.copy(hideShorts = !b) } }
-        }
-        r.row("display", tr("Shorts") + " shorts tab reels " + tr("Hide Shorts")) { shortsRow() }
         r.row("display", tr("Logo in the top bar") + " logo") {
             Toggle(tr("Logo in the top bar"), tr("The TubeHaus name and house at the top"), !s.hideLogo) { b -> set { it.copy(hideLogo = !b) } }
         }

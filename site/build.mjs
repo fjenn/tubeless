@@ -51,7 +51,16 @@ cpSync(join(root, "common/sabr/sabr-page.js"), join(out, "sabr-page.js"));
 writeFileSync(join(out, "yt-solver.txt"), ["yt.solver.lib.min.js", "yt.solver.core.min.js"].map((f) => readFileSync(join(root, "common/ejs", f), "utf8")).join("\n;var meriyah=lib.meriyah,astring=lib.astring;\n"));
 const bookmarklet = "javascript:" + encodeURIComponent(readFileSync(join(here, "bookmarklet.js"), "utf8").split("\n")
   .map((l) => l.trim()).filter((l) => l && !l.startsWith("//")).join(" ").replace("__BASE__", SITE_URL));
-writeFileSync(join(out, "youtube.html"), readFileSync(join(here, "youtube.html"), "utf8").replace("__BOOKMARKLET__", bookmarklet));
+// the browser extension, served from the site itself so the install page's button always gets the newest one:
+// Chrome's zip (built by extension/build.mjs from the same wasm; EXT_ZIP=<path> to pick another) as Tubeless.zip (it
+// unzips to a "Tubeless" folder for Load unpacked), and Firefox's add-on only when signed (FIREFOX_XPI=<path>, AMO)
+const RELEASES = "https://github.com/fjenn/tubeless-publik/releases";
+const extZip = process.env.EXT_ZIP || join(root, `extension/dist/tubeless-${version}-chrome.zip`);
+const ext = { releases: RELEASES, chrome: null, firefox: null, version };
+if (existsSync(extZip)) { cpSync(extZip, join(out, "Tubeless.zip")); ext.chrome = "Tubeless.zip"; }
+if (process.env.FIREFOX_XPI && existsSync(process.env.FIREFOX_XPI)) { cpSync(process.env.FIREFOX_XPI, join(out, "Tubeless.xpi")); ext.firefox = "Tubeless.xpi"; }
+console.log(`extension on the site: chrome ${ext.chrome ? "yes" : "no (releases link)"}, firefox ${ext.firefox ? "signed xpi" : "no (bookmark)"}`);
+writeFileSync(join(out, "youtube.html"), readFileSync(join(here, "youtube.html"), "utf8").replace("__BOOKMARKLET__", bookmarklet).replace("__EXT__", JSON.stringify(ext)));
 writeFileSync(join(out, "bookmarklet.txt"), bookmarklet + "\n");
 // the files change with each build, the page doesn't: a version query keeps caches honest
 const html = readFileSync(join(out, "index.html"), "utf8").replace(/src="(instant|app)\.js"/g, `src="$1.js?v=${version}-${Date.now().toString(36)}"`);

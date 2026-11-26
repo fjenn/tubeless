@@ -64,6 +64,9 @@ fun ParityDriver(app: AppState) {
                         "setup" -> {
                             app.store.settings.update { it.copy(lang = "en", welcomed = true, winW = 1329, winH = 924, winMax = false) }
                         }
+                        // the first-start page's answers (Welcome): "shorts off|on" as its two cards, "welcome done" as Continue
+                        "shorts-choice" -> app.store.settings.update { it.copy(hideShorts = arg == "off") }
+                        "welcome" -> app.store.settings.update { it.copy(welcomed = true) }
                         "go" -> app.go(when (arg) {
                             "subs" -> Screen.Subs; "shorts" -> Screen.Shorts; "library" -> Screen.Library
                             "settings" -> Screen.Settings; "downloads" -> Screen.Downloads; "history" -> Screen.History

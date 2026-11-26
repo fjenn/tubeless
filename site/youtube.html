@@ -2,8 +2,8 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Tubeless on youtube.com</title>
-<meta name="description" content="One bookmark turns youtube.com into Tubeless: your own account, no ads, HD downloads, voice boost. Nothing to install.">
+<title>Add Tubeless to your browser</title>
+<meta name="description" content="Add Tubeless to Chrome, Edge, Brave or Firefox: your own YouTube account, no ads, HD downloads, voice boost. Safari: one bookmark.">
 <meta name="theme-color" content="#0f0f0f">
 <meta name="referrer" content="no-referrer">
 <link rel="icon" href="icon-128.png">
@@ -32,16 +32,46 @@
   kbd { font: 12px ui-monospace, monospace; background: #333; border-radius: 4px; padding: 1px 5px; color: #f1f1f1; }
   details { margin: 18px 0; } summary { cursor: pointer; color: #3ea6ff; }
   textarea { width: 100%; box-sizing: border-box; height: 64px; background: #1f1f1f; color: #aaa; border: 1px solid #333; border-radius: 8px; font: 12px ui-monospace, monospace; }
+  .add { display: inline-flex; align-items: center; gap: 10px; padding: 12px 24px; border-radius: 24px; background: #f1f1f1; color: #0f0f0f;
+    font-weight: 700; font-size: 16px; }
+  .add img { width: 22px; height: 22px; }
+  .copyline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .copyline code { font: 14px ui-monospace, monospace; background: #272727; border-radius: 6px; padding: 6px 10px; color: #f1f1f1; }
+  .copyline button { padding: 6px 14px; font-size: 13px; }
+  .alt { font-size: 14px; margin: 4px 0 18px; }
+  .alt a { cursor: pointer; }
 </style>
 <main>
   <a href="./">&larr; Tubeless</a>
-  <h1>Everything Tubeless can do, on youtube.com</h1>
-  <p class="lead">Add one bookmark. Press it on youtube.com and the page becomes Tubeless, signed in with your own YouTube account. Nothing to install.</p>
+  <h1 id="title">Add Tubeless to your browser</h1>
+  <p class="lead">Your own YouTube account, without the ads. Free, and nothing goes through us.</p>
   <ul class="perks"><li>Your Home, subscriptions and playlists</li><li>No ads</li><li>HD and 4K</li><li>Downloads in HD</li><li>Stable volume</li><li>Voice boost</li><li>SponsorBlock</li><li>Background play</li><li>Picture-in-picture</li></ul>
 
-  <!-- Computers: Chrome, Edge, Brave, Firefox (shown first there) -->
+  <!-- Chrome, Edge, Brave, Opera, Vivaldi: the extension, loaded from its folder (shown first there) -->
+  <section class="card" id="ext" hidden>
+    <p><a class="add" id="extget" href="#" download><img src="icon-128.png" alt=""><span id="extname">Add Tubeless to Chrome</span></a></p>
+    <p class="note" id="extwhat">Downloads a small zip file. Then four quick steps:</p>
+    <div class="step"><span class="n">1</span><div><p>Unzip the downloaded <b>Tubeless.zip</b><span id="unzip">: double-click it</span>. You get a <b>Tubeless</b> folder. Keep it, for example in Documents.</p></div></div>
+    <div class="step"><span class="n">2</span><div>
+      <p>Copy this address into a new tab and press Enter:</p>
+      <p class="copyline"><code id="extpage">chrome://extensions</code><button id="extcopy">Copy</button></p>
+      <p class="hint" id="extcopied" role="status" style="min-height:0"></p>
+    </div></div>
+    <div class="step"><span class="n">3</span><div><p>Turn on <b>Developer mode</b> <span id="devwhere">(top right)</span>.</p></div></div>
+    <div class="step"><span class="n">4</span><div><p>Click <b>Load unpacked</b> and choose the <b>Tubeless</b> folder. Done: click the Tubeless icon next to the address bar to open it.</p></div></div>
+  </section>
+
+  <!-- Firefox: the signed add-on installs from the link (only when the site has one) -->
+  <section class="card" id="fx" hidden>
+    <p><a class="add" id="fxget" href="#"><img src="icon-128.png" alt="">Add Tubeless to Firefox</a></p>
+    <div class="step"><span class="n">1</span><div><p>Click <b>Add</b> when Firefox asks. Done: click the Tubeless icon in the toolbar to open it.</p></div></div>
+  </section>
+
+  <p class="alt" id="altline" hidden>Rather not install an extension? <a id="usemark">Use the bookmark instead</a>.</p>
+
+  <!-- the bookmark on a computer (drag to the bar): the way for any browser without the extension -->
   <section class="card" id="desktop">
-    <h2>On a computer</h2>
+    <h2>The bookmark</h2>
     <div class="step"><span class="n">1</span><div>
       <p>Drag this button to your bookmarks bar<span id="barkey"></span>:</p>
       <p><a class="mark" id="mark" href="#" title="Drag me to your bookmarks bar"><img src="icon-128.png" alt="">Tubeless</a></p>
@@ -71,20 +101,22 @@
     </div></div>
   </section>
 
-  <details>
+  <details id="addr">
     <summary>The bookmark's address</summary>
     <textarea id="code" readonly aria-label="The bookmark's address"></textarea>
   </details>
 
   <h2>Good to know</h2>
-  <p class="note">Tubeless runs inside youtube.com in your own browser and uses the YouTube account you're signed in with there, like
+  <p class="note">Tubeless runs in your own browser and uses the YouTube account you're signed in with there, like
     youtube.com itself. Nothing goes through us: only YouTube and the services the app already uses (SponsorBlock, Return YouTube Dislike).
-    It loads the newest Tubeless each time, so the bookmark never needs updating. To use it signed out, turn off
+    The bookmark loads the newest Tubeless each time; the extension updates when you add the new one. To use it signed out, turn off
     Settings &rarr; Account &rarr; "Use my youtube.com sign-in". The source is public.</p>
-  <p class="note">Prefer an app? <a href="https://github.com/fjenn/tubeless-publik/releases">The Tubeless app and the browser extension</a> do the same.</p>
+  <p class="note">Prefer an app? <a href="https://github.com/fjenn/tubeless-publik/releases">The Tubeless app</a> for Mac, Windows, Linux, iPhone and Android.</p>
 </main>
 <script>
   const code = "__BOOKMARKLET__";
+  // what this build of the site carries: the Chrome extension's zip, Firefox's signed add-on (site/build.mjs)
+  const EXT = __EXT__;
   const $ = (id) => document.getElementById(id);
   $("mark").href = code;
   $("code").value = code;
@@ -93,10 +125,43 @@
   const ua = navigator.userAgent, mac = /Mac/.test(navigator.platform || ua);
   const mobile = /iPhone|iPad|Android|Mobile/.test(ua) || (mac && navigator.maxTouchPoints > 1);
   const safari = /Safari\//.test(ua) && !/Chrome|Chromium|Edg|Firefox|FxiOS|CriOS/.test(ua);
+  const firefox = /Firefox\//.test(ua);
+  // the Chromium browsers by name (Brave says so only through navigator.brave)
+  const chromium = !firefox && !safari && /Chrome\//.test(ua);
+  const name = /Edg\//.test(ua) ? "Edge" : navigator.brave ? "Brave" : /OPR\//.test(ua) ? "Opera" : /Vivaldi/.test(ua) ? "Vivaldi" : "Chrome";
+  const page = { Edge: "edge://extensions", Brave: "brave://extensions", Opera: "opera://extensions", Vivaldi: "vivaldi://extensions", Chrome: "chrome://extensions" }[name];
+  if (/Windows/.test(ua)) $("unzip").innerHTML = ": right-click it &rarr; <b>Extract All</b>";
   $("barkey").innerHTML = mac ? " (no bar? press <kbd>&#8984;</kbd><kbd>Shift</kbd><kbd>B</kbd>)" : " (no bar? press <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>B</kbd>)";
-  // what fits this browser comes first
-  if (mobile || safari) $("desktop").before($("phone"));
-  if (mobile) $("desktop").hidden = true;
+  // what fits this browser comes first: the extension on a computer's Chrome, Edge, Brave or Firefox, the bookmark on Safari and phones
+  let lead = null;
+  if (!mobile && chromium) {
+    lead = $("ext");
+    $("extname").textContent = "Add Tubeless to " + name;
+    $("extpage").textContent = page;
+    $("devwhere").textContent = name === "Edge" ? "(on the left)" : "(top right)";
+    if (EXT.chrome) $("extget").href = EXT.chrome;
+    else { $("extget").href = EXT.releases; $("extget").removeAttribute("download"); $("extwhat").textContent = "Get the file that ends in -chrome.zip (save it as Tubeless.zip). Then four quick steps:"; }
+  } else if (!mobile && firefox && EXT.firefox) {
+    lead = $("fx");
+    $("fxget").href = EXT.firefox;
+  }
+  if (lead) {
+    lead.hidden = false;
+    $("title").textContent = "Add Tubeless to " + (lead.id === "fx" ? "Firefox" : name);
+    $("altline").hidden = false;
+    $("phone").hidden = true;
+    // the bookmark is the small alternative: shown when asked for
+    $("desktop").hidden = true; $("addr").hidden = true;
+    $("usemark").onclick = () => { $("desktop").hidden = false; $("addr").hidden = false; $("altline").hidden = true; $("desktop").scrollIntoView({ behavior: "smooth" }); };
+  } else {
+    $("title").textContent = "Add Tubeless to your browser";
+    if (mobile || safari) $("desktop").before($("phone"));
+    if (mobile) $("desktop").hidden = true;
+  }
+  $("extcopy").onclick = async () => {
+    try { await navigator.clipboard.writeText($("extpage").textContent); $("extcopied").textContent = "Copied. Paste it into a new tab."; }
+    catch (e) { $("extcopied").textContent = "Type it into a new tab's address bar."; }
+  };
   $("copy").onclick = async () => {
     try { await navigator.clipboard.writeText(code); }
     catch (e) { const t = $("code"); t.closest("details").open = true; t.select(); document.execCommand("copy"); }

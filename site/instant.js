@@ -17,7 +17,7 @@
   const gecko = /Gecko\/\d/.test(navigator.userAgent) && /Firefox\//.test(navigator.userAgent);
   const apple = /Apple/.test(navigator.vendor) && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
   const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  const LINKS = { extension: "https://github.com/fjenn/tubeless-publik/releases", app: "https://github.com/fjenn/tubeless-publik/releases" };
+  const LINKS = { extension: "youtube.html", app: "https://github.com/fjenn/tubeless-publik/releases" };
 
   // ------------------------------------------------------------------ notices (HTML over the canvas)
   const notice = (() => {
@@ -31,9 +31,9 @@
         const p = document.createElement("span");
         p.textContent = text;
         el.append(p);
-        // the way to everything: the Tubeless bookmark (youtube.html); the app and the extension are on that page too
+        // the way to everything: the install page (youtube.html): the extension first on Chrome, Edge, Brave and Firefox, the bookmark on Safari
         if (actions) {
-          for (const [label, href] of actions === true ? [["Add the bookmark", "youtube.html"]] : actions) {
+          for (const [label, href] of actions === true ? [["Add Tubeless", "youtube.html"]] : actions) {
             const a = document.createElement("a");
             a.textContent = label; a.href = href; a.target = "_blank"; a.rel = "noopener";
             a.addEventListener("click", () => notice.closed?.(key));
@@ -119,7 +119,7 @@ parent.postMessage({ k: "tl-ready", origin: self.origin }, "*");
       if (++health.fails < 2 || health.broken) return;
       health.broken = true;
       log("InnerTube refuses this page now; videos go to YouTube's embedded player");
-      notice.show("broken", "YouTube isn't answering this website right now, so videos play in YouTube's own player (ads possible). The Tubeless bookmark on youtube.com keeps working.");
+      notice.show("broken", "YouTube isn't answering this website right now, so videos play in YouTube's own player (ads possible). Tubeless in your browser (extension or bookmark) keeps working.");
     },
   };
 
@@ -268,7 +268,7 @@ parent.postMessage({ k: "tl-ready", origin: self.origin }, "*");
         current = id;
         box.hidden = false;
         embed.place(...rect);
-        notice.show("embed", "This video plays in YouTube's own player, so ads are possible. The Tubeless bookmark on youtube.com plays it ad-free.");
+        notice.show("embed", "This video plays in YouTube's own player, so ads are possible. Tubeless in your browser (extension or bookmark) plays it ad-free.");
         const YT = await load();
         if (current !== id) return;
         if (yt) { autoplay ? yt.loadVideoById({ videoId: id, startSeconds: start }) : yt.cueVideoById({ videoId: id, startSeconds: start }); }
@@ -756,7 +756,7 @@ parent.postMessage({ k: "tl-ready", origin: self.origin }, "*");
   const keep = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return "1"; } };
   notice.closed = (key) => { if (key === "hint") keep(HINT, "1"); };
   if (!keep(HINT) && !params.get("v") && !/HeadlessChrome/.test(navigator.userAgent)) setTimeout(() => {
-    if (!document.hidden && $("tubeless-notice").hidden) notice.show("hint", "Want your own YouTube account, HD downloads and voice boost? Add the free Tubeless bookmark.", [["Show me", "youtube.html"]]);
+    if (!document.hidden && $("tubeless-notice").hidden) notice.show("hint", "Want your own YouTube account, HD downloads and voice boost? Add Tubeless to your browser, free.", [["Show me", "youtube.html"]]);
   }, 25000);
 
   window.tubeless = { instant: true, net, fs, auth, fonts, player, sabr, dl, save, embed, bridge, health, notice, ready };

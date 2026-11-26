@@ -49,6 +49,20 @@ import app.tubehaus.engine.Video
 import app.tubehaus.rec.Learn
 import app.tubehaus.rec.Profiles
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.border
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 
 /** Remembered across visits to the tab so going back to Home doesn't reshuffle it. */
 internal object HomeCache {
@@ -243,75 +257,74 @@ fun YouAreOffline(app: AppState, retry: () -> Unit) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * First start in the apps (computers, phones, tablets; the website goes straight to Home): one calm page.
+ * The language is the device's (no picker). It asks one thing, whether Shorts show, and offers the sign-in;
+ * a computer also keeps the file import as a small link. Everything here stays in Settings.
+ */
 @Composable
-fun LanguagePicker(app: AppState) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(Modifier.widthIn(max = 480.dp).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Logo(Modifier.padding(bottom = 24.dp))
-            Text("Language", style = MaterialTheme.typography.titleLarge)
-            FlowRow(
-                Modifier.padding(top = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                for ((code, name) in LANGS) {
-                    OutlinedButton(onClick = { app.store.settings.update { it.copy(lang = code) } }) { Text(name) }
+fun Welcome(app: AppState) {
+    val s by app.store.settings.state.collectAsState()
+    fun finish() = app.store.settings.update { it.copy(welcomed = true) }
+    fun shorts(on: Boolean) = app.store.settings.update { it.copy(hideShorts = !on) }
+    val c = MaterialTheme.colorScheme
+    val pill = RoundedCornerShape(50)
+    Box(Modifier.fillMaxSize().background(c.background), contentAlignment = Alignment.Center) {
+        Column(
+            Modifier.widthIn(max = 440.dp).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Logo(Modifier.padding(bottom = 36.dp))
+            Text(tr("Show YouTube Shorts?"), fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.4).sp, textAlign = TextAlign.Center)
+            Text(tr("You can change this anytime in Settings."), style = MaterialTheme.typography.bodyMedium,
+                color = c.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp, bottom = 24.dp))
+            val on = !s.hideShorts
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ShortsChoice(tr("Keep Shorts"), tr("The Shorts tab and Shorts in your feeds"), Sym.Bolt.fill, on, Modifier.weight(1f)) { shorts(true) }
+                ShortsChoice(tr("Turn off Shorts"), tr("No Shorts tab, no Shorts anywhere"), Sym.Bolt.fill, !on, Modifier.weight(1f), off = true) { shorts(false) }
+            }
+            Spacer(Modifier.height(36.dp))
+            // where Google's sign-in page can open, signing in is offered here too (as on youtube.com)
+            val canSignIn = !app.platform.instant && Accounts.launcher?.available == true
+            val dark = ButtonDefaults.buttonColors(containerColor = c.onSurface, contentColor = c.surface)
+            if (canSignIn) {
+                Button(onClick = { finish(); startSignIn(app) }, shape = pill, colors = dark, modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                    Text(tr("Sign in to YouTube"), fontWeight = FontWeight.SemiBold)
                 }
+                TextButton(onClick = { finish() }, shape = pill, modifier = Modifier.padding(top = 6.dp).fillMaxWidth().height(48.dp)) {
+                    Text(tr("Continue without signing in"), color = c.onSurface)
+                }
+            } else Button(onClick = { finish() }, shape = pill, colors = dark, modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                Text(tr("Continue"), fontWeight = FontWeight.SemiBold)
+            }
+            // a computer: subscriptions from another app's export (phones have it in Settings and You)
+            if (!app.platform.touch) TextButton(onClick = { importFile(app) { ok -> if (ok) finish() } }, modifier = Modifier.padding(top = 2.dp)) {
+                Text(tr("Import subscriptions from a file"), style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant)
             }
         }
     }
 }
 
-/**
- * First start, right after the language: bring the subscriptions over from YouTube or another app.
- * Each source says in one line where its export is; one button opens the file, whatever it came from.
- */
+/** one of the two answers to "Show YouTube Shorts?": a card, the chosen one outlined with a check */
 @Composable
-fun Welcome(app: AppState) {
-    fun finish() = app.store.settings.update { it.copy(welcomed = true) }
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        Column(
-            Modifier.widthIn(max = 560.dp).verticalScroll(rememberScrollState()).padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Logo(Modifier.padding(top = 16.dp, bottom = 24.dp))
-            // where Google's sign-in page can open, signing in is the first choice (as on youtube.com); the file
-            // import below stays for using the app without an account
-            val canSignIn = !app.platform.instant && Accounts.launcher?.available == true
-            if (canSignIn) {
-                Button(onClick = { finish(); startSignIn(app) }, modifier = Modifier.padding(bottom = 28.dp).fillMaxWidth()) {
-                    Text(tr("Sign in to YouTube"))
-                }
-            }
-            Text(tr("Bring your subscriptions"), style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
-            Text(
-                tr("Your channels are kept on this device, no account needed. Pick the file you exported from another app:"),
-                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp, bottom = 20.dp),
-            )
-            for ((name, how) in listOf(
-                "YouTube" to "takeout.google.com → YouTube → subscriptions.csv",
-                "NewPipe" to tr("Subscriptions → ⋮ → Export to → File"),
-                "FreeTube" to tr("Settings → Data settings → Export subscriptions"),
-                "Invidious" to tr("Settings → Import/Export → Export subscriptions"),
-                "TubeHaus · OPML" to tr("a TubeHaus backup, or any feed reader's OPML"),
-            )) {
-                Column(
-                    Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                ) {
-                    Text(name, style = MaterialTheme.typography.titleSmall)
-                    Text(how, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            if (canSignIn) OutlinedButton(onClick = { importFile(app) { ok -> if (ok) finish() } }, modifier = Modifier.padding(top = 20.dp).fillMaxWidth()) {
-                Text(tr("Choose a file"))
-            } else Button(onClick = { importFile(app) { ok -> if (ok) finish() } }, modifier = Modifier.padding(top = 20.dp).fillMaxWidth()) {
-                Text(tr("Choose a file"))
-            }
-            TextButton(onClick = { finish() }, modifier = Modifier.padding(top = 4.dp)) { Text(tr("Skip for now")) }
+private fun ShortsChoice(title: String, sub: String, icon: androidx.compose.ui.graphics.vector.ImageVector, chosen: Boolean,
+                         modifier: Modifier, off: Boolean = false, onClick: () -> Unit) {
+    val c = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier.heightIn(min = 132.dp).clip(shape)
+            .background(if (chosen) c.surfaceContainerHigh else c.surfaceContainer)
+            .border(if (chosen) 2.dp else 1.dp, if (chosen) c.onSurface else c.outlineVariant, shape)
+            .selectable(chosen, role = Role.RadioButton, onClick = onClick)
+            .padding(16.dp),
+    ) {
+        Box(Modifier.size(36.dp).clip(RoundedCornerShape(50)).background(if (off) c.surfaceContainerHighest else Red), contentAlignment = Alignment.Center) {
+            Icon(icon, null, Modifier.size(20.dp), tint = if (off) c.onSurfaceVariant else Color.White)
+            // off: the bolt struck through
+            if (off) Box(Modifier.size(width = 24.dp, height = 2.dp).rotate(-45f).background(c.onSurfaceVariant, RoundedCornerShape(1.dp)))
         }
+        Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp))
+        Text(sub, style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
     }
 }

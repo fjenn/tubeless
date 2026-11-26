@@ -207,19 +207,18 @@ fun App(app: AppState) {
                             LocalCompact provides (app.platform.touch && maxWidth < 600.dp),
                             LocalDensity provides Density(d.density, d.fontScale * settings.textScale),
                         ) {
-                            // phones and tablets open straight on Home, as YouTube's app does: the device's language
-                            // (English when the app has no translation for it) and no import page (it stays in
-                            // Settings and You; signing in brings the subscriptions over)
-                            val skipFirstRun = app.platform.touch && !tv
-                            if (skipFirstRun && (settings.lang.isEmpty() || !settings.welcomed)) LaunchedEffect(Unit) {
+                            // first start (SHORTS-ONBOARD): the device's language on every app (no picker; English when
+                            // the app has no translation for it), then one calm page: Shorts on or off, and the sign-in.
+                            // A TV opens straight on Home. The website sets both itself (web/Main.kt) and never sees it.
+                            if (settings.lang.isEmpty() || (tv && !settings.welcomed)) LaunchedEffect(Unit) {
                                 val device = app.platform.deviceLanguage().substringBefore('-').lowercase()
                                 app.store.settings.update { s ->
-                                    s.copy(lang = s.lang.ifEmpty { LANGS.firstOrNull { it.first == device }?.first ?: "en" }, welcomed = true)
+                                    s.copy(lang = s.lang.ifEmpty { LANGS.firstOrNull { it.first == device }?.first ?: "en" }, welcomed = s.welcomed || tv)
                                 }
                             }
                             when {
-                                settings.lang.isEmpty() -> if (skipFirstRun) Box(Modifier.fillMaxSize()) else LanguagePicker(app)
-                                !settings.welcomed && !skipFirstRun && app.store.lib.value.subs.isEmpty() -> Welcome(app)
+                                settings.lang.isEmpty() -> Box(Modifier.fillMaxSize())
+                                !settings.welcomed && !tv && app.platform.name != "web" && app.store.lib.value.subs.isEmpty() -> Welcome(app)
                                 app.pip -> Box(Modifier.fillMaxSize().background(Color.Black)) {
                                     app.player.View(Modifier.fillMaxSize())
                                 }

@@ -28,9 +28,12 @@ import app.tubehaus.engine.Video
  */
 object FullMode {
     const val APP_URL = "https://github.com/fjenn/tubeless-publik/releases"
-    const val EXTENSION_URL = "https://github.com/fjenn/tubeless-publik/releases"
-    /** Tubeless on youtube.com: the bookmark that runs this same app inside youtube.com (site/youtube.html) */
+    /**
+     * The install page (site/youtube.html): it leads with the browser extension on Chrome, Edge, Brave and Firefox
+     * ("Add Tubeless to Chrome") and with the bookmark on Safari and phones
+     */
     const val BOOKMARK_URL = "https://fjenn.github.io/tubeless-publik/youtube.html"
+    const val EXTENSION_URL = BOOKMARK_URL
 
     /** the feature someone reached for ("Downloads"); null: no prompt */
     var asking by mutableStateOf<String?>(null)
@@ -38,7 +41,7 @@ object FullMode {
     fun ask(feature: String) { asking = feature }
 }
 
-/** the prompt itself; shown from App while [FullMode.asking] is set. One clear way on (the bookmark), the others small. */
+/** the prompt itself; shown from App while [FullMode.asking] is set. One clear way on (the install page), the app small. */
 @Composable
 fun FullModeDialog(app: AppState, feature: String, close: () -> Unit) {
     AlertDialog(
@@ -47,11 +50,11 @@ fun FullModeDialog(app: AppState, feature: String, close: () -> Unit) {
         text = {
             Column {
                 Text(
-                    tr("Get this and everything else with one bookmark: Tubeless on youtube.com, signed in with your YouTube account, HD downloads, stable volume and voice boost. Nothing to install."),
+                    tr("Get this and everything else: add Tubeless to your browser. Your own YouTube account, HD downloads, stable volume and voice boost."),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
-                    tr("Or use the Tubeless app or the browser extension."),
+                    tr("Or use the Tubeless app."),
                     style = MaterialTheme.typography.bodySmall.copy(textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 12.dp).clickable { app.platform.openExternal(FullMode.APP_URL); close() },
@@ -59,7 +62,7 @@ fun FullModeDialog(app: AppState, feature: String, close: () -> Unit) {
             }
         },
         confirmButton = {
-            androidx.compose.material3.Button(onClick = { app.platform.openExternal(FullMode.BOOKMARK_URL); close() }) { Text(tr("Add the bookmark")) }
+            androidx.compose.material3.Button(onClick = { app.platform.openExternal(FullMode.BOOKMARK_URL); close() }) { Text(tr("Add Tubeless")) }
         },
         dismissButton = { TextButton(onClick = close) { Text(tr("Not now")) } },
     )
@@ -98,7 +101,7 @@ fun WebSaveDialog(app: AppState, v: Video, close: () -> Unit) {
                     state == "saved" -> tr("Saving to your browser's downloads (360p MP4, picture and sound).")
                     state == "tab" -> tr("The video opened in a new tab. Save it from there: in Chrome with ⋮ → Download, in Firefox with right-click → Save Video As.")
                     state.startsWith("error:") -> tr("This video can't be saved from the website.") + " " + state.removePrefix("error:")
-                    else -> tr("This website saves videos at 360p. For HD and 4K, add the Tubeless bookmark and download on youtube.com.")
+                    else -> tr("This website saves videos at 360p. For HD and 4K, add Tubeless to your browser.")
                 },
                 style = MaterialTheme.typography.bodyMedium,
             )
