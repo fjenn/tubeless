@@ -49,56 +49,77 @@
 
   <!-- Chrome, Edge, Brave, Opera, Vivaldi: the extension, loaded from its folder (shown first there) -->
   <section class="card" id="ext" hidden>
-    <p><a class="add" id="extget" href="#" download><img src="icon-128.png" alt=""><span id="extname">Add Tubeless to Chrome</span></a></p>
-    <p class="note" id="extwhat">Downloads a small zip file. Then four quick steps:</p>
-    <div class="step"><span class="n">1</span><div><p>Unzip the downloaded <b>Tubeless.zip</b><span id="unzip">: double-click it</span>. You get a <b>Tubeless</b> folder. Keep it, for example in Documents.</p></div></div>
-    <div class="step"><span class="n">2</span><div>
-      <p>Copy this address into a new tab and press Enter:</p>
+    <h2>Takes about one minute</h2>
+    <div class="step"><span class="n">1</span><div>
+      <p>Click this button. A file called <b>Tubeless.zip</b> downloads.</p>
+      <p><a class="add" id="extget" href="#" download><img src="icon-128.png" alt=""><span id="extname">Download Tubeless</span></a></p>
+      <p class="note" id="extwhat"></p>
+    </div></div>
+    <div class="step"><span class="n">2</span><div><p>Open your <b>Downloads</b> folder and <span id="unzip">double-click <b>Tubeless.zip</b></span>.
+      A folder called <b>Tubeless</b> appears. Move it to <b>Documents</b> and leave it there.</p></div></div>
+    <div class="step"><span class="n">3</span><div>
+      <p>Click <b>Copy</b>, open a new tab, paste into the address bar and press <b>Enter</b>.</p>
       <p class="copyline"><code id="extpage">chrome://extensions</code><button id="extcopy">Copy</button></p>
       <p class="hint" id="extcopied" role="status" style="min-height:0"></p>
     </div></div>
-    <div class="step"><span class="n">3</span><div><p>Turn on <b>Developer mode</b> <span id="devwhere">(top right)</span>.</p></div></div>
-    <div class="step"><span class="n">4</span><div><p>Click <b>Load unpacked</b> and choose the <b>Tubeless</b> folder. Done: click the Tubeless icon next to the address bar to open it.</p></div></div>
+    <div class="step"><span class="n">4</span><div><p>Switch on <b>Developer mode</b> <span id="devwhere">(the switch in the top right corner)</span>.</p></div></div>
+    <div class="step"><span class="n">5</span><div><p>Click <b>Load unpacked</b>, pick the <b>Tubeless</b> folder in Documents and click <b>Select</b>.</p></div></div>
+    <div class="step"><span class="n">6</span><div><p>Done. Click the puzzle piece next to the address bar, then <b>Tubeless</b>. Tip: click the pin next to it so the Tubeless icon is always there.</p></div></div>
   </section>
 
   <!-- Firefox: the signed add-on installs from the link (only when the site has one) -->
   <section class="card" id="fx" hidden>
-    <p><a class="add" id="fxget" href="#"><img src="icon-128.png" alt="">Add Tubeless to Firefox</a></p>
-    <div class="step"><span class="n">1</span><div><p>Click <b>Add</b> when Firefox asks. Done: click the Tubeless icon in the toolbar to open it.</p></div></div>
+    <div class="step"><span class="n">1</span><div>
+      <p>Click this button.</p>
+      <p><a class="add" id="fxget" href="#"><img src="icon-128.png" alt="">Add Tubeless to Firefox</a></p>
+    </div></div>
+    <div class="step"><span class="n">2</span><div><p>Firefox asks to add Tubeless: click <b>Add</b>.</p></div></div>
+    <div class="step"><span class="n">3</span><div><p>Done. Click the Tubeless icon in the toolbar to open it.</p></div></div>
   </section>
 
-  <p class="alt" id="altline" hidden>Rather not install an extension? <a id="usemark">Use the bookmark instead</a>.</p>
+  <p class="alt" id="altline" hidden>Rather not install anything? <a id="usemark">Use a bookmark instead</a>.</p>
 
-  <!-- the bookmark on a computer (drag to the bar): the way for any browser without the extension -->
+  <!-- the bookmark on a computer (drag to the bar) -->
   <section class="card" id="desktop">
-    <h2>The bookmark</h2>
-    <div class="step"><span class="n">1</span><div>
-      <p>Drag this button to your bookmarks bar<span id="barkey"></span>:</p>
+    <h2>Use a bookmark</h2>
+    <div class="step"><span class="n">1</span><div><p>Show your bookmarks bar: press <span id="barkey"><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>B</kbd></span>.
+      (If a bar with bookmarks already shows under the address bar, skip this.)</p></div></div>
+    <div class="step"><span class="n">2</span><div>
+      <p>Drag this button up onto the bookmarks bar: press and hold it, move the mouse onto the bar, let go. <b>Don't just click it.</b></p>
       <p><a class="mark" id="mark" href="#" title="Drag me to your bookmarks bar"><img src="icon-128.png" alt="">Tubeless</a></p>
       <p class="hint" id="clickhint" role="status"></p>
     </div></div>
-    <div class="step"><span class="n">2</span><div>
-      <p>Open YouTube and press <b>Tubeless</b> in the bookmarks bar. Do it on every visit; your downloads and settings stay.</p>
+    <div class="step"><span class="n">3</span><div>
+      <p>Click this button. YouTube opens.</p>
       <p><a class="go" href="https://www.youtube.com/">Open YouTube</a></p>
     </div></div>
+    <div class="step"><span class="n">4</span><div><p>On YouTube, click <b>Tubeless</b> in your bookmarks bar. Tubeless opens, signed in with your YouTube account.</p>
+      <p class="note">Every next time: go to youtube.com and click the Tubeless bookmark.</p></div></div>
   </section>
 
-  <!-- Safari (Mac, iPhone, iPad) and phones: bookmarks can't be dragged there -->
-  <section class="card" id="phone">
-    <h2>Safari, iPhone, iPad and Android</h2>
-    <div class="step"><span class="n">1</span><div>
-      <p><button id="copy">Copy the bookmark</button></p>
-      <p class="hint" id="copied" role="status"></p>
-    </div></div>
-    <div class="step"><span class="n">2</span><div>
-      <p>Bookmark this page (Share &rarr; <b>Add Bookmark</b>, or <kbd>&#8984;D</kbd>) and call it <b>Tubeless</b>.
-        Then edit that bookmark and paste over its address.</p>
-    </div></div>
-    <div class="step"><span class="n">3</span><div>
-      <p>Open the YouTube page below, then your <b>Tubeless</b> bookmark. On a phone: tap the address bar, type <b>Tubeless</b>, tap the bookmark.</p>
-      <p><a class="go" href="https://www.youtube.com/robots.txt?tubeless">Open YouTube for Tubeless</a></p>
-      <p class="note">Safari only lets bookmarks run on simple youtube.com pages like this one. Bookmark it too, so it's one tap next time.</p>
-    </div></div>
+  <!-- Safari on a Mac -->
+  <section class="card" id="macsafari" hidden>
+    <h2>Safari on a Mac</h2>
+    <div class="step"><span class="n">1</span><div><p><button class="copymark">Copy the bookmark</button></p><p class="hint copied" role="status"></p></div></div>
+    <div class="step"><span class="n">2</span><div><p>Press <kbd>&#8984;</kbd> <kbd>D</kbd>. Type <b>Tubeless</b> as the name and click <b>Add</b>.</p></div></div>
+    <div class="step"><span class="n">3</span><div><p>In the menu bar: <b>Bookmarks</b> &rarr; <b>Edit Bookmarks</b>. Right-click <b>Tubeless</b> &rarr; <b>Edit Address</b>.
+      Press <kbd>&#8984;</kbd> <kbd>A</kbd>, then <kbd>&#8984;</kbd> <kbd>V</kbd>, then <b>Return</b>.</p></div></div>
+    <div class="step"><span class="n">4</span><div><p>Click this button. A page of plain text from YouTube opens. That's expected.</p>
+      <p><a class="go" href="https://www.youtube.com/robots.txt?tubeless">Open YouTube for Tubeless</a></p></div></div>
+    <div class="step"><span class="n">5</span><div><p>On that page: <b>Bookmarks</b> menu &rarr; <b>Tubeless</b>. Tubeless opens.</p>
+      <p class="note">Every next time: open that same page (bookmark it too), then click the Tubeless bookmark.</p></div></div>
+  </section>
+
+  <!-- iPhone, iPad, Android -->
+  <section class="card" id="phone" hidden>
+    <h2 id="phonetitle">iPhone and iPad (Safari)</h2>
+    <div class="step"><span class="n">1</span><div><p><button class="copymark">Copy the bookmark</button></p><p class="hint copied" role="status"></p></div></div>
+    <div class="step"><span class="n">2</span><div><p id="phone2">Tap the Share button &rarr; <b>Add Bookmark</b> &rarr; <b>Save</b>.</p></div></div>
+    <div class="step"><span class="n">3</span><div><p id="phone3">Tap the book icon &rarr; <b>Edit</b> &rarr; tap the new bookmark. Change the name to <b>Tubeless</b>.
+      Tap the address under it, select all, tap <b>Paste</b>, then <b>Done</b>.</p></div></div>
+    <div class="step"><span class="n">4</span><div><p>Tap this button. A page of plain text from YouTube opens. That's expected.</p>
+      <p><a class="go" href="https://www.youtube.com/robots.txt?tubeless">Open YouTube for Tubeless</a></p></div></div>
+    <div class="step"><span class="n">5</span><div><p>On that page, tap the address bar, type <b>Tubeless</b> and tap the bookmark that shows up. Tubeless opens.</p></div></div>
   </section>
 
   <details id="addr">
@@ -109,9 +130,9 @@
   <h2>Good to know</h2>
   <p class="note">Tubeless runs in your own browser and uses the YouTube account you're signed in with there, like
     youtube.com itself. Nothing goes through us: only YouTube and the services the app already uses (SponsorBlock, Return YouTube Dislike).
-    The bookmark loads the newest Tubeless each time; the extension updates when you add the new one. To use it signed out, turn off
-    Settings &rarr; Account &rarr; "Use my youtube.com sign-in". The source is public.</p>
-  <p class="note">Prefer an app? <a href="https://github.com/fjenn/tubeless-publik/releases">The Tubeless app</a> for Mac, Windows, Linux, iPhone and Android.</p>
+    The bookmark always loads the newest Tubeless. To get a newer extension, download it again here and replace the folder.
+    To use it signed out, turn off Settings &rarr; Account &rarr; "Use my youtube.com sign-in". The source is public.</p>
+  <p class="note">The Tubeless apps for Mac, Windows, Linux, iPhone and Android are coming to this site soon.</p>
 </main>
 <script>
   const code = "__BOOKMARKLET__";
@@ -121,7 +142,7 @@
   $("mark").href = code;
   $("code").value = code;
   // clicking the button here can't do anything (it runs on youtube.com): say what to do instead
-  $("mark").addEventListener("click", (e) => { e.preventDefault(); $("clickhint").textContent = "Drag it, don't click it: hold it, move it onto the bookmarks bar and let go."; });
+  $("mark").addEventListener("click", (e) => { e.preventDefault(); $("clickhint").textContent = "Not a click: press and hold the button, move it up onto the bookmarks bar, then let go."; });
   const ua = navigator.userAgent, mac = /Mac/.test(navigator.platform || ua);
   const mobile = /iPhone|iPad|Android|Mobile/.test(ua) || (mac && navigator.maxTouchPoints > 1);
   const safari = /Safari\//.test(ua) && !/Chrome|Chromium|Edg|Firefox|FxiOS|CriOS/.test(ua);
@@ -130,42 +151,52 @@
   const chromium = !firefox && !safari && /Chrome\//.test(ua);
   const name = /Edg\//.test(ua) ? "Edge" : navigator.brave ? "Brave" : /OPR\//.test(ua) ? "Opera" : /Vivaldi/.test(ua) ? "Vivaldi" : "Chrome";
   const page = { Edge: "edge://extensions", Brave: "brave://extensions", Opera: "opera://extensions", Vivaldi: "vivaldi://extensions", Chrome: "chrome://extensions" }[name];
-  if (/Windows/.test(ua)) $("unzip").innerHTML = ": right-click it &rarr; <b>Extract All</b>";
-  $("barkey").innerHTML = mac ? " (no bar? press <kbd>&#8984;</kbd><kbd>Shift</kbd><kbd>B</kbd>)" : " (no bar? press <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>B</kbd>)";
-  // what fits this browser comes first: the extension on a computer's Chrome, Edge, Brave or Firefox, the bookmark on Safari and phones
+  if (/Windows/.test(ua)) $("unzip").innerHTML = "right-click <b>Tubeless.zip</b> &rarr; <b>Extract All</b> &rarr; <b>Extract</b>";
+  if (mac) $("barkey").innerHTML = "<kbd>&#8984;</kbd> <kbd>Shift</kbd> <kbd>B</kbd>";
+  const android = /Android/.test(ua);
+  if (android) {
+    $("phonetitle").textContent = "Android (Chrome)";
+    $("phone2").innerHTML = "Tap <b>&#8942;</b> (top right) &rarr; the star &#9734;. The page is now a bookmark.";
+    $("phone3").innerHTML = "Tap <b>Edit</b> in the message that appears (or &#8942; &rarr; <b>Bookmarks</b> &rarr; long-press it &rarr; <b>Edit</b>). Change the name to <b>Tubeless</b>, replace the address (URL) by pasting, and go back.";
+  }
+  // one path per browser, nothing else shown: the extension on a computer's Chrome, Edge, Brave (or Firefox when signed),
+  // the bookmark steps for Safari on a Mac, for phones, and for other computer browsers
   let lead = null;
   if (!mobile && chromium) {
     lead = $("ext");
-    $("extname").textContent = "Add Tubeless to " + name;
+    $("extname").textContent = "Download Tubeless";
     $("extpage").textContent = page;
-    $("devwhere").textContent = name === "Edge" ? "(on the left)" : "(top right)";
+    $("devwhere").textContent = name === "Edge" ? "(the switch on the left side)" : "(the switch in the top right corner)";
     if (EXT.chrome) $("extget").href = EXT.chrome;
-    else { $("extget").href = EXT.releases; $("extget").removeAttribute("download"); $("extwhat").textContent = "Get the file that ends in -chrome.zip (save it as Tubeless.zip). Then four quick steps:"; }
+    else { $("extget").href = EXT.releases; $("extget").removeAttribute("download"); $("extwhat").textContent = "On the page that opens, click the file ending in -chrome.zip."; }
   } else if (!mobile && firefox && EXT.firefox) {
     lead = $("fx");
     $("fxget").href = EXT.firefox;
   }
+  $("desktop").hidden = true; $("addr").hidden = true;
   if (lead) {
     lead.hidden = false;
     $("title").textContent = "Add Tubeless to " + (lead.id === "fx" ? "Firefox" : name);
     $("altline").hidden = false;
-    $("phone").hidden = true;
-    // the bookmark is the small alternative: shown when asked for
-    $("desktop").hidden = true; $("addr").hidden = true;
-    $("usemark").onclick = () => { $("desktop").hidden = false; $("addr").hidden = false; $("altline").hidden = true; $("desktop").scrollIntoView({ behavior: "smooth" }); };
+    $("usemark").onclick = () => { $("desktop").hidden = false; $("altline").hidden = true; $("desktop").scrollIntoView({ behavior: "smooth" }); };
+  } else if (mobile) {
+    $("title").textContent = "Add Tubeless to your phone's browser";
+    $("phone").hidden = false;
+  } else if (safari) {
+    $("title").textContent = "Add Tubeless to Safari";
+    $("macsafari").hidden = false;
   } else {
     $("title").textContent = "Add Tubeless to your browser";
-    if (mobile || safari) $("desktop").before($("phone"));
-    if (mobile) $("desktop").hidden = true;
+    $("desktop").hidden = false;
   }
   $("extcopy").onclick = async () => {
     try { await navigator.clipboard.writeText($("extpage").textContent); $("extcopied").textContent = "Copied. Paste it into a new tab."; }
     catch (e) { $("extcopied").textContent = "Type it into a new tab's address bar."; }
   };
-  $("copy").onclick = async () => {
+  for (const btn of document.querySelectorAll(".copymark")) btn.onclick = async () => {
     try { await navigator.clipboard.writeText(code); }
-    catch (e) { const t = $("code"); t.closest("details").open = true; t.select(); document.execCommand("copy"); }
-    $("copied").textContent = "Copied. Now step 2.";
+    catch (e) { const t = $("code"); t.closest("details").hidden = false; t.closest("details").open = true; t.select(); document.execCommand("copy"); }
+    btn.closest(".step").querySelector(".copied").textContent = "Copied. Now step 2.";
   };
 </script>
 </html>
