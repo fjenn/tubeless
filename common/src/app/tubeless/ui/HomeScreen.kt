@@ -248,10 +248,11 @@ fun FeedOff(title: String, sub: String, actions: @Composable () -> Unit) {
     }
 }
 
-/** YouTube can't be reached: nothing streams, but the downloads play (and a retry) */
+/** YouTube can't be reached (Home, Shorts, Search, Subscriptions): nothing streams, but the downloads play (and a retry) */
 @Composable
 fun YouAreOffline(app: AppState, retry: () -> Unit) {
-    FeedOff(tr("You're offline"), tr("Check your connection. Your downloads still play.")) {
+    // YouTube alone may be out of reach (a proxy, a firewall, YouTube down): not "offline"
+    FeedOff(tr("Can't reach YouTube"), tr("Check your connection. Your downloads still play.")) {
         Button(onClick = { app.go(Screen.Downloads) }) { Text(tr("Go to downloads")) }
         TextButton(onClick = retry) { Text(tr("Retry")) }
     }

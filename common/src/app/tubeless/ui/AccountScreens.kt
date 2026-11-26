@@ -96,6 +96,15 @@ private fun CoroutineScope.run(app: AppState, block: suspend () -> Unit) = launc
 /** sign in through the platform's web view, or (where there is none) a cookies.txt file */
 /** the sign-in in progress (its web view is open); Cancel in [SigningInDialog] stops it */
 private var signInJob: kotlinx.coroutines.Job? = null
+/** Cancel was pressed: the dialog goes at once, while Google's window is being closed */
+private var cancelled by androidx.compose.runtime.mutableStateOf(false)
+
+/** stops the sign-in under way: its job, and the platform's page or window (the desktop helper's process) */
+internal fun cancelSignIn() {
+    cancelled = true
+    signInJob?.cancel()
+    Accounts.launcher?.cancel()
+}
 
 /** Sign in from outside the account menu (the first-start page) */
 fun startSignIn(app: AppState) = signIn(app, app.scope)
@@ -113,6 +122,7 @@ private fun signIn(app: AppState, scope: CoroutineScope, add: Boolean = false) {
         importCookies(app, scope); return
     }
     // the app's own scope: the menu that started it closes at once (its scope would cancel the sign-in)
+    cancelled = false
     signInJob = app.scope.run(app) {
         if (Accounts.signIn(add) && Accounts.pending.value == null) {
             // back on Home, as YouTube's app after a sign-in (Home reloads for the account: accountChanged)
@@ -155,7 +165,7 @@ private fun SigningInDialog() {
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = { signInJob?.cancel() }) { Text(tr("Cancel")) } },
+        dismissButton = { TextButton(onClick = { cancelSignIn() }) { Text(tr("Cancel")) } },
     )
 }
 
@@ -178,7 +188,7 @@ fun InAppSignIn(app: AppState) {
     Column(Modifier.fillMaxSize().background(c.background)
         .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } } }) {
         Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { signInJob?.cancel(); Accounts.launcher?.cancel() }) { Icon(Sym.ArrowBack.outline, tr("Back")) }
+            IconButton(onClick = { cancelSignIn() }) { Icon(Sym.ArrowBack.outline, tr("Back")) }
             Text(tr("Sign in to YouTube"), fontSize = 18.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 8.dp))
         }
         HorizontalDivider()
@@ -216,7 +226,7 @@ fun AccountButton(app: AppState) {
     pending?.let { ChannelPicker(app, it) }
     val inApp by Accounts.signInScreen.collectAsState()
     // the separate sign-in window (Windows, Linux): say where to look; the in-app page needs no dialog
-    if (busy && inApp == null && signInJob?.isActive == true && Accounts.launcher !is InAppLauncherMarker) SigningInDialog()
+    if (busy && !cancelled && inApp == null && signInJob?.isActive == true && Accounts.launcher !is InAppLauncherMarker) SigningInDialog()
     Box(Modifier.padding(horizontal = 6.dp)) {
         when {
             busy -> CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)

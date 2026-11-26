@@ -40,6 +40,17 @@
   .copyline button { padding: 6px 14px; font-size: 13px; }
   .alt { font-size: 14px; margin: 4px 0 18px; }
   .alt a { cursor: pointer; }
+  /* annotated screenshots: one per step, tap to see it full size */
+  .shot { margin: 4px 0 12px; }
+  .shot[hidden], .shots[hidden] { display: none; }
+  .shot a { display: block; width: fit-content; max-width: 100%; border-radius: 10px; overflow: hidden; outline: 1px solid #333; cursor: zoom-in; }
+  .shot img { display: block; width: 100%; max-width: 480px; height: auto; }
+  .shots { display: flex; flex-wrap: wrap; gap: 8px; } .shots .shot { margin: 4px 0 4px; }
+  .shot.phone img { width: 200px; max-width: 100%; }
+  @media (max-width: 520px) { .shot img { max-width: 100%; } .shot.phone img { width: 136px; } }
+  #zoom { padding: 0; border: 0; background: transparent; max-width: 100vw; max-height: 100vh; }
+  #zoom::backdrop { background: rgba(0, 0, 0, .88); }
+  #zoom img { display: block; max-width: 96vw; max-height: 92vh; border-radius: 10px; cursor: zoom-out; }
 </style>
 <main>
   <a href="./">&larr; Tubeless</a>
@@ -54,17 +65,23 @@
       <p>Click this button. A file called <b>Tubeless.zip</b> downloads.</p>
       <p><a class="add" id="extget" href="#" download><img src="icon-128.png" alt=""><span id="extname">Download Tubeless</span></a></p>
       <p class="note" id="extwhat"></p>
+      <p class="shot"><a href="guide/ext-1-download.webp"><picture><source media="(prefers-color-scheme: dark)" srcset="guide/ext-1-download-dark.webp"><img src="guide/ext-1-download.webp" alt="The Download Tubeless button, and Tubeless.zip in Chrome's downloads" width="1200" height="677" loading="lazy"></picture></a></p>
     </div></div>
     <div class="step"><span class="n">2</span><div><p>Open your <b>Downloads</b> folder and <span id="unzip">double-click <b>Tubeless.zip</b></span>.
-      A folder called <b>Tubeless</b> appears. Move it to <b>Documents</b> and leave it there.</p></div></div>
+      A folder called <b>Tubeless</b> appears. Move it to <b>Documents</b> and leave it there.</p>
+      <p class="shot mac"><a href="guide/ext-2-unzip.webp"><picture><img src="guide/ext-2-unzip.webp" alt="Finder: double-click Tubeless.zip, then drag the Tubeless folder to Documents" width="1200" height="365" loading="lazy"></picture></a></p></div></div>
     <div class="step"><span class="n">3</span><div>
       <p>Click <b>Copy</b>, open a new tab, paste into the address bar and press <b>Enter</b>.</p>
       <p class="copyline"><code id="extpage">chrome://extensions</code><button id="extcopy">Copy</button></p>
       <p class="hint" id="extcopied" role="status" style="min-height:0"></p>
+      <p class="shot"><a href="guide/ext-3-extensions-page.webp"><picture><source media="(prefers-color-scheme: dark)" srcset="guide/ext-3-extensions-page-dark.webp"><img src="guide/ext-3-extensions-page.webp" alt="A new tab: paste chrome://extensions into the address bar and press Enter" width="1200" height="349" loading="lazy"></picture></a></p>
     </div></div>
-    <div class="step"><span class="n">4</span><div><p>Switch on <b>Developer mode</b> <span id="devwhere">(the switch in the top right corner)</span>.</p></div></div>
-    <div class="step"><span class="n">5</span><div><p>Click <b>Load unpacked</b>, pick the <b>Tubeless</b> folder in Documents and click <b>Select</b>.</p></div></div>
-    <div class="step"><span class="n">6</span><div><p>Done. Click the puzzle piece next to the address bar, then <b>Tubeless</b>. Tip: click the pin next to it so the Tubeless icon is always there.</p></div></div>
+    <div class="step"><span class="n">4</span><div><p>Switch on <b>Developer mode</b> <span id="devwhere">(the switch in the top right corner)</span>.</p>
+      <p class="shot"><a href="guide/ext-4-developer-mode.webp"><picture><source media="(prefers-color-scheme: dark)" srcset="guide/ext-4-developer-mode-dark.webp"><img src="guide/ext-4-developer-mode.webp" alt="The Developer mode switch, top right on the Extensions page" width="1200" height="338" loading="lazy"></picture></a></p></div></div>
+    <div class="step"><span class="n">5</span><div><p>Click <b>Load unpacked</b>, pick the <b>Tubeless</b> folder in Documents and click <b>Select</b>.</p>
+      <div class="shots"><p class="shot"><a href="guide/ext-5-load-unpacked.webp"><picture><source media="(prefers-color-scheme: dark)" srcset="guide/ext-5-load-unpacked-dark.webp"><img src="guide/ext-5-load-unpacked.webp" alt="The Load unpacked button" width="1200" height="480" loading="lazy"></picture></a></p><p class="shot mac"><a href="guide/ext-5b-pick-folder.webp"><picture><img src="guide/ext-5b-pick-folder.webp" alt="The folder picker: click Tubeless, then Select" width="1200" height="750" loading="lazy"></picture></a></p></div></div></div>
+    <div class="step"><span class="n">6</span><div><p>Done. Click the <b>Tubeless</b> icon next to the address bar. Don't see it? Click the puzzle piece, then <b>Tubeless</b>, and click the pin next to it so the icon stays.</p>
+      <p class="shot"><a href="guide/ext-6-open.webp"><picture><source media="(prefers-color-scheme: dark)" srcset="guide/ext-6-open-dark.webp"><img src="guide/ext-6-open.webp" alt="Tubeless in the extensions list, and its icon next to the address bar" width="1200" height="800" loading="lazy"></picture></a></p></div></div>
   </section>
 
   <!-- Firefox: the signed add-on installs from the link (only when the site has one) -->
@@ -88,24 +105,28 @@
       <p>Drag this button up onto the bookmarks bar: press and hold it, move the mouse onto the bar, let go. <b>Don't just click it.</b></p>
       <p><a class="mark" id="mark" href="#" title="Drag me to your bookmarks bar"><img src="icon-128.png" alt="">Tubeless</a></p>
       <p class="hint" id="clickhint" role="status"></p>
+      <p class="shot"><a href="guide/bm-desktop-drag.webp"><picture><source media="(prefers-color-scheme: dark)" srcset="guide/bm-desktop-drag-dark.webp"><img src="guide/bm-desktop-drag.webp" alt="Drag the Tubeless button up onto the bookmarks bar" width="1200" height="611" loading="lazy"></picture></a></p>
     </div></div>
     <div class="step"><span class="n">3</span><div>
       <p>Click this button. YouTube opens.</p>
       <p><a class="go" href="https://www.youtube.com/">Open YouTube</a></p>
     </div></div>
     <div class="step"><span class="n">4</span><div><p>On YouTube, click <b>Tubeless</b> in your bookmarks bar. Tubeless opens, signed in with your YouTube account.</p>
-      <p class="note">Every next time: go to youtube.com and click the Tubeless bookmark.</p></div></div>
+      <p class="note">Every next time: go to youtube.com and click the Tubeless bookmark.</p>
+      <p class="shot"><a href="guide/bm-desktop-click.webp"><picture><source media="(prefers-color-scheme: dark)" srcset="guide/bm-desktop-click-dark.webp"><img src="guide/bm-desktop-click.webp" alt="On youtube.com, click Tubeless in the bookmarks bar" width="1200" height="416" loading="lazy"></picture></a></p></div></div>
   </section>
 
   <!-- Safari on a Mac -->
   <section class="card" id="macsafari" hidden>
     <h2>Safari on a Mac</h2>
-    <div class="step"><span class="n">1</span><div><p><button class="copymark">Copy the bookmark</button></p><p class="hint copied" role="status"></p></div></div>
+    <div class="step"><span class="n">1</span><div><p><button class="copymark">Copy the bookmark</button></p><p class="hint copied" role="status"></p>
+      <p class="shot"><a href="guide/safari-1-copy.webp"><picture><img src="guide/safari-1-copy.webp" alt="Safari: click Copy the bookmark" width="1200" height="706" loading="lazy"></picture></a></p></div></div>
     <div class="step"><span class="n">2</span><div><p>Press <kbd>&#8984;</kbd> <kbd>D</kbd>. Type <b>Tubeless</b> as the name and click <b>Add</b>.</p></div></div>
     <div class="step"><span class="n">3</span><div><p>In the menu bar: <b>Bookmarks</b> &rarr; <b>Edit Bookmarks</b>. Right-click <b>Tubeless</b> &rarr; <b>Edit Address</b>.
       Press <kbd>&#8984;</kbd> <kbd>A</kbd>, then <kbd>&#8984;</kbd> <kbd>V</kbd>, then <b>Return</b>.</p></div></div>
     <div class="step"><span class="n">4</span><div><p>Click this button. A page of plain text from YouTube opens. That's expected.</p>
-      <p><a class="go" href="https://www.youtube.com/robots.txt?tubeless">Open YouTube for Tubeless</a></p></div></div>
+      <p><a class="go" href="https://www.youtube.com/robots.txt?tubeless">Open YouTube for Tubeless</a></p>
+      <p class="shot"><a href="guide/safari-4-youtube-text.webp"><picture><img src="guide/safari-4-youtube-text.webp" alt="Safari: the plain text page from YouTube" width="1200" height="447" loading="lazy"></picture></a></p></div></div>
     <div class="step"><span class="n">5</span><div><p>On that page: <b>Bookmarks</b> menu &rarr; <b>Tubeless</b>. Tubeless opens.</p>
       <p class="note">Every next time: open that same page (bookmark it too), then click the Tubeless bookmark.</p></div></div>
   </section>
@@ -114,12 +135,17 @@
   <section class="card" id="phone" hidden>
     <h2 id="phonetitle">iPhone and iPad (Safari)</h2>
     <div class="step"><span class="n">1</span><div><p><button class="copymark">Copy the bookmark</button></p><p class="hint copied" role="status"></p></div></div>
-    <div class="step"><span class="n">2</span><div><p id="phone2">Tap the Share button &rarr; <b>Add Bookmark</b> &rarr; <b>Save</b>.</p></div></div>
-    <div class="step"><span class="n">3</span><div><p id="phone3">Tap the book icon &rarr; <b>Edit</b> &rarr; tap the new bookmark. Change the name to <b>Tubeless</b>.
-      Tap the address under it, select all, tap <b>Paste</b>, then <b>Done</b>.</p></div></div>
+    <div class="step"><span class="n">2</span><div><p id="phone2">Tap the menu button <b>&#8801;</b> left of the address &rarr; <b>Add Bookmark to&hellip;</b>
+      Type <b>Tubeless</b> as the name and tap <b>Save</b>. (Older iPhones: the Share button &rarr; <b>Add Bookmark</b>.)</p>
+      <div class="shots ios"><p class="shot phone"><a href="guide/ios-2a-menu.webp"><picture><source media="(prefers-color-scheme: dark)" srcset="guide/ios-2a-menu-dark.webp"><img src="guide/ios-2a-menu.webp" alt="The menu button left of Safari's address" width="600" height="558" loading="lazy"></picture></a></p><p class="shot phone"><a href="guide/ios-2b-add-bookmark.webp"><picture><source media="(prefers-color-scheme: dark)" srcset="guide/ios-2b-add-bookmark-dark.webp"><img src="guide/ios-2b-add-bookmark.webp" alt="Add Bookmark to… in the menu" width="600" height="697" loading="lazy"></picture></a></p><p class="shot phone"><a href="guide/ios-2c-title-save.webp"><picture><source media="(prefers-color-scheme: dark)" srcset="guide/ios-2c-title-save-dark.webp"><img src="guide/ios-2c-title-save.webp" alt="Type Tubeless as the name, then Save" width="600" height="438" loading="lazy"></picture></a></p></div></div></div>
+    <div class="step"><span class="n">3</span><div><p id="phone3">Tap the address bar. Under <b>Favorites</b>, touch and hold <b>Tubeless</b> &rarr; <b>Edit</b>.
+      Tap the address (the second line), tap <b>&#8855;</b> to clear it, touch and hold it &rarr; <b>Paste</b>, then tap <b>Save</b>.</p>
+      <div class="shots ios"><p class="shot phone"><a href="guide/ios-3a-hold-favorite.webp"><picture><source media="(prefers-color-scheme: dark)" srcset="guide/ios-3a-hold-favorite-dark.webp"><img src="guide/ios-3a-hold-favorite.webp" alt="Tap the address bar, then touch and hold Tubeless under Favorites" width="600" height="796" loading="lazy"></picture></a></p><p class="shot phone"><a href="guide/ios-3b-edit.webp"><picture><source media="(prefers-color-scheme: dark)" srcset="guide/ios-3b-edit-dark.webp"><img src="guide/ios-3b-edit.webp" alt="Edit in the menu" width="600" height="658" loading="lazy"></picture></a></p><p class="shot phone"><a href="guide/ios-3c-paste.webp"><picture><source media="(prefers-color-scheme: dark)" srcset="guide/ios-3c-paste-dark.webp"><img src="guide/ios-3c-paste.webp" alt="Clear the address, then Paste" width="600" height="488" loading="lazy"></picture></a></p><p class="shot phone"><a href="guide/ios-3d-save.webp"><picture><source media="(prefers-color-scheme: dark)" srcset="guide/ios-3d-save-dark.webp"><img src="guide/ios-3d-save.webp" alt="The pasted address, then Save" width="600" height="438" loading="lazy"></picture></a></p></div></div></div>
     <div class="step"><span class="n">4</span><div><p>Tap this button. A page of plain text from YouTube opens. That's expected.</p>
-      <p><a class="go" href="https://www.youtube.com/robots.txt?tubeless">Open YouTube for Tubeless</a></p></div></div>
-    <div class="step"><span class="n">5</span><div><p>On that page, tap the address bar, type <b>Tubeless</b> and tap the bookmark that shows up. Tubeless opens.</p></div></div>
+      <p><a class="go" href="https://www.youtube.com/robots.txt?tubeless">Open YouTube for Tubeless</a></p>
+      <div class="shots ios"><p class="shot phone"><a href="guide/ios-4b-youtube-text.webp"><picture><source media="(prefers-color-scheme: dark)" srcset="guide/ios-4b-youtube-text-dark.webp"><img src="guide/ios-4b-youtube-text.webp" alt="The plain text page from YouTube" width="600" height="697" loading="lazy"></picture></a></p></div></div></div>
+    <div class="step"><span class="n">5</span><div><p id="phone5">On that page, tap the address bar, then <b>Tubeless</b> under Favorites. Tubeless opens.</p>
+      <div class="shots ios"><p class="shot phone"><a href="guide/ios-5-run.webp"><picture><source media="(prefers-color-scheme: dark)" srcset="guide/ios-5-run-dark.webp"><img src="guide/ios-5-run.webp" alt="Tap Tubeless under Favorites" width="600" height="796" loading="lazy"></picture></a></p><p class="shot phone"><a href="guide/ios-6-tubeless.webp"><picture><source media="(prefers-color-scheme: dark)" srcset="guide/ios-6-tubeless-dark.webp"><img src="guide/ios-6-tubeless.webp" alt="Tubeless open on youtube.com" width="600" height="348" loading="lazy"></picture></a></p></div></div></div>
   </section>
 
   <details id="addr">
@@ -134,6 +160,7 @@
     To use it signed out, turn off Settings &rarr; Account &rarr; "Use my youtube.com sign-in". The source is public.</p>
   <p class="note">The Tubeless apps for Mac, Windows, Linux, iPhone and Android are coming to this site soon.</p>
 </main>
+<dialog id="zoom"><img alt=""></dialog>
 <script>
   const code = "__BOOKMARKLET__";
   // what this build of the site carries: the Chrome extension's zip, Firefox's signed add-on (site/build.mjs)
@@ -154,7 +181,19 @@
   if (/Windows/.test(ua)) $("unzip").innerHTML = "right-click <b>Tubeless.zip</b> &rarr; <b>Extract All</b> &rarr; <b>Extract</b>";
   if (mac) $("barkey").innerHTML = "<kbd>&#8984;</kbd> <kbd>Shift</kbd> <kbd>B</kbd>";
   const android = /Android/.test(ua);
+  // a screenshot opens full size; Escape, a tap or the back gesture closes it
+  const zoom = $("zoom");
+  for (const a of document.querySelectorAll(".shot a")) a.onclick = (e) => {
+    if (!zoom.showModal) return;
+    e.preventDefault(); const img = a.querySelector("img");
+    zoom.querySelector("img").src = img.currentSrc || img.src; zoom.querySelector("img").alt = img.alt; zoom.showModal();
+  };
+  zoom.onclick = () => zoom.close();
+  // the Finder and folder-picker pictures are a Mac's
+  if (!mac) for (const el of document.querySelectorAll(".shot.mac")) el.hidden = true;
   if (android) {
+    for (const el of document.querySelectorAll(".shots.ios")) el.hidden = true;
+    $("phone5").innerHTML = "On that page, tap the address bar, type <b>Tubeless</b> and tap the bookmark that shows up. Tubeless opens.";
     $("phonetitle").textContent = "Android (Chrome)";
     $("phone2").innerHTML = "Tap <b>&#8942;</b> (top right) &rarr; the star &#9734;. The page is now a bookmark.";
     $("phone3").innerHTML = "Tap <b>Edit</b> in the message that appears (or &#8942; &rarr; <b>Bookmarks</b> &rarr; long-press it &rarr; <b>Edit</b>). Change the name to <b>Tubeless</b>, replace the address (URL) by pasting, and go back.";

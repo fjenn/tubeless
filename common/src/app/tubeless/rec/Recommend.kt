@@ -268,13 +268,20 @@ class Feed(private val store: Store) {
     private val cache = Sys.concurrentMap<String, Pair<Long, List<Video>>>()
     @Volatile var updated = 0L
         private set
+    /** the last [all]: not one channel's feed came back and nothing was kept from before (YouTube out of reach) */
+    @Volatile var unreachable = false
+        private set
 
-    suspend fun channel(cid: String, maxAge: Long = 900): List<Video> {
+    suspend fun channel(cid: String, maxAge: Long = 900): List<Video> = fetch(cid, maxAge) ?: emptyList()
+
+    /** null: it failed and nothing is kept from before */
+    private suspend fun fetch(cid: String, maxAge: Long): List<Video>? {
         cache[cid]?.let { (t, v) -> if (now() - t < maxAge) return v }
         return try {
             YouTube.feed(cid).also { cache[cid] = now() to it }
         } catch (e: Exception) {
-            cache[cid]?.second ?: emptyList()
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            cache[cid]?.second
         }
     }
 
@@ -282,10 +289,11 @@ class Feed(private val store: Store) {
         val subs = store.lib.value.subs
         val gate = Semaphore(8)
         val lists = coroutineScope {
-            subs.keys.map { cid -> async { gate.withPermit { channel(cid, if (force) 60 else 900) } } }.awaitAll()
+            subs.keys.map { cid -> async { gate.withPermit { fetch(cid, if (force) 60 else 900) } } }.awaitAll()
         }
         updated = now()
-        lists.flatten().map { v ->
+        unreachable = lists.isNotEmpty() && lists.all { it == null }
+        lists.filterNotNull().flatten().map { v ->
             // the feed has no avatar; the subscription remembers one
             if (v.avatar.isEmpty()) v.copy(avatar = subs[v.channelId]?.thumb ?: "") else v
         }.sortedByDescending { it.publishedAt }

@@ -248,7 +248,10 @@ private fun startApp() {
         val s0 = state.store.settings.value
         // never larger than the screen's free area (a 1366x768 laptop, a 1024x768 VM): the saved or default
         // size is cut to it and the window centred, so the title bar and its edges stay on screen (smoke test, Windows)
-        val want = if (s0.winW >= 400 && s0.winH >= 300) DpSize(s0.winW.dp, s0.winH.dp) else DpSize(1280.dp, 820.dp)
+        // (a saved inside plus the frame it had last time; corrected below once this start's frame is known)
+        val frameW = if (s0.winContent) s0.winFrameW else 0
+        val frameH = if (s0.winContent) s0.winFrameH else 0
+        val want = if (s0.winW >= 400 && s0.winH >= 300) DpSize((s0.winW + frameW).dp, (s0.winH + frameH).dp) else DpSize(1280.dp, 820.dp)
         val free = runCatching { java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().maximumWindowBounds }.getOrNull()
             ?.takeIf { it.width >= 400 && it.height >= 300 }
         val tooBig = free != null && (want.width > free.width.dp || want.height > free.height.dp)
@@ -258,18 +261,37 @@ private fun startApp() {
             placement = if (s0.winMax) WindowPlacement.Maximized else WindowPlacement.Floating,
         )
         platform.window = ws
-        // the window's size and whether it is maximised are kept as they change (S7), so they come back
-        // however the app ends (Cmd+Q, a crash), not only when the window is closed
-        androidx.compose.runtime.LaunchedEffect(ws) {
-            androidx.compose.runtime.snapshotFlow { ws.size to ws.placement }.collectLatest { (sz, pl) ->
-                kotlinx.coroutines.delay(400)
-                if (pl == WindowPlacement.Fullscreen) return@collectLatest
-                val max = pl == WindowPlacement.Maximized
-                state.store.settings.update { if (max) it.copy(winMax = true) else it.copy(winMax = false, winW = sz.width.value.toInt(), winH = sz.height.value.toInt()) }
+        // the window's inside (its content, without the title bar and frame the system adds): what is saved and
+        // brought back, so a window manager whose frame comes and goes (openbox, X11) can't shrink it at each start
+        fun inside(): java.awt.Dimension? = (platform.frame as? javax.swing.RootPaneContainer)?.contentPane?.size?.takeIf { it.width >= 200 && it.height >= 150 }
+        fun keepSize(max: Boolean) {
+            val c = inside()
+            val f = platform.frame
+            state.store.settings.update {
+                if (max) it.copy(winMax = true)
+                else if (c == null || f == null) it.copy(winMax = false)
+                else it.copy(winMax = false, winW = c.width, winH = c.height, winContent = true,
+                    winFrameW = (f.width - c.width).coerceIn(0, 200), winFrameH = (f.height - c.height).coerceIn(0, 200))
             }
         }
         // M3 E2E: minimised while a video plays, the sound goes on (`background`); the QA driver's `window` command
         // (and "window 1024x700": that size, for the small-window layout checks)
+        // QA: a key as the keyboard sends it (through the window's own key handling), and the window's sizes
+        app.tubeless.ui.Parity.key = { k ->
+            val code = when (k.lowercase()) { "escape", "esc" -> java.awt.event.KeyEvent.VK_ESCAPE; "enter" -> java.awt.event.KeyEvent.VK_ENTER; else -> null }
+            platform.frame?.let { f ->
+                if (code != null) javax.swing.SwingUtilities.invokeLater {
+                    val to = f.mostRecentFocusOwner ?: f
+                    for (id in listOf(java.awt.event.KeyEvent.KEY_PRESSED, java.awt.event.KeyEvent.KEY_RELEASED))
+                        to.dispatchEvent(java.awt.event.KeyEvent(to, id, System.currentTimeMillis(), 0, code, java.awt.event.KeyEvent.CHAR_UNDEFINED))
+                }
+            }
+        }
+        app.tubeless.ui.Parity.windowInfo = {
+            val f = platform.frame
+            val c = (f as? javax.swing.RootPaneContainer)?.contentPane?.size
+            "outer=${f?.width}x${f?.height} inside=${c?.width}x${c?.height} placement=${ws.placement}"
+        }
         app.tubeless.ui.Parity.window = { a ->
             val wh = a.split('x').mapNotNull { it.toIntOrNull() }
             when {
@@ -288,9 +310,11 @@ private fun startApp() {
             }
         }
         val closeApp = {
-            val max = ws.placement == WindowPlacement.Maximized
-            val sz = ws.size
-            state.store.settings.update { it.copy(winMax = max, winW = if (max || ws.placement == WindowPlacement.Fullscreen) it.winW else sz.width.value.toInt(), winH = if (max || ws.placement == WindowPlacement.Fullscreen) it.winH else sz.height.value.toInt()) }
+            when (ws.placement) {
+                WindowPlacement.Maximized -> keepSize(true)
+                WindowPlacement.Floating -> keepSize(false)
+                else -> {}
+            }
             state.playback.close()
             state.store.flush()
             platform.mpv.shutdown()
@@ -309,11 +333,8 @@ private fun startApp() {
                 // typing in the masthead's search box (S7): the keys are the text's, not the player's
                 else if (app.tubeless.ui.WebTyping.active && e.key != Key.Escape && e.key != Key.F11) false
                 else when (e.key) {
-                    // Esc leaves the window's own full screen too (macOS's green button) before it goes back
-                    // the TV layout (TUBELESS_TV) takes Esc as the remote's Back, and the arrows itself
-                    Key.Escape -> if (platform.tv) false else if (!state.fullscreen && ws.placement == WindowPlacement.Fullscreen) {
-                        ws.placement = WindowPlacement.Floating; true
-                    } else state.back()
+                    // Esc is handled after the page had it (onKeyEvent below): an open dialog or menu closes first
+                    Key.Escape -> false
                     Key.F11 -> { state.setFull(!state.fullscreen); true }
                     Key.F5 -> { state.reload.value++; true }
                     // back and forward as in a browser: Alt+Left/Right, on a Mac also Cmd+[ and Cmd+]
@@ -346,10 +367,44 @@ private fun startApp() {
                     }
                 }
             },
+            // Esc reaches the window only when nothing on screen took it (a dialog, a menu, the search box's
+            // suggestions close on their own): it leaves the window's own full screen (macOS's green button),
+            // else goes back. The TV layout (TUBELESS_TV) takes Esc as the remote's Back itself.
+            onKeyEvent = { e ->
+                if (e.type != KeyEventType.KeyDown || e.key != Key.Escape || platform.tv) false
+                else if (!state.fullscreen && ws.placement == WindowPlacement.Fullscreen) { ws.placement = WindowPlacement.Floating; true }
+                else state.back()
+            },
         ) {
             if (platform.frame !== window) {
                 platform.frame = window
                 WinFrame.darkTitleBar(window)
+            }
+            // the saved inside comes back once the system's frame is known (its size shows only after the window is
+            // up); then the size and whether it is maximised are kept as they change (S7), so they come back however
+            // the app ends (Cmd+Q, a crash), not only when the window is closed
+            androidx.compose.runtime.LaunchedEffect(window) {
+                val s = state.store.settings.value
+                if (s.winContent && s.winW >= 400 && s.winH >= 300 && ws.placement == WindowPlacement.Floating) {
+                    for (i in 0 until 8) {
+                        kotlinx.coroutines.delay(if (i == 0) 300 else 200)
+                        val c = window.contentPane.size
+                        if (c.width <= 0 || !window.isShowing) continue
+                        val dw = s.winW - c.width
+                        val dh = s.winH - c.height
+                        if (kotlin.math.abs(dw) <= 1 && kotlin.math.abs(dh) <= 1) break
+                        val free = runCatching { java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().maximumWindowBounds }.getOrNull()
+                        val w = (window.width + dw).let { if (free != null && free.width >= 400) minOf(it, free.width) else it }
+                        val h = (window.height + dh).let { if (free != null && free.height >= 300) minOf(it, free.height) else it }
+                        if (w == window.width && h == window.height) break
+                        ws.size = DpSize(w.dp, h.dp)
+                    }
+                }
+                androidx.compose.runtime.snapshotFlow { ws.size to ws.placement }.collectLatest { (_, pl) ->
+                    kotlinx.coroutines.delay(400)
+                    if (pl == WindowPlacement.Fullscreen) return@collectLatest
+                    keepSize(pl == WindowPlacement.Maximized)
+                }
             }
             // the mouse's side buttons go back and forward
             @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)

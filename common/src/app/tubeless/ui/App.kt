@@ -140,7 +140,7 @@ fun App(app: AppState) {
     LaunchedEffect(Unit) { YouTube.force = settings.playMethod }
     setSingletonImageLoaderFactory { ctx ->
         ImageLoader.Builder(ctx)
-            .components { Sys.imageNetwork(this) }
+            .components { Sys.imageNetwork(this); add(Thumbs.Sized(app.platform.weak)) }   // pictures at the size shown (Thumbs)
             .diskCache { DiskCache.Builder().fileSystem(Sys.fs).directory(app.platform.cacheDir / "images").maxSizeBytes(150L shl 20).build() }
             // a small TV stick: a smaller picture memory and no fades, so scrolling a row doesn't stall
             // a computer: at most 64 MB of decoded pictures (25 % of the JVM's 512 MB was 128 MB of native memory,
@@ -280,11 +280,12 @@ private data class Tab(val screen: Screen, val label: String, val on: ImageVecto
  */
 @Composable
 private fun tabs(app: AppState, phone: Boolean): List<Tab> {
+    val set by app.store.settings.state.collectAsState()
     return listOfNotNull(
-        if (app.store.settings.value.homeOff && !phone) null else Tab(Screen.Home, tr("Home"), Sym.Home.fill, Sym.Home.outline),
+        if (set.homeOff && !phone) null else Tab(Screen.Home, tr("Home"), Sym.Home.fill, Sym.Home.outline),
         if (app.noShorts) null else Tab(Screen.Shorts, tr("Shorts"), Sym.Bolt.fill, Sym.Bolt.outline),
         if (phone) null else Tab(Screen.Subs, tr("Subscriptions"), Sym.Subscriptions.fill, Sym.Subscriptions.outline),
-        if (app.store.settings.value.hideMusicTab) null else Tab(Screen.Music, tr("Music"), Sym.Music.fill, Sym.Music.outline),
+        if (set.hideMusicTab) null else Tab(Screen.Music, tr("Music"), Sym.Music.fill, Sym.Music.outline),
         Tab(Screen.Library, tr("Library"), Sym.VideoLibrary.fill, Sym.VideoLibrary.outline),
     )
 }

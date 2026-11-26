@@ -1,5 +1,6 @@
 package app.tubeless.ui
 
+import app.tubeless.engine.Quality
 import androidx.compose.ui.draw.clip
 import androidx.compose.material3.ModalBottomSheet
 import app.tubeless.engine.Details
@@ -202,7 +203,9 @@ fun ShortsScreen(app: AppState) {
                 watchStart = Sys.nowMs()
                 // the view and watch-time pings, as the web's Shorts player sends them (el=shortspage)
                 if (!app.store.settings.value.historyOff) WatchTime.start(v.id, s.lengthSec.toDouble(), reelParams[v.id])
-                player.load(s, PlayOptions(maxHeight = 720, loop = true, volume = app.store.settings.value.volume, title = s.title, artist = s.author, artwork = v.thumb))
+                // Auto as every video (QUALITY): a Short is upright, so its 1080p is 1920 tall; the old cap of 720 played it at 404×720
+                val cap = app.store.settings.value.let { st -> if (app.platform.metered()) st.maxHeightMobileData else st.maxHeight }
+                player.load(s, PlayOptions(maxHeight = if (cap <= 0) Quality.AUTO else cap, loop = true, volume = app.store.settings.value.volume, title = s.title, artist = s.author, artwork = v.thumb))
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) { if (current?.id == v.id) current = null; throw e }
                 app.toast(if ((e as? YtError)?.kind == YtError.Kind.LOGIN) tr(BOT_CHECK) else e.message ?: tr("This video can't be played"))

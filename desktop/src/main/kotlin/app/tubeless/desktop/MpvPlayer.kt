@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
+import app.tubeless.engine.Quality
 import app.tubeless.engine.Caption
 import app.tubeless.engine.Format
 import app.tubeless.engine.Net
@@ -128,6 +129,13 @@ class MpvPlayer : VideoPlayer {
     @Volatile private var closing = false
     /** the view changed size: draw the current frame again even when paused */
     @Volatile private var redraw = false
+    /** frames drawn, frames mpv had ready that were not drawn (the UI thread behind), time spent drawing (PlayProbe) */
+    @Volatile var framesDrawn = 0L
+    @Volatile var framesSkipped = 0L
+    @Volatile var drawNanos = 0L
+    /** the size the last frame was drawn at */
+    @Volatile var drawSize = 0 to 0
+    @Volatile private var skippedAtLoad = 0L
 
     private fun mpv(): Pointer? {
         synchronized(lock) {
@@ -183,7 +191,7 @@ class MpvPlayer : VideoPlayer {
                 val fresh = l.mpv_render_context_update(ctx) and LibMpv.RENDER_UPDATE_FRAME != 0L
                 if (!fresh && !redraw) return@synchronized
                 // nothing on screen (another page is open), or the old frames not freed yet: mpv drops the frame and plays on
-                if (views == 0 || unfreed.get() > 2) return@synchronized
+                if (views == 0 || unfreed.get() > 2) { if (fresh && views > 0) framesSkipped++; return@synchronized }
                 val (w, h) = target() ?: return@synchronized
                 redraw = false
                 val t = target?.takeIf { it.w == w && it.h == h } ?: Target(w, h).also { target?.bitmap?.close(); target = it }
@@ -195,7 +203,9 @@ class MpvPlayer : VideoPlayer {
                     LibMpv.RENDER_PARAM_SW_STRIDE to stride,
                     LibMpv.RENDER_PARAM_SW_POINTER to t.addr,
                 )
+                val t0 = System.nanoTime()
                 if (l.mpv_render_context_render(ctx, p) >= 0) {
+                    drawNanos += System.nanoTime() - t0; framesDrawn++; drawSize = w to h
                     t.bitmap.notifyPixelsChanged()
                     show(Image.makeFromBitmap(t.bitmap))      // a copy: mpv can draw the next one meanwhile
                 }
@@ -246,6 +256,14 @@ class MpvPlayer : VideoPlayer {
     }
 
     // ------------------------------------------------------------------ mpv's side
+    /** the frame on screen as PNG, as mpv drew it before the last stretch to the view (PlayProbe) */
+    suspend fun snapshot(): ByteArray? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+        front?.encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG)?.bytes
+    }
+
+    /** an mpv property as text (PlayProbe) */
+    fun prop(name: String): String? { val p = h ?: return null; val l = lib ?: return null; return str(l, p, name) }
+
     /** an mpv command (as `mpv_command`), for the app's other desktop parts (MpvFx, PipWindow) */
     fun command(vararg a: String) = cmd(*a)
 
@@ -383,6 +401,7 @@ class MpvPlayer : VideoPlayer {
             val dh = num(l, p, "dheight")?.toInt() ?: 0
             if (dw > 0 && dh > 0 && (dw != videoW || dh != videoH)) { videoW = dw; videoH = dh; redraw = true; wake.release() }
             val sound = soundProblem(l, p, playing = pos != null && !paused && !idle)
+            keepingUp(st.value)
             st.update {
                 it.copy(
                     videoId = s.id,
@@ -394,6 +413,12 @@ class MpvPlayer : VideoPlayer {
                     speed = speed?.toFloat() ?: it.speed,
                     bufferedMs = cached?.let { x -> (x * 1000).toLong() } ?: 0,
                     soundIssue = sound,
+                    nowHeight = if (dh > 0) (openedVideo?.height?.takeIf { v -> v > 0 && kotlin.math.abs(v - dh) < 16 } ?: dh) else 0,
+                    nowFps = openedVideo?.fps ?: 0,
+                    nowItag = openedVideo?.itag ?: 0,
+                    nowCodec = openedVideo?.codecFamily ?: "",
+                    nowKbps = (num(l, p, "video-bitrate")?.div(1000))?.toInt() ?: 0,
+                    dropped = (num(l, p, "frame-drop-count")?.toInt() ?: 0) + (num(l, p, "decoder-frame-drop-count")?.toInt() ?: 0) + (framesSkipped - skippedAtLoad).toInt(),
                 )
             }
         }
@@ -426,15 +451,80 @@ class MpvPlayer : VideoPlayer {
     }
 
     // ------------------------------------------------------------------ choosing streams
-    /** Windows GPUs decode VP9 almost everywhere; AV1 only on recent ones, H.264 everywhere. */
+    /**
+     * Auto (QUALITY): the height that fills the largest screen without stretching it ([Quality.fit]: 2160p on a
+     * Retina MacBook, 1080p on a 1080p monitor), a height picked in Settings or the menu as it is; at that height
+     * the fullest stream this computer decodes in hardware ([Quality.best]).
+     */
     private fun pickVideo(s: Stream, cap: Int): Format? {
-        val ok = s.video.filter { it.height <= cap }.ifEmpty { s.video.sortedBy { it.height }.take(1) }
-        val best = ok.maxOfOrNull { it.height } ?: return null
-        val at = ok.filter { it.height == best }
-        // the codec chosen in Settings, where this height has it
-        opts.codec.takeIf { it.isNotEmpty() }?.let { c -> at.firstOrNull { it.codecFamily == c }?.let { return it } }
-        return at.firstOrNull { it.codecFamily == "vp9" } ?: at.firstOrNull { it.codecFamily == "h264" } ?: at.first()
+        val (sw, sh) = screenPixels()
+        var h = Quality.height(s.video, cap, sw, sh)
+        // Auto came down here because this computer dropped frames at a higher one (see [keepingUp])
+        if (cap == Quality.AUTO && slowCap > 0) h = minOf(h, slowCap)
+        // the picture is drawn as 8-bit SDR on this path: HDR streams would look washed out, so the SDR ones
+        return Quality.best(s.video, h, opts.codec, hardwareCodecs, s.lengthSec, sdrOnly = true)
     }
+
+    /** the highest height Auto plays after frames were dropped (0: none); kept until the app restarts */
+    @Volatile private var slowCap = 0
+    /** when the window started, the frames dropped and drawn by then */
+    private var dropMark: Triple<Long, Int, Long>? = null
+
+    /**
+     * Auto steps down one height when more than 5 % of the frames were dropped over 10 s of playing (a slower computer
+     * than the screen asks for: drawing is on the CPU here), as YouTube's player does. Not for a height picked by hand.
+     */
+    private fun keepingUp(st: PlayerState) {
+        val v = openedVideo
+        // only while the picture is on screen: mpv drops every frame nobody draws (another page, minimized, the
+        // background), which says nothing about this computer's speed
+        if (!st.playing || st.buffering || pinned > 0 || opts.maxHeight != Quality.AUTO || v == null || st.dropped < 0 || st.positionMs < 3000 || views == 0) { dropMark = null; return }
+        val now = System.currentTimeMillis()
+        val mark = dropMark ?: run { dropMark = Triple(now, st.dropped, framesDrawn); return }
+        if (now - mark.first < 10_000) return
+        val frames = (now - mark.first) / 1000.0 * (v.fps.takeIf { it > 0 } ?: 30) * st.speed
+        val lost = st.dropped - mark.second
+        val drawn = framesDrawn - mark.third
+        dropMark = Triple(now, st.dropped, framesDrawn)
+        // most frames still drawn: a slow computer drops some and draws the rest; none drawn means not on screen
+        if (drawn < frames * 0.5 || lost <= frames * 0.05) return
+        val lower = stream?.video?.map { it.height }?.filter { it < v.height }?.maxOrNull() ?: return
+        System.err.println("mpv: $lost of ${frames.toInt()} frames dropped at ${v.height}p, Auto steps down to ${lower}p")
+        slowCap = lower
+        dropMark = null
+        open(st.positionMs)
+    }
+
+    /** the largest screen's size in pixels (Retina counted); 0 when there is no screen */
+    private fun screenPixels(): Pair<Int, Int> = runCatching {
+        java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().screenDevices.map { d ->
+            val c = d.defaultConfiguration
+            (c.bounds.width * c.defaultTransform.scaleX).roundToInt() to (c.bounds.height * c.defaultTransform.scaleY).roundToInt()
+        }.maxByOrNull { it.first * it.second } ?: (0 to 0)
+    }.getOrDefault(0 to 0)
+
+    /**
+     * The codec families decoded by the GPU here: on a Mac, what VideoToolbox says (AV1 from M3 on, VP9 on Apple
+     * silicon); elsewhere H.264 and VP9 (nearly every GPU since 2016), as before.
+     */
+    private val hardwareCodecs: Set<String> by lazy {
+        if (!System.getProperty("os.name").startsWith("Mac")) return@lazy setOf("h264", "vp9")
+        val vt = runCatching { com.sun.jna.Native.load("VideoToolbox", VideoToolbox::class.java) }.getOrNull() ?: return@lazy setOf("h264", "vp9")
+        fun code(fourcc: String) = fourcc.fold(0) { a, ch -> (a shl 8) or ch.code }
+        // VP9 is a supplemental decoder on macOS 11+: it answers only once registered (as FFmpeg does before using it)
+        runCatching { vt.VTRegisterSupplementalVideoDecoderIfAvailable(code("vp09")) }
+        fun hw(fourcc: String) = runCatching { vt.VTIsHardwareDecodeSupported(code(fourcc)).toInt() and 0xff != 0 }.getOrDefault(false)
+        setOfNotNull("h264", "vp9".takeIf { hw("vp09") }, "av1".takeIf { hw("av01") })
+    }
+
+    @Suppress("FunctionName")
+    private interface VideoToolbox : com.sun.jna.Library {
+        fun VTIsHardwareDecodeSupported(codecType: Int): Byte
+        fun VTRegisterSupplementalVideoDecoderIfAvailable(codecType: Int)
+    }
+
+    /** for the logs: what this computer decodes in hardware */
+    val hardware: Set<String> get() = hardwareCodecs
 
     /** the language you picked for this video, else the original track */
     private fun pickAudio(s: Stream): Format? = app.tubeless.engine.AudioPick.best(s.audio, audioLang)
@@ -497,7 +587,7 @@ class MpvPlayer : VideoPlayer {
 
     // ------------------------------------------------------------------ VideoPlayer
     override fun load(s: Stream, o: PlayOptions) {
-        loadAt = System.currentTimeMillis(); firstFrameAt = 0; openedVideo = null; openedAudio = null
+        loadAt = System.currentTimeMillis(); firstFrameAt = 0; openedVideo = null; openedAudio = null; skippedAtLoad = framesSkipped
         if (stream?.id != s.id) audioLang = null
         stream = s
         opts = o

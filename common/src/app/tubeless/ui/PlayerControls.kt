@@ -1320,7 +1320,7 @@ internal fun ColumnScope.SettingsPages(app: AppState, pageState: androidx.compos
                 else -> tr("Off")
             }) { page = "t" }
             SheetRow(Sym.Speed.outline, tr("Playback speed"), if (AutoSpeed.on && !pb.music) tr("Auto") + " (" + speedText(st.speed) + ")" else speedName(st.speed)) { page = "s" }
-            SheetRow(Sym.HighQuality.outline, tr("Quality"), (if (st.height > 0) "${st.height}p" else tr("Auto") + (st.heights.filter { h -> prefs.maxHeight <= 0 || h <= prefs.maxHeight }.maxOrNull()?.let { " (${it}p)" } ?: "")) + codecName(codec).let { if (it.isEmpty()) "" else " · $it" }) { page = "q" }
+            SheetRow(Sym.HighQuality.outline, tr("Quality"), st.qualityText(tr("Auto")) + codecName(st.nowCodec.ifEmpty { codec }).let { if (it.isEmpty()) "" else " · $it" }) { page = "q" }
             }
             SheetHeader(tr("More"))
             SheetGroup(app) {
@@ -1380,14 +1380,18 @@ internal fun ColumnScope.SettingsPages(app: AppState, pageState: androidx.compos
         }
         "n" -> {
             val s = app.playback.stream
-            val v = s?.video?.filter { st.height == 0 || it.height == st.height }?.maxByOrNull { it.height * 1000 + it.bitrate / 1000 }
+            // the format on screen as the player reports it (QUALITY), not the best one the video has
+            val nowH = st.nowHeight.takeIf { it > 0 } ?: st.height
+            val v = s?.video?.firstOrNull { st.nowItag > 0 && it.itag == st.nowItag }
+                ?: s?.video?.filter { nowH > 0 && it.height == nowH && (st.nowCodec.isEmpty() || it.codecFamily == st.nowCodec) }?.maxByOrNull { it.bitrate }
             // the format the player picked (S2: AudioPick), not the first in YouTube's list (139, 48 kbps)
             val a = s?.audio?.let { AudioPick.best(it, st.audioTrack) }
             val lines = listOfNotNull(
                 tr("Video ID") to (s?.id ?: st.videoId ?: ""),
                 tr("Through") to (s?.client ?: ""),
-                tr("Resolution") to (v?.let { "${it.width}x${it.height}@${it.fps}" + if (st.height == 0) " (" + tr("Auto") + ")" else "" } ?: ""),
-                tr("Video codec") to (v?.let { "${it.codecs} (itag ${it.itag}, ${it.bitrate / 1000} kbps)" } ?: ""),
+                tr("Resolution") to ((v?.let { "${it.width}x${it.height}@${it.fps}" } ?: nowH.takeIf { it > 0 }?.let { "${it}p" } ?: "") + if (st.height == 0 && nowH > 0) " (" + tr("Auto") + ")" else ""),
+                tr("Video codec") to (v?.let { "${it.codecs} (itag ${it.itag}, ${(st.nowKbps.takeIf { k -> k > 0 } ?: it.bitrate / 1000)} kbps)" } ?: codecName(st.nowCodec)),
+                "Dropped frames" to (if (st.dropped >= 0) "${st.dropped}" else ""),
                 tr("Audio codec") to (a?.let { "${it.codecs} (itag ${it.itag}, ${it.bitrate / 1000} kbps, ${it.sampleRate} Hz)" } ?: ""),
                 tr("Buffer health") to "${(st.bufferedMs - st.positionMs).coerceAtLeast(0) / 100 / 10.0} s",
                 tr("Speed") to "${st.speed}x",

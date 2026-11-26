@@ -155,7 +155,11 @@ private fun GuideHeader(label: String, onClick: (() -> Unit)?) {
 @Composable
 fun DeskGuide(app: AppState, cur: Screen, mini: Boolean, onPick: () -> Unit = {}) {
     val root = app.stack.firstOrNull()
-    fun go(s: Screen) { app.go(s); onPick() }
+    // Settings → Music tab: Music among the tabs at the top when on, nowhere in the guide when off
+    val set by app.store.settings.state.collectAsState()
+    val music = !set.hideMusicTab
+    // the guide's places are top-level pages, as the tabs are (no back arrow on Downloads, History…)
+    fun go(s: Screen) { app.goTop(s); onPick() }
     fun on(s: Screen) = root == s && app.stack.size == 1 || cur == s
     val c = MaterialTheme.colorScheme
     if (mini) {
@@ -171,6 +175,7 @@ fun DeskGuide(app: AppState, cur: Screen, mini: Boolean, onPick: () -> Unit = {}
             item(Sym.Home, tr("Home"), Screen.Home)
             if (!app.noShorts) item(Sym.Bolt, tr("Shorts"), Screen.Shorts)
             item(Sym.Subscriptions, tr("Subscriptions"), Screen.Subs)
+            if (music) item(Sym.Music, tr("Music"), Screen.Music)
             item(Sym.VideoLibrary, tr("You"), Screen.Library)
             item(Sym.Download, tr("Downloads"), Screen.Downloads)
         }
@@ -181,6 +186,7 @@ fun DeskGuide(app: AppState, cur: Screen, mini: Boolean, onPick: () -> Unit = {}
     Column(Modifier.width(240.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 16.dp)) {
         GuideRow(if (on(Screen.Home)) Sym.Home.fill else Sym.Home.outline, tr("Home"), on(Screen.Home)) { go(Screen.Home) }
         if (!app.noShorts) GuideRow(if (on(Screen.Shorts)) Sym.Bolt.fill else Sym.Bolt.outline, tr("Shorts"), on(Screen.Shorts)) { go(Screen.Shorts) }
+        if (music) GuideRow(if (on(Screen.Music)) Sym.Music.fill else Sym.Music.outline, tr("Music"), on(Screen.Music)) { go(Screen.Music) }
         GuideDivider()
         GuideHeader(tr("Subscriptions")) { go(Screen.Subs) }
         val subs = remember(lib.subs) { lib.subs.entries.sortedBy { it.value.name.lowercase() } }
@@ -199,13 +205,12 @@ fun DeskGuide(app: AppState, cur: Screen, mini: Boolean, onPick: () -> Unit = {}
         GuideRow(Sym.Download.outline, tr("Downloads"), on(Screen.Downloads)) { go(Screen.Downloads) }
         GuideDivider()
         GuideHeader(tr("Explore"), null)
-        if (!app.store.settings.value.hideMusicTab) GuideRow(Sym.Music.outline, tr("Music"), on(Screen.Music)) { go(Screen.Music) }
         val icons = mapOf("Live" to Sym.LiveTv, "News" to Sym.News, "Sports" to Sym.Trophy, "Learning" to Sym.School,
             "Gaming" to Sym.Gaming, "Fashion & beauty" to Sym.Apparel)
         for (k in TOPICS.keys) if (k != "Music") GuideRow((icons[k] ?: Sym.Explore).outline, tr(k), cur == Screen.Topic(k)) { go(Screen.Topic(k)) }
         GuideDivider()
         GuideRow(Sym.Settings.outline, tr("Settings"), on(Screen.Settings)) { go(Screen.Settings) }
-        GuideRow(Sym.BarChart.outline, tr("Time watched"), on(Screen.Stats)) { go(Screen.Stats) }
+        GuideRow(Sym.BarChart.outline, tr("Watch time"), on(Screen.Stats)) { go(Screen.Stats) }
         Text(tr("Ad-free. Private. Yours."), fontSize = 12.sp, color = c.onSurfaceVariant, modifier = Modifier.padding(start = 12.dp, top = 16.dp))
     }
 }
@@ -681,9 +686,13 @@ fun WebSubsScreen(app: AppState) {
     var acctRelevant by remember(app.account) { mutableStateOf<List<Video>>(emptyList()) }
     var acctNext by remember(app.account) { mutableStateOf<String?>(null) }
     var acctOn by remember(app.account) { mutableStateOf(false) }
+    /** the account's feed didn't come at all (no answer from YouTube), as opposed to a sign-in it won't take */
+    var acctFailed by remember(app.account) { mutableStateOf(false) }
     suspend fun loadAcct() {
         if (!signedIn) return
-        val f = runCatching { YouTubeAccount.subscriptions() }.getOrNull()?.takeIf { !it.loggedOut } ?: return
+        val r = runCatching { YouTubeAccount.subscriptions() }
+        acctFailed = r.isFailure && r.exceptionOrNull() !is kotlinx.coroutines.CancellationException
+        val f = r.getOrNull()?.takeIf { !it.loggedOut } ?: return
         acctVideos.clear(); acctVideos.addAll(f.videos)
         acctRelevant = f.shelves.firstOrNull { it.title.contains("relevant", true) }?.items?.filterIsInstance<Video>().orEmpty()
         acctNext = f.next; acctOn = true
@@ -692,12 +701,19 @@ fun WebSubsScreen(app: AppState) {
     val taste by app.store.taste.state.collectAsState()
     var items by remember { mutableStateOf(app.feed.cached().filter { it.channelId in lib.subs }) }
     var loading by remember { mutableStateOf(false) }
+    var unreachable by remember { mutableStateOf(false) }
     suspend fun loadLocal(force: Boolean) {
         loading = true
-        try { items = app.feed.all(force) } catch (_: Exception) {} finally { loading = false }
+        try { items = app.feed.all(force); unreachable = app.feed.unreachable } catch (_: Exception) {} finally { loading = false }
     }
     LaunchedEffect(lib.subs.size) { loadLocal(false) }
+    val scope = rememberCoroutineScope()
     val feed = items.filter { it.channelId in lib.subs && (!it.short || !app.noShorts) }.distinctBy { it.id }
+    // YouTube out of reach: say so (Retry, Go to downloads), not "No new videos from your subscriptions yet"
+    if (!loading && !acctOn && feed.isEmpty() && (if (signedIn) acctFailed && (lib.subs.isEmpty() || unreachable) else unreachable)) {
+        YouAreOffline(app) { scope.launch { loadAcct(); loadLocal(true) } }
+        return
+    }
     val watched = remember(lib.hist) { lib.hist.mapTo(HashSet()) { it.id } }
     // the channels you watch and like most, each with its newest video of the last week you haven't seen
     val localRelevant = remember(feed, taste.ch, watched) {

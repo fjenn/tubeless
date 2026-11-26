@@ -45,6 +45,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -639,8 +640,10 @@ fun DownloadsScreen(app: AppState) {
 // ------------------------------------------------------------------ Settings → Downloads
 
 @Composable
-private fun DlRow(title: String, sub: String = "", onClick: (() -> Unit)? = null, end: @Composable () -> Unit = {}) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).let { if (onClick != null) it.clickable(onClick = onClick) else it }
+private fun DlRow(title: String, sub: String = "", onClick: (() -> Unit)? = null, enabled: Boolean = true, end: @Composable () -> Unit = {}) {
+    // off (its parent switch is off): greyed and not clickable, as the other settings
+    Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).let { if (onClick != null && enabled) it.clickable(onClick = onClick) else it }
+        .alpha(if (enabled) 1f else 0.38f)
         .padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall)
@@ -651,13 +654,13 @@ private fun DlRow(title: String, sub: String = "", onClick: (() -> Unit)? = null
 }
 
 @Composable
-private fun DlToggle(title: String, sub: String, on: Boolean, set: (Boolean) -> Unit) =
-    DlRow(title, sub, onClick = { set(!on) }) { Switch(on, onCheckedChange = set) }
+private fun DlToggle(title: String, sub: String, on: Boolean, enabled: Boolean = true, set: (Boolean) -> Unit) =
+    SettingsToggle(title, sub, on, enabled, set)
 
 @Composable
-private fun <T> DlChoice(title: String, sub: String, value: T, options: List<Pair<T, String>>, pick: (T) -> Unit) {
+private fun <T> DlChoice(title: String, sub: String, value: T, options: List<Pair<T, String>>, enabled: Boolean = true, pick: (T) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    DlRow(title, sub, onClick = { open = true }) {
+    DlRow(title, sub, onClick = { open = true }, enabled = enabled) {
         Box {
             val c = MaterialTheme.colorScheme
             Row(Modifier.height(40.dp).clip(RoundedCornerShape(12.dp)).background(c.surfaceContainerHigh).border(1.dp, c.outline, RoundedCornerShape(12.dp))
@@ -713,20 +716,21 @@ internal fun registerDownloadSettings(app: AppState) {
         },
         SettingsSections.Row("smart downloads how many count") {
             val p by prefs().state.collectAsState()
-            DlChoice(tr("Smart downloads: how many"), "", p.smartCount, listOf(5, 10, 20, 30, 50, 100).map { it to "$it" }) { n -> prefs().update { it.copy(smartCount = n) } }
+            DlChoice(tr("Smart downloads: how many"), "", p.smartCount, listOf(5, 10, 20, 30, 50, 100).map { it to "$it" }, enabled = p.smart) { n -> prefs().update { it.copy(smartCount = n) } }
         },
         SettingsSections.Row("smart downloads shorts") {
             val p by prefs().state.collectAsState()
-            DlToggle(tr("Smart downloads: include Shorts"), "", p.smartShorts) { b -> prefs().update { it.copy(smartShorts = b) } }
+            // greyed while smart downloads are off: it only matters with them on
+            DlToggle(tr("Smart downloads: include Shorts"), "", p.smartShorts, enabled = p.smart) { b -> prefs().update { it.copy(smartShorts = b) } }
         },
         SettingsSections.Row("smart downloads quality") {
             val p by prefs().state.collectAsState()
-            DlChoice(tr("Smart downloads: quality"), "", p.smartQuality, listOf(DownloadPrefs.BEST to tr("Best available")) + heightOptions()) { q -> prefs().update { it.copy(smartQuality = q) } }
+            DlChoice(tr("Smart downloads: quality"), "", p.smartQuality, listOf(DownloadPrefs.BEST to tr("Best available")) + heightOptions(), enabled = p.smart) { q -> prefs().update { it.copy(smartQuality = q) } }
         },
         SettingsSections.Row("smart downloads storage limit space") {
             val p by prefs().state.collectAsState()
             DlChoice(tr("Smart downloads: storage"), tr("The most space smart downloads may take"), p.smartCapMb,
-                listOf(0L to tr("No limit")) + listOf(1L, 2, 5, 10, 20, 50, 100).map { it * 1024 to "$it GB" }) { mb -> prefs().update { it.copy(smartCapMb = mb) } }
+                listOf(0L to tr("No limit")) + listOf(1L, 2, 5, 10, 20, 50, 100).map { it * 1024 to "$it GB" }, enabled = p.smart) { mb -> prefs().update { it.copy(smartCapMb = mb) } }
         },
         SettingsSections.Row("delete all downloads remove storage") {
             var ask by remember { mutableStateOf(false) }

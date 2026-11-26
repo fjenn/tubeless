@@ -37,6 +37,20 @@ import kotlin.coroutines.coroutineContext
 // iOS saves Apple's HLS package instead; its Offline is in common/ios.
 
 /** an environment variable (the E2E hooks in Offline.kt) */
+/** the XDG Videos folder: $XDG_VIDEOS_DIR, else its line in ~/.config/user-dirs.dirs, else ~/Videos (null: no home) */
+internal fun linuxVideosDir(): File? {
+    val home = System.getProperty("user.home")?.takeIf { it.isNotEmpty() } ?: return null
+    fun expand(v: String) = v.trim().trim('"').replace("\$HOME", home).replace("\${HOME}", home)
+    offlineEnv("XDG_VIDEOS_DIR")?.takeIf { it.isNotBlank() }?.let { return File(expand(it)) }
+    val cfg = File(offlineEnv("XDG_CONFIG_HOME")?.takeIf { it.isNotBlank() } ?: "$home/.config", "user-dirs.dirs")
+    runCatching { cfg.readLines() }.getOrNull()?.firstOrNull { it.trim().startsWith("XDG_VIDEOS_DIR=") }?.let { l ->
+        val v = expand(l.substringAfter('='))
+        // "$HOME/" alone means the folder is switched off: the home itself is no place for videos
+        if (v.isNotEmpty() && File(v).absolutePath.trimEnd('/') != home.trimEnd('/')) return File(v)
+    }
+    return File(home, "Videos")
+}
+
 /** an environment variable */
 internal fun offlineEnv(name: String): String? = System.getenv(name)
 
@@ -57,10 +71,20 @@ fun SavedFile.format(f: File) = Format(
 class Offline(private val app: AppState) {
     /** the app's own folder: the list of saved videos always stays here */
     private val home = File(app.platform.dataDir.toString(), "offline").apply { mkdirs() }
-    /** where the videos' files are: the folder picked in Downloads, or the app's own */
-    private val dir: File get() = app.store.settings.value.offlineDir.ifEmpty { null }?.let(::File) ?: home
+    /** where the videos' files are: the folder picked in Downloads, or the default one */
+    private val dir: File get() = app.store.settings.value.offlineDir.ifEmpty { null }?.let(::File) ?: defaultDir
     private val io = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val index = JsonFile(File(home, "index.json").toOkioPath(), OfflineIndex.serializer(), OfflineIndex(), io)
+    /**
+     * Where new videos go unless a folder was picked. Linux: the user's Videos folder (XDG_VIDEOS_DIR, else ~/Videos)
+     * in "Tubeless", as a desktop user expects, not a hidden config folder. Elsewhere, and on a Linux computer that
+     * already keeps saved videos in the app's own folder (an older build), the app's own folder, so they all still play.
+     */
+    private val defaultDir: File by lazy {
+        val linux = app.platform.name == "desktop" && System.getProperty("os.name").orEmpty().startsWith("Linux")
+        val old = (index.value.items.keys + files.queue.value.items.map { it.id }).any { File(home, it).exists() }
+        if (!linux || old) home else linuxVideosDir()?.let { File(it, "Tubeless") } ?: home
+    }
     private val files = OfflineFiles(home.toOkioPath(), io)
     val folder: String get() = dir.absolutePath
     /** Settings → Downloads */
@@ -89,7 +113,7 @@ class Offline(private val app: AppState) {
                 return@withContext false
             }
         }
-        app.store.settings.update { it.copy(offlineDir = if (to.canonicalPath == home.canonicalPath) "" else to.absolutePath) }
+        app.store.settings.update { it.copy(offlineDir = if (to.canonicalPath == defaultDir.canonicalPath) "" else to.absolutePath) }
         true
     }
     val saved: StateFlow<OfflineIndex> get() = index.state
@@ -313,7 +337,7 @@ class Offline(private val app: AppState) {
             val name = "${q.id}/thumb.jpg"
             val f = File(dir, name)
             if (!f.isFile || f.length() == 0L) {
-                val bytes = listOf("maxresdefault", "sddefault", "hqdefault").firstNotNullOfOrNull { k ->
+                val bytes = ((if (q.short) listOf("oardefault") else emptyList()) + listOf("maxresdefault", "sddefault", "hqdefault")).firstNotNullOfOrNull { k ->
                     Net.client.newCall(Request.Builder().url("https://i.ytimg.com/vi/${q.id}/$k.jpg").build()).execute().use { r ->
                         if (r.isSuccessful) r.body?.bytes()?.takeIf { it.size > 2000 } else null
                     }

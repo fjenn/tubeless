@@ -157,9 +157,18 @@
     const v = document.getElementById("tubeless-video");
     shaka.polyfill.installAll();
     const sp = new shaka.Player();
-    let onState = () => {}, captionUrl = null, wantHeight = 0;
+    let onState = () => {}, captionUrl = null, wantHeight = 0, autoCap = Infinity;
     sp.attach(v);
-    sp.configure({ streaming: { bufferingGoal: 60, rebufferingGoal: 2, bufferBehind: 30 }, abr: { enabled: true } });
+    // QUALITY: ABR starts from the speed this browser measured last time (Shaka's default guess is 1 Mbit/s, i.e. 480p
+    // for the first seconds), and never limits itself to the element's size: Kotlin's maxHeight is the screen's fit
+    let lastBw = 0;
+    try { lastBw = +localStorage.getItem("tubeless.bw") || 0; } catch (e) { /* storage off: Shaka's guess */ }
+    sp.configure({ streaming: { bufferingGoal: 60, rebufferingGoal: 2, bufferBehind: 30 },
+      abr: { enabled: true, restrictToElementSize: false, restrictToScreenSize: false, defaultBandwidthEstimate: lastBw > 0 ? Math.min(lastBw, 200e6) : 5e6 } });
+    setInterval(() => {
+      const bw = sp.getStats().estimatedBandwidth;
+      if (bw > 0 && isFinite(bw) && !v.paused) { try { localStorage.setItem("tubeless.bw", String(Math.round(bw))); } catch (e) { /* off */ } }
+    }, 10000);
     // googlevideo answers ranges as &range= too, and wants no credentials
     sp.getNetworkingEngine().registerRequestFilter((type, req) => { req.allowCrossSiteCredentials = false; });
     const tick = () => {
@@ -169,6 +178,12 @@
     for (const e of ["timeupdate", "play", "pause", "waiting", "playing", "ended", "durationchange", "seeked"]) v.addEventListener(e, tick);
     sp.addEventListener("buffering", tick);
     sp.addEventListener("adaptation", tick);
+    // a step up shows at once: what is buffered at the lower quality (up to a minute) is dropped but for 3 s, as
+    // youtube.com does; a step down keeps its buffer (no stall)
+    sp.addEventListener("adaptation", () => {
+      const t = sp.getVariantTracks().find((x) => x.active);
+      if (!wantHeight && t && t.height && v.videoHeight && t.height > v.videoHeight * 1.2) sp.selectVariantTrack(t, true, 3);
+    });
     sp.addEventListener("error", (e) => console.log("[tubeless] shaka", e.detail && e.detail.code, e.detail && e.detail.data && String(e.detail.data[0]).slice(0, 200)));
     let lastUrl = null;
 
@@ -204,19 +219,37 @@
       } catch (e) { console.log("[tubeless] fx", e.message); }
     }
     v.addEventListener("play", fxEnsure);
+    if (navigator.mediaCapabilities) {
+      const ask = (contentType) => navigator.mediaCapabilities.decodingInfo({ type: "media-source", video: { contentType, width: 1920, height: 1080, bitrate: 4e6, framerate: 30 } })
+        .then((r) => r.supported && r.powerEfficient).catch(() => false);
+      Promise.all([ask('video/mp4; codecs="av01.0.08M.08"'), ask('video/webm; codecs="vp09.00.40.08"'), ask('video/mp4; codecs="avc1.640028"')])
+        .then(([av1, vp9, h264]) => { api.hw = { av1, vp9, h264 }; });
+    }
     for (const e of ["pointerdown", "keydown"]) document.addEventListener(e, () => { if (!fx.n || fx.ctx?.state !== "running") fxEnsure(); }, true);
 
-    return {
+    const api = {
       // the sound effects (Perks.fx on the web); applied now if the page may play sound, else on the next click or play
       fx(stable, voice) { fx.want = [!!stable, !!voice]; fxEnsure(); },
       fxState: fx,
       supports(type) { return MediaSource.isTypeSupported(type); },
+      // codec families decoded in hardware here (MediaCapabilities' powerEfficient at 1080p), filled at start; Kotlin
+      // reads it at each load. null: not known yet.
+      hw: null,
+      // what is on screen now, for the quality menu and Stats for nerds (QUALITY)
+      now() {
+        const t = sp.getVariantTracks().find((x) => x.active);
+        const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
+        return JSON.stringify({ h: v.videoHeight || (t && t.height) || 0, fps: t ? Math.round(t.frameRate || 0) : 0, itag: t ? +(t.originalVideoId || 0) || 0 : 0,
+          codec: t && t.videoCodec || "", kbps: t ? Math.round((t.videoBandwidth || 0) / 1000) : 0, dropped: q ? q.droppedVideoFrames : -1,
+          bw: Math.round((sp.getStats().estimatedBandwidth || 0) / 1000) });
+      },
       onTime(f) { onState = f; },
       async load(manifest, isHls, start, autoplay, maxHeight) {
         if (lastUrl) URL.revokeObjectURL(lastUrl);
         const url = isHls ? manifest : (lastUrl = URL.createObjectURL(new Blob([manifest], { type: "application/dash+xml" })));
         wantHeight = 0;
-        sp.configure({ abr: { enabled: true, restrictions: { maxHeight: maxHeight > 0 ? maxHeight : Infinity } } });
+        autoCap = maxHeight > 0 ? maxHeight : Infinity;
+        sp.configure({ abr: { enabled: true, restrictions: { maxHeight: autoCap } } });
         v.autoplay = autoplay;
         try {
           await sp.load(url, start > 0 ? start : null, isHls ? "application/x-mpegurl" : "application/dash+xml");
@@ -225,19 +258,20 @@
           return "";
         } catch (e) { return "Shaka " + (e.code || e.message); }
       },
-      // the variant heights and audio languages, as JSON for Kotlin
+      // the variant heights and audio languages, as JSON for Kotlin (heights above Auto's cap too: the menu offers them)
       tracks() {
         const vt = sp.getVariantTracks();
+        const all = (sp.getManifest() && sp.getManifest().variants || []).map((x) => x.video && x.video.height).filter(Boolean);
         return JSON.stringify({
-          heights: [...new Set(vt.map((t) => t.height).filter(Boolean))].sort((a, b) => b - a),
+          heights: [...new Set(vt.map((t) => t.height).concat(all).filter(Boolean))].sort((a, b) => b - a),
           audio: [...new Map(vt.filter((t) => t.language).map((t) => [t.language, t.label || t.language])).entries()],
           lang: (vt.find((t) => t.active) || {}).language || null,
         });
       },
       setHeight(h) {
         wantHeight = h;
-        if (!h) { sp.configure({ abr: { enabled: true } }); return; }
-        sp.configure({ abr: { enabled: false } });
+        if (!h) { sp.configure({ abr: { enabled: true, restrictions: { maxHeight: autoCap } } }); return; }
+        sp.configure({ abr: { enabled: false, restrictions: { maxHeight: Infinity } } });
         const lang = (sp.getVariantTracks().find((t) => t.active) || {}).language;
         const best = sp.getVariantTracks().filter((t) => t.height === h && (!lang || t.language === lang)).sort((a, b) => b.bandwidth - a.bandwidth)[0];
         if (best) sp.selectVariantTrack(best, true);
@@ -283,6 +317,7 @@
       },
       video: v,
     };
+    return api;
   })();
 
 

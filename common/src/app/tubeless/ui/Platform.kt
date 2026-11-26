@@ -156,11 +156,31 @@ data class PlayerState(
     val muted: Boolean = false,
     /** why nothing can be heard while the picture plays (the desktop player finds out); null: all is well */
     val soundIssue: String? = null,
+    /**
+     * What is on screen now, as the player reports it (QUALITY): the decoded picture's height and frame rate, the
+     * format (itag; 0 when the player can't say), its codec family and bitrate; 0/"" until known. The quality
+     * menu and Stats for nerds show these, not what the settings asked for.
+     */
+    val nowHeight: Int = 0,
+    val nowFps: Int = 0,
+    val nowItag: Int = 0,
+    val nowCodec: String = "",
+    val nowKbps: Int = 0,
+    /** frames dropped since this video started; -1: the player doesn't say */
+    val dropped: Int = -1,
 )
+
+/** the quality menu's line: the height picked, else "Auto (the height playing now)" */
+fun PlayerState.qualityText(auto: String): String = when {
+    height > 0 -> app.tubeless.engine.Quality.label(height, nowFps.takeIf { nowHeight == height } ?: 0)
+    nowHeight > 0 -> auto + " (" + app.tubeless.engine.Quality.label(nowHeight, nowFps) + ")"
+    else -> auto
+}
 
 data class PlayOptions(
     val startMs: Long = 0,
-    val maxHeight: Int = 1080,
+    /** [app.tubeless.engine.Quality.AUTO]: the player fits the screen */
+    val maxHeight: Int = app.tubeless.engine.Quality.AUTO,
     val autoplay: Boolean = true,
     val speed: Float = 1f,
     val captions: Caption? = null,

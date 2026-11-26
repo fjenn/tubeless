@@ -33,6 +33,8 @@ rmSync(out, { recursive: true, force: true });
 mkdirSync(join(out, "vendor"), { recursive: true });
 for (const f of ["index.html", "instant.js", "app.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"]) cpSync(join(here, f), join(out, f));
 cpSync(join(root, "extension/src/icon-128.png"), join(out, "icon-128.png"));
+// the install page's annotated screenshots (site/guide, made by scripts/guide-shots/)
+if (existsSync(join(here, "guide"))) cpSync(join(here, "guide"), join(out, "guide"), { recursive: true });
 cpSync(join(root, "extension/vendor/js-joda.mjs"), join(out, "vendor/js-joda.mjs"));
 cpSync(join(root, "extension/vendor/LICENSES.txt"), join(out, "vendor/LICENSES.txt"));
 cpSync(join(wasmDir, "tubeless.wasm"), join(out, "tubeless.wasm"));

@@ -226,7 +226,7 @@ class Offline(private val app: AppState) {
         }
         val thumb = runCatching {
             val name = "offline/${q.id}/thumb.jpg"
-            val ok = jsSaveFirst(name, listOf("maxresdefault", "sddefault", "hqdefault").joinToString("\n") { "https://i.ytimg.com/vi/${q.id}/$it.jpg" })
+            val ok = jsSaveFirst(name, ((if (q.short) listOf("oardefault") else emptyList()) + listOf("maxresdefault", "sddefault", "hqdefault")).joinToString("\n") { "https://i.ytimg.com/vi/${q.id}/$it.jpg" })
                 .await<JsBoolean>().toBoolean()
             if (!ok) error("no thumbnail")
             name

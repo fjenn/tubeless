@@ -1,0 +1,28 @@
+// Quality probe (QUALITY): what each player client offers for a video, and what Tubeless picks.
+//   ./gradlew --init-script tests/quality/quality.init.gradle :desktop:qualityProbe -Pids=a,b,c
+allprojects { p ->
+    p.plugins.withId('org.jetbrains.kotlin.jvm') {
+        if (p.path != ':desktop') return
+        def q = p.sourceSets.create('quality')
+        p.kotlin.sourceSets.getByName('quality').kotlin.srcDir(p.rootProject.file('tests/quality/src'))
+        def comps = p.kotlin.target.compilations
+        comps.getByName('quality').associateWith(comps.getByName('main'))
+        p.configurations.getByName('qualityImplementation').extendsFrom(p.configurations.getByName('implementation'))
+        p.configurations.getByName('qualityRuntimeOnly').extendsFrom(p.configurations.getByName('runtimeOnly'))
+        p.tasks.register('qualityProbe', JavaExec) {
+            classpath = q.runtimeClasspath + p.sourceSets.getByName('main').runtimeClasspath
+            mainClass.set('app.tubeless.quality.QualityProbeKt')
+            args((p.findProperty('ids') ?: 'KLuTLF3x9sA,ugvHCXCOmm4,88tcZNq4C0Y').toString().split(','))
+        }
+    }
+}
+// the desktop app's run classpath, to start it by hand with its own -Duser.home
+allprojects { p ->
+    p.plugins.withId('org.jetbrains.kotlin.jvm') {
+        if (p.path != ':desktop') return
+        p.tasks.register('printRunClasspath') {
+            dependsOn 'jar'
+            doLast { println("CP=" + (p.sourceSets.getByName('main').runtimeClasspath).asPath) }
+        }
+    }
+}

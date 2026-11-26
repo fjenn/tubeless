@@ -400,7 +400,7 @@ parent.postMessage({ k: "tl-ready", origin: self.origin }, "*");
         for (const r of as.getElementsByTagName("Representation")) {
           const url = r.getElementsByTagName("BaseURL")[0]?.textContent;
           if (!url) continue;
-          const f = { url, mime, codecs: r.getAttribute("codecs"), height: +r.getAttribute("height") || 0, width: +r.getAttribute("width") || 0,
+          const f = { url, mime, id: +r.getAttribute("id") || 0, codecs: r.getAttribute("codecs"), height: +r.getAttribute("height") || 0, width: +r.getAttribute("width") || 0,
             bandwidth: +r.getAttribute("bandwidth") || 0, fps: +r.getAttribute("frameRate") || 0,
             lang: as.getAttribute("lang"), label: as.getAttribute("label"), main: role === "main" };
           (type === "video" ? out.video : out.audio).push(f);
@@ -505,6 +505,14 @@ parent.postMessage({ k: "tl-ready", origin: self.origin }, "*");
         return v.canPlayType(type) !== "";
       },
       onTime(f) { onState = f; },
+      hw: null,
+      // what is on screen now, for the quality menu and Stats for nerds (QUALITY)
+      now() {
+        const el = v;
+        const q = el.getVideoPlaybackQuality ? el.getVideoPlaybackQuality() : null;
+        return JSON.stringify({ h: el.videoHeight || (curV ? curV.height : 0), fps: curV ? Math.round(curV.fps) : 0, itag: mode === "pair" && curV ? curV.id : 0,
+          codec: mode === "pair" && curV ? curV.codecs : "", kbps: mode === "pair" && curV ? Math.round(curV.bandwidth / 1000) : 0, dropped: q ? q.droppedVideoFrames : -1, bw: 0 });
+      },
       hint(id, hls, client, audioOnly) { hint = { id, hls, client, audioOnly }; },
       async load(manifest, isHls, start, autoplay, maxH) {
         const token = ++loadToken;

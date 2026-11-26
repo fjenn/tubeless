@@ -274,6 +274,19 @@ class AppState(val platform: Platform, val store: Store) {
         stack.add(s)
     }
 
+    /**
+     * A place in the computer's guide (Downloads, History, Watch later, Settings…): a top-level page as the tabs
+     * are, so the stack starts over with it and it has no back arrow. Anything else opens as [go] does.
+     */
+    fun goTop(s: Screen) {
+        val top = s == Screen.Downloads || s == Screen.History || s is Screen.Local || s == Screen.Settings || s == Screen.Stats
+        if (!top) { go(s); return }
+        ahead.clear()
+        if (stack.size == 1 && stack[0] == s) { reselect++; return }
+        lastMove = 0
+        stack.clear(); stack.add(s)
+    }
+
     /** false when there is nowhere to go back to (the app may close) */
     /** the TV's pages: Back first moves to the menu, and on Home asks to be pressed again (TvApp) */
     var tvBack: (() -> Boolean)? = null

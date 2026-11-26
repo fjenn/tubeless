@@ -277,7 +277,7 @@ class Offline(private val app: AppState) {
         fm.createDirectoryAtPath(absolute("Library/Application Support/offline-extras"), true, null, null)
         val thumb = runCatching {
             val rel = thumbRel(q.id)
-            val data = listOf("maxresdefault", "sddefault", "hqdefault").firstNotNullOfOrNull { k ->
+            val data = ((if (q.short) listOf("oardefault") else emptyList()) + listOf("maxresdefault", "sddefault", "hqdefault")).firstNotNullOfOrNull { k ->
                 NSData.dataWithContentsOfURL(NSURL(string = "https://i.ytimg.com/vi/${q.id}/$k.jpg"))?.takeIf { it.length.toLong() > 2000 }
             } ?: error("no thumbnail")
             data.writeToFile(absolute(rel), true)

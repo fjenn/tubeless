@@ -35,6 +35,10 @@ object Parity {
     fun on(k: String) = flags[k] != null && flags[k] != "0"
     /** the desktop's window, for `window min|restore` (set by the platform) */
     var window: ((String) -> Unit)? = null
+    /** a key pressed on the window as the keyboard would (desktop), for `key escape` */
+    var key: ((String) -> Unit)? = null
+    /** the desktop window's sizes and placement, for `report-window` */
+    var windowInfo: (() -> String)? = null
     /** the desktop's normal way out (as closing the window), for `quit` */
     var quit: (() -> Unit)? = null
     /** the player menu's sub-page to open with it ("q", "s", "t"...) */
@@ -62,12 +66,13 @@ fun ParityDriver(app: AppState) {
                 runCatching {
                     when (cmd) {
                         "setup" -> {
-                            app.store.settings.update { it.copy(lang = "en", welcomed = true, winW = 1329, winH = 924, winMax = false) }
+                            app.store.settings.update { it.copy(lang = "en", welcomed = true, winW = 1329, winH = 924, winMax = false, winContent = false) }
                         }
                         // the first-start page's answers (Welcome): "shorts off|on" as its two cards, "welcome done" as Continue
                         "shorts-choice" -> app.store.settings.update { it.copy(hideShorts = arg == "off") }
                         "welcome" -> app.store.settings.update { it.copy(welcomed = true) }
-                        "go" -> app.go(when (arg) {
+                        // as a click in the guide / tabs: top-level places start the stack over (goTop)
+                        "go" -> app.goTop(when (arg) {
                             "subs" -> Screen.Subs; "shorts" -> Screen.Shorts; "library" -> Screen.Library
                             "settings" -> Screen.Settings; "downloads" -> Screen.Downloads; "history" -> Screen.History
                             "wl" -> Screen.Local("wl"); "likes" -> Screen.Local("likes")
@@ -117,6 +122,10 @@ fun ParityDriver(app: AppState) {
                         "jump" -> { JumpAhead.prompt(app); JumpAhead.take(app) }
                         "pip" -> app.platform.startPip()
                         "window" -> Parity.window?.invoke(arg)
+                        "key" -> Parity.key?.invoke(arg)
+                        "signin" -> startSignIn(app)
+                        "signin-cancel" -> cancelSignIn()
+                        "report-window" -> E2E.log("window", "screen" to app.current::class.simpleName, "depth" to app.stack.size, "info" to (Parity.windowInfo?.invoke() ?: ""))
                         "quit" -> Parity.quit?.invoke()
                         "shortcuts" -> Perks.shortcuts = arg != "off"
                         // "download <id>@<height>" as the quality question's Download button; "offline <id>" opens the saved copy

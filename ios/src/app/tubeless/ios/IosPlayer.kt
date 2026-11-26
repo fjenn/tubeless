@@ -71,6 +71,8 @@ import platform.AVFoundation.preferredForwardBufferDuration
 import platform.AVFoundation.configuredTimeOffsetFromLive
 import platform.AVFoundation.automaticallyPreservesTimeOffsetFromLive
 import platform.AVFoundation.preferredMaximumResolution
+import platform.AVFoundation.presentationSize
+import platform.AVFoundation.accessLog
 import platform.AVFoundation.rate
 import platform.AVFoundation.replaceCurrentItemWithPlayerItem
 import platform.AVFoundation.mediaSelectionGroupForMediaCharacteristic
@@ -209,6 +211,30 @@ class IosPlayer : VideoPlayer {
                 error = if (failed) item.error?.localizedDescription ?: "Playback failed" else null,
             )
         }
+        now(item)
+    }
+
+    private var nowTicks = 0
+    /** this video's HLS variants: itag to (codec, frame rate) */
+    private var variants: Map<Int, Pair<String, Int>> = emptyMap()
+
+    /**
+     * What is on screen (QUALITY), from the item's access log: the variant AVPlayer picked (its list's address names
+     * YouTube's itag), its bitrate and the frames dropped; the picture's height from presentationSize. Every second.
+     */
+    @OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+    private fun now(item: AVPlayerItem) {
+        if (nowTicks++ % 4 != 0) return
+        val h = item.presentationSize.useContents { height.toInt() }
+        val ev = item.accessLog()?.events?.lastOrNull() as? platform.AVFoundation.AVPlayerItemAccessLogEvent
+        val uri = ev?.URI ?: ""
+        val itag = Regex("/itag/(\\d+)").find(uri)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+        val f = variants[itag]?.let { (c, fps) -> app.tubeless.engine.Format(itag, "", "", c, fps = fps) } ?: stream?.video?.firstOrNull { it.itag == itag }
+        val dropped = item.accessLog()?.events?.sumOf { (it as? platform.AVFoundation.AVPlayerItemAccessLogEvent)?.numberOfDroppedVideoFrames?.toInt()?.coerceAtLeast(0) ?: 0 } ?: -1
+        st.update {
+            it.copy(nowHeight = h, nowItag = itag, nowFps = f?.fps ?: 0, nowCodec = f?.codecFamily ?: "",
+                nowKbps = ((ev?.indicatedBitrate ?: 0.0) / 1000).toInt(), dropped = dropped)
+        }
     }
 
     override fun load(s: Stream, o: PlayOptions) {
@@ -225,7 +251,7 @@ class IosPlayer : VideoPlayer {
             else AVPlayerItem(asset = AVURLAsset(uRL = NSURL(string = hls), options = mapOf<Any?, Any>("AVURLAssetHTTPHeaderFieldsKey" to headers)))
         // a download plays the quality that was saved: a cap (e.g. the mobile-data one, which applies as soon as Wi-Fi is
         // gone) would make AVPlayer want a variant that isn't in the package and go to the network for it
-        if (s.client != "offline") limit(item, o.maxHeight)
+        if (s.client != "offline") limit(item, auto(o.maxHeight))
         // speeds up to 4x (S5): the spectral time-pitch keeps voices natural over the whole range (the default stops sounding right past 2x)
         item.audioTimePitchAlgorithm = platform.AVFoundation.AVAudioTimePitchAlgorithmSpectral
         if (readAhead) item.preferredForwardBufferDuration = 1200.0
@@ -243,11 +269,19 @@ class IosPlayer : VideoPlayer {
             speed = o.speed, captions = o.captions)
         if (o.autoplay) av.playImmediatelyAtRate(o.speed) else av.pause()
         // the qualities on offer, from the HLS master list
+        variants = emptyMap()
         heightsJob?.cancel()
         heightsJob = scope.launch {
             if (s.client == "offline") return@launch
             val text = runCatching { Net.get(hls) }.getOrNull() ?: return@launch
             val heights = Regex("RESOLUTION=\\d+x(\\d+)").findAll(text).mapNotNull { it.groupValues[1].toIntOrNull() }.distinct().sorted().toList()
+            // each variant's codec and frame rate by its itag (its list's address names it), for now()
+            variants = Regex("#EXT-X-STREAM-INF:([^\\n]*)\\n([^\\n]+)").findAll(text).mapNotNull { m ->
+                val itag = Regex("/itag/(\\d+)").find(m.groupValues[2])?.groupValues?.get(1)?.toIntOrNull() ?: return@mapNotNull null
+                val codec = Regex("CODECS=\"([^\",]+)").find(m.groupValues[1])?.groupValues?.get(1) ?: ""
+                val fps = Regex("FRAME-RATE=([\\d.]+)").find(m.groupValues[1])?.groupValues?.get(1)?.toDoubleOrNull()?.toInt() ?: 0
+                itag to (codec to fps)
+            }.toMap()
             st.update { it.copy(heights = heights) }
         }
         val translate = if (o.captions != null && o.captionLang != null && o.captions.lang.substringBefore('-') != o.captionLang) o.captionLang else null
@@ -265,6 +299,19 @@ class IosPlayer : VideoPlayer {
         val pick = lang?.let { l -> options.firstOrNull { it.extendedLanguageTag?.substringBefore('-')?.lowercase() == l } }
             ?: group.defaultOption ?: return
         item.selectMediaOption(pick, inMediaSelectionGroup = group)
+    }
+
+    /**
+     * Auto (QUALITY): the height that fills this screen turned sideways ([Quality.fit] on the native pixels: 1440p on
+     * a recent iPhone, which AVPlayer reaches with YouTube's VP9 variants), AVPlayer adapting below it; a height
+     * picked by hand as it is
+     */
+    @OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+    private fun auto(cap: Int): Int {
+        if (cap != app.tubeless.engine.Quality.AUTO) return cap
+        val (w, h) = platform.UIKit.UIScreen.mainScreen.nativeBounds.useContents { size.width.toInt() to size.height.toInt() }
+        val sizes = stream?.video.orEmpty().map { it.width to it.height }.distinct()
+        return app.tubeless.engine.Quality.fit(w, h, sizes).takeIf { it > 0 } ?: 0
     }
 
     /** the highest quality AVPlayer may pick; 0 = no limit (it adapts to the connection) */
@@ -331,7 +378,7 @@ class IosPlayer : VideoPlayer {
     }
 
     override fun setHeight(h: Int) {
-        if (stream?.client != "offline") av.currentItem?.let { limit(it, if (h == 0) opts.maxHeight else h) }
+        if (stream?.client != "offline") av.currentItem?.let { limit(it, if (h == 0) auto(opts.maxHeight) else h) }
         st.update { it.copy(height = h) }
     }
 

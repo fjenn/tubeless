@@ -14,6 +14,9 @@ import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
@@ -55,20 +58,60 @@ class HelperSignIn(private val dataDir: File) : SignInLauncher {
         return null
     }
 
+    /** the helper window open now (Cancel in the "Sign in to YouTube" dialog closes it) */
+    @Volatile private var current: Process? = null
+
     private suspend fun run(vararg args: String): String? = withContext(Dispatchers.IO) {
         val exe = exe ?: throw AccountError("The sign-in window is missing from this build. Import a cookies.txt instead.")
         val pb = ProcessBuilder(listOf(exe.path) + args + listOf("--data-dir", File(dataDir, "webview").path))
         // its page loads and cookie names (never values) go to the sign-in log
         pb.environment()["TUBELESS_SIGNIN_DEBUG"] = "1"
         val p = pb.start()
+        current = p
         p.outputStream.close()
-        Thread { runCatching { p.errorStream.bufferedReader().forEachLine { Accounts.log("helper: $it") } } }.apply { isDaemon = true }.start()
+        // a cancelled sign-in (Cancel, the app closing) closes Google's window at once: reading its output doesn't
+        // stop for an interrupt, so the process itself goes
+        val gone = currentCoroutineContext()[Job]?.invokeOnCompletion { if (it != null && p.isAlive) p.destroy() }
+        val err = java.util.concurrent.ConcurrentLinkedQueue<String>()
+        val errReader = Thread {
+            runCatching { p.errorStream.bufferedReader().forEachLine { err += it; if (err.size > 40) err.poll(); Accounts.log("helper: $it") } }
+        }.apply { isDaemon = true; start() }
         try {
-            runInterruptible { p.inputStream.bufferedReader().readLines() }.lastOrNull { it.startsWith("{") }
+            val line = runInterruptible { p.inputStream.bufferedReader().readLines() }.lastOrNull { it.startsWith("{") }
+            if (line == null) {
+                // no answer at all: the window never opened (a library missing, no display), unless it was cancelled
+                val code = runInterruptible { if (p.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) p.exitValue() else null }
+                errReader.join(1000)
+                ensureActive()
+                if (code != null && code != 0) throw AccountError(startFailure(err.joinToString("\n"), code))
+            }
+            line
         } finally {
+            gone?.dispose()
+            if (current === p) current = null
             if (p.isAlive) p.destroy()
         }
     }
+
+    /** why the helper didn't start, in words a user can act on */
+    private fun startFailure(stderr: String, code: Int): String {
+        Accounts.log("sign-in: helper exited $code without an answer")
+        val linux = System.getProperty("os.name").startsWith("Linux")
+        // the library the system couldn't give it: the loader's "error while loading shared libraries: X:" or WebKit's "Couldn't open X:"
+        val missing = Regex("""(?:error while loading shared libraries|Couldn't open):? (lib[^\s:]+)""").find(stderr)?.groupValues?.get(1)
+        return when {
+            linux && missing != null && Regex("libwebkit2gtk|libjavascriptcoregtk").containsMatchIn(missing) ->
+                "Sign-in needs WebKitGTK. Install it, then try again: sudo apt install libwebkit2gtk-4.1-0 (Fedora: sudo dnf install webkit2gtk4.1)"
+            linux && missing != null && missing.startsWith("libGLESv2") ->
+                "Sign-in needs OpenGL ES. Install it, then try again: sudo apt install libgles2"
+            linux && missing != null -> "The sign-in window is missing a system library: $missing"
+            linux && Regex("cannot open display|Failed to initialize GTK|gtk_init", RegexOption.IGNORE_CASE).containsMatchIn(stderr) ->
+                "The sign-in window couldn't open on this display."
+            else -> "The sign-in window couldn't open (exit $code). Import a cookies.txt instead."
+        }
+    }
+
+    override fun cancel() { current?.takeIf { it.isAlive }?.destroy() }
 
     private fun cookies(line: String?): List<Ck>? {
         val d = parse(line ?: return null)

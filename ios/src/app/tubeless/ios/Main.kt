@@ -79,6 +79,14 @@ fun MainViewController(hideBars: (Boolean) -> Unit): UIViewController {
             else -> { state.go(app.tubeless.ui.Screen.Settings); state.go(app.tubeless.ui.Screen.SettingsPage(p)) }
         }
     }
+    // `-qlog`: what the player shows every 5 s (QUALITY: height, itag, codec, bitrate, dropped frames) on stdout
+    if ("-qlog" in args) state.scope.launch {
+        while (true) {
+            kotlinx.coroutines.delay(5_000)
+            val p = state.platform.player.state.value
+            println("QUALITY id=${p.videoId} pos=${p.positionMs / 1000}s h=${p.nowHeight} itag=${p.nowItag} codec=${p.nowCodec} fps=${p.nowFps} kbps=${p.nowKbps} dropped=${p.dropped} label=${app.tubeless.engine.Quality.label(p.nowHeight, p.nowFps)} heights=${p.heights}")
+        }
+    }
     // `-stress`: what a person does over and over (another video, full screen on and off), for the CI's screenshots
     if ("-stress" in args) state.scope.launch {
         kotlinx.coroutines.delay(5_000)

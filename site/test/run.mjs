@@ -50,7 +50,9 @@ else drv = await firefox();
 async function chrome() {
   const bin = process.env.BIN || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
   const proc = spawn(bin, ["--headless=new", `--user-data-dir=${profile}`, "--remote-debugging-pipe", "--enable-unsafe-extension-debugging",
-    "--no-first-run", "--no-default-browser-check", "--window-size=1280,800", "--autoplay-policy=no-user-gesture-required", "--mute-audio",
+    "--no-first-run", "--no-default-browser-check", `--window-size=${process.env.WINDOW || "1280,800"}`,
+    // DSF=2 (with WINDOW=1728,1117): a Retina MacBook's screen, for the quality scenarios
+    ...(process.env.DSF ? [`--force-device-scale-factor=${process.env.DSF}`] : []), "--autoplay-policy=no-user-gesture-required", "--mute-audio",
     // the bookmark scenarios load the app from this test server (127.0.0.1) into youtube.com, as from GitHub Pages
     "--disable-features=LocalNetworkAccessChecks,PrivateNetworkAccessRespectPreflightResults",
     // UA=<string>: the browser's User-Agent (headless Chrome says "HeadlessChrome", which servers may treat differently)
@@ -213,11 +215,18 @@ async function ytOpen(q = "") {
   }
   await drv.open("https://www.youtube.com/robots.txt?tubeless&lang=en" + q);
   await waitFor(`location.pathname === '/robots.txt' && document.readyState === 'complete'`, 40, "youtube.com/robots.txt");
+  // SCREEN=1728x1117x2: the screen the page sees (a headless browser reports 800×600 at 1x whatever the window)
+  if (process.env.SCREEN) { const [w, h, r] = process.env.SCREEN.split("x").map(Number);
+    await drv.eval(`(Object.defineProperty(screen, 'width', { get: () => ${w} }), Object.defineProperty(screen, 'height', { get: () => ${h} }), Object.defineProperty(window, 'devicePixelRatio', { get: () => ${r} }), 1)`); }
   await drv.bookmark(bookmarklet());
   await waitFor(`!!window.tubeless && !!document.querySelector('canvas') && !document.getElementById('tubeless-loading')`, 120, "Tubeless in youtube.com");
   // no welcome page on the web (web/Main.kt marks it seen): no click here, it would open whatever Home shows there
   await sleep(2500);
 }
+// what is on screen: the player's own now() (QUALITY), else (older builds) the <video> and the last googlevideo itag asked
+const NOW = `(() => { if (tubeless.player.now) return tubeless.player.now(); const v = tubeless.player.video, q = v.getVideoPlaybackQuality();
+  const r = performance.getEntriesByType('resource').filter(e => /googlevideo\\.com.*[?&]itag=/.test(e.name) && /mime=video/.test(e.name)).pop();
+  return JSON.stringify({ h: v.videoHeight, itag: r ? +r.name.match(/[?&]itag=(\\d+)/)[1] : 0, codec: '', kbps: 0, dropped: q.droppedVideoFrames, bw: 0 }); })()`;
 const yv = () => drv.eval(`JSON.stringify((() => { const v = tubeless.player.video; return { t: v.currentTime, p: v.paused, w: v.videoWidth, h: v.videoHeight, rs: v.readyState } })())`).then((x) => JSON.parse(x || "{}"));
 async function ytPlaying(minT = 3, secs = 90) { return waitFor(`(() => { const v = tubeless.player.video; return v.currentTime > ${minT} && !v.paused })()`, secs, "playback in youtube.com"); }
 
@@ -266,6 +275,16 @@ const S = {
     ok("ad-free", ads.length === 0 && !st.embed, `ad requests: ${ads.length}; YouTube's embed used: ${st.embed}`);
     const pings = drv.net.filter((r) => /\/api\/stats\/(playback|watchtime)/.test(r.url));
     ok("watch-time pings", pings.length > 0, `${pings.length} pings sent (no-cors)`);
+  },
+  async quality() {
+    await drv.open(base + `?lang=en&v=${VIDEO}`);
+    await appReady();
+    await playing(2, 60);
+    await sleep((+process.env.QWAIT || 15) * 1000);
+    const n = JSON.parse(await drv.eval(NOW));
+    const st = await state();
+    const scr = await drv.eval(`[screen.width, screen.height, devicePixelRatio].join("x")`);
+    ok("quality (Instant)", n.h > 0, `screen ${scr}: mode ${st.mode}, ${n.h}p itag ${n.itag} ${n.codec} ${n.kbps} kbps, dropped ${n.dropped}`);
   },
   async seek() {
     const before = await state();
@@ -470,6 +489,18 @@ const S = {
     ok("bookmark: 1080p+", st.h >= 1080, `${st.w}x${st.h} (offered: ${heights.join("/")})`);
     const ads = adHosts();
     ok("bookmark: ad-free", ads.length === 0, `ad requests: ${ads.length}`);
+  },
+  // QUALITY: what Auto plays by itself (no height picked) after QWAIT seconds: height, itag, codec, bitrate, dropped
+  // frames, Shaka's bandwidth estimate; the same read in Instant mode by "quality"
+  async yquality() {
+    await ytOpen(`&v=${VIDEO}`);
+    await ytPlaying(2, 120);
+    const t0 = Date.now(), log = [];
+    while (Date.now() - t0 < (+process.env.QWAIT || 30) * 1000) { await sleep(5000); log.push(JSON.parse(await drv.eval(NOW))); }
+    const scr = await drv.eval(`[screen.width, screen.height, devicePixelRatio].join("x")`);
+    const last = log[log.length - 1];
+    console.log("  timeline", log.map((x) => `${x.h}p/${x.itag}@${x.kbps}k bw=${x.bw}k`).join(" → "));
+    ok("bookmark: quality", last.h > 0, `screen ${scr}: ${last.h}p itag ${last.itag} ${last.codec} ${last.kbps} kbps, dropped ${last.dropped}, Shaka estimate ${last.bw} kbps; heights ${JSON.parse(await drv.eval(`tubeless.player.tracks()`)).heights.join("/")}`);
   },
   // stable volume + voice boost (Web Audio on the MSE video): the speech band against the low band, effect off vs on
   async yfx() {

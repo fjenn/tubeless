@@ -592,6 +592,10 @@ object Accounts {
             log("sign-in: page answered ${if (cookies == null) "cancelled" else "${cookies.size} cookies, SAPISID ${CookieJar(cookies).sapisid(now()) != null}"}")
             if (cookies == null) return false
             return finish(profile, CookieJar(cookies), "webview")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Cancel in the "Sign in to YouTube" dialog (or the app closing): the user's choice, not a failure
+            log("sign-in: cancelled")
+            throw e
         } catch (e: Exception) {
             log("sign-in: failed ${e::class.simpleName}: ${e.message}")
             throw e

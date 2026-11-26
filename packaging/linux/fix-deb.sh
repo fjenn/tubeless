@@ -5,6 +5,8 @@
 #    package carries its menu entry itself: /usr/share/applications/dev.tubeless.app.desktop (the same id as the
 #    AppStream data in /usr/share/metainfo), its icon in /usr/share/icons/hicolor, and /usr/bin/tubeless
 #  - the player needs the system's libmpv, which jpackage can't see (JNA loads it): Depends on libmpv2 | libmpv1
+#  - the sign-in window (resources/signin-helper) is a WebKitGTK web view: Depends on libwebkit2gtk-4.1-0
+#    (it brings libjavascriptcoregtk-4.1 and the WebKit helper processes)
 #   packaging/linux/fix-deb.sh Tubeless-x.y.z-linux-amd64.deb [owner/repo]
 set -euo pipefail
 deb=$(cd "$(dirname "${1:?usage: fix-deb.sh <file.deb> [owner/repo]}")" && pwd)/$(basename "$1")
@@ -29,8 +31,9 @@ ln -sf "$exe" "$p/usr/bin/tubeless"
 # the sign-in window's program comes out of jpackage without its exec bit
 find "$p" -path '*/resources/signin-helper' -type f -exec chmod 755 {} +
 ctl="$p/DEBIAN/control"
-if grep -q '^Depends:' "$ctl"; then sed -i -E '/^Depends:/ s/[[:space:]]*$/, libmpv2 | libmpv1/' "$ctl"
-else echo 'Depends: libmpv2 | libmpv1' >> "$ctl"; fi
+deps='libmpv2 | libmpv1, libwebkit2gtk-4.1-0'
+if grep -q '^Depends:' "$ctl"; then sed -i -E "/^Depends:/ s/[[:space:]]*\$/, $deps/" "$ctl"
+else echo "Depends: $deps" >> "$ctl"; fi
 grep -E '^(Package|Version|Depends):' "$ctl"
 grep -h 'xdg-' "$p/DEBIAN/postinst" "$p/DEBIAN/prerm" 2>/dev/null && { echo "fix-deb: xdg calls left" >&2; exit 1; }
 dpkg-deb --root-owner-group -Zxz -b "$p" "$deb" >/dev/null

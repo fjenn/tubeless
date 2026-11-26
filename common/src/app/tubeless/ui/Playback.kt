@@ -239,7 +239,7 @@ class Playback(private val app: AppState) {
                 if (!playLogged && s.playing && s.positionMs > 0) {
                     playLogged = true
                     val cap = if (app.platform.metered()) store.settings.value.maxHeightMobileData else store.settings.value.maxHeight
-                    val h = s.height.takeIf { it > 0 } ?: stream?.video?.map { it.height }?.filter { cap <= 0 || it <= cap }?.maxOrNull() ?: 0
+                    val h = s.nowHeight.takeIf { it > 0 } ?: s.height.takeIf { it > 0 } ?: stream?.video?.map { it.height }?.filter { cap <= 0 || it <= cap }?.maxOrNull() ?: 0
                     E2E.log("play", "videoId" to v.id, "firstFrameMs" to (Sys.nowMs() - openedAt), "height" to h, "ads" to Ads.requests, "adsLeftOut" to Ads.count,
                         "client" to stream?.client, "offline" to (stream?.client == "offline"))
                     if (stream?.client == "offline") E2E.log("play_offline", "videoId" to v.id)

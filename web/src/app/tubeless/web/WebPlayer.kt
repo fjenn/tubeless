@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalDensity
 import app.tubeless.engine.Caption
 import app.tubeless.engine.Dash
 import app.tubeless.engine.Net
+import app.tubeless.engine.Quality
 import app.tubeless.engine.Stream
 import app.tubeless.engine.YouTube
 import app.tubeless.ui.PlayOptions
@@ -58,23 +59,63 @@ class WebPlayer : VideoPlayer {
         )
     }
 
+    /** the families decoded in hardware (MediaCapabilities' powerEfficient); everything this browser plays until it answered */
+    private fun hardware(): Set<String> {
+        val hw = jsHw() ?: return codecs.toSet()
+        return codecs.filter { c -> hw.contains("\"$c\":true") }.toSet().ifEmpty { codecs.toSet() }
+    }
+
+    private var lastNow = 0.0
+
     init {
         jsOnTime { pos, dur, playing, buffering, ended, height ->
             s.update { it.copy(positionMs = (pos * 1000).toLong(), durationMs = (dur * 1000).toLong(), playing = playing, buffering = buffering, ended = ended) }
+            // what is on screen (QUALITY): read twice a second at most
+            val t = jsDate()
+            if (t - lastNow > 500) { lastNow = t; readNow() }
         }
+    }
+
+    private fun readNow() {
+        val o = runCatching { Json.parseToJsonElement(jsNow()).jsonObject }.getOrNull() ?: return
+        fun n(k: String) = o[k]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()?.toInt() ?: 0
+        val codec = o["codec"]?.jsonPrimitive?.contentOrNull.orEmpty()
+        s.update {
+            it.copy(nowHeight = n("h"), nowFps = n("fps"), nowItag = n("itag"), nowKbps = n("kbps"),
+                nowCodec = if (codec.isEmpty()) "" else app.tubeless.engine.Format(0, "", "", codec).codecFamily,
+                dropped = o["dropped"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()?.toInt() ?: -1)
+        }
+    }
+
+    /**
+     * Auto (QUALITY): the height that fills this screen ([Quality.fit], screen × devicePixelRatio), and the codec family
+     * whose stream at that height is the fullest one this browser decodes in hardware ([Quality.best]); Shaka adapts
+     * below that height only.
+     */
+    private fun plan(st: Stream, cap: Int): Pair<List<String>, Int> {
+        val usable = st.video.filter { it.indexRange != null && it.codecFamily in codecs }
+        val h = Quality.height(usable, cap, jsScreenW(), jsScreenH())
+        val fam = Quality.best(usable, h, "", hardware(), st.lengthSec)?.codecFamily
+        val order = listOfNotNull(fam) + codecs.filter { it != fam }
+        return order to h
     }
 
     override fun load(st: Stream, o: PlayOptions) {
         current = st
         s.value = PlayerState(videoId = st.id, buffering = true, speed = o.speed, volume = s.value.volume, muted = s.value.muted)
         val hls = st.hls != null && (st.live || st.video.none { it.indexRange != null })
-        val manifest = if (hls) st.hls!! else Dash.manifest(st, codecs, o.maxHeight)
-        jsLog("load ${st.id} via ${st.client}: ${if (hls) "HLS" else "DASH ${codecs.firstOrNull { c -> st.video.any { it.codecFamily == c } }}"}")
+        // a codec picked in Settings or the menu goes first; else the one Auto finds best at the screen's height
+        val (auto, fit) = plan(st, o.maxHeight)
+        val order = o.codec.takeIf { it in codecs }?.let { c -> listOf(c) + codecs.filter { it != c } } ?: auto
+        val cap = if (fit == Quality.AUTO) 0 else fit
+        // every height goes in (the menu can pick any); Auto's cap is the player's limit, not the manifest's
+        val manifest = if (hls) st.hls!! else Dash.manifest(st, order, if (o.maxHeight != Quality.AUTO) o.maxHeight else Int.MAX_VALUE)
+        jsLog("load ${st.id} via ${st.client}: ${if (hls) "HLS" else "DASH ${order.firstOrNull { c -> st.video.any { it.codecFamily == c } }} up to ${cap}p (hardware ${hardware()})"}")
         // the website's player (site/instant.js) plays the formats itself: it wants the video, the HLS link and the mode
         jsHint(st.id, st.hls ?: "", st.client, o.audioOnly)
         jsSession(st.title, st.author, "https://i.ytimg.com/vi/${st.id}/hqdefault.jpg") { a -> action(a) }
         scope.launch {
-            val err = jsLoad(manifest, hls, o.startMs / 1000.0, o.autoplay, o.maxHeight).await<JsString>().toString()
+            val err = jsLoad(manifest, hls, o.startMs / 1000.0, o.autoplay, cap).await<JsString>().toString()
             if (current !== st) return@launch
             if (err.isNotEmpty()) { s.update { it.copy(error = err, buffering = false) }; return@launch }
             setSpeed(o.speed)
@@ -154,6 +195,12 @@ private fun jsOnTime(f: (Double, Double, Boolean, Boolean, Boolean, Int) -> Unit
 private fun jsLoad(m: String, hls: Boolean, start: Double, autoplay: Boolean, maxHeight: Int): Promise<JsString> =
     js("tubeless.player.load(m, hls, start, autoplay, maxHeight)")
 private fun jsTracks(): String = js("tubeless.player.tracks()")
+private fun jsNow(): String = js("(tubeless.player.now ? tubeless.player.now() : '{}')")
+private fun jsHw(): String? = js("(tubeless.player.hw ? JSON.stringify(tubeless.player.hw) : null)")
+// the screen, or the window when it reports more (a headless browser says 400×300 for any window)
+private fun jsScreenW(): Int = js("Math.round(Math.max(screen.width, window.outerWidth || 0, window.innerWidth) * (window.devicePixelRatio || 1))")
+private fun jsScreenH(): Int = js("Math.round(Math.max(screen.height, window.outerHeight || 0, window.innerHeight) * (window.devicePixelRatio || 1))")
+private fun jsDate(): Double = js("Date.now()")
 private fun jsCall(name: String): Unit = js("tubeless.player[name]()")
 private fun jsSeek(t: Double): Unit = js("tubeless.player.seek(t)")
 private fun jsSpeed(x: Double): Unit = js("tubeless.player.speed(x)")

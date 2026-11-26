@@ -132,9 +132,10 @@ private fun LocalSubsScreen(app: AppState) {
     val scope = rememberCoroutineScope()
     var items by remember { mutableStateOf(app.feed.cached().filter { it.channelId in lib.subs }) }
     var loading by remember { mutableStateOf(false) }
+    var unreachable by remember { mutableStateOf(false) }
     suspend fun load(force: Boolean) {
         loading = true
-        try { items = app.feed.all(force) } finally { loading = false }
+        try { items = app.feed.all(force); unreachable = app.feed.unreachable } finally { loading = false }
     }
     LaunchedEffect(lib.subs.size) { if (!app.store.settings.value.subsFeedOff) load(false) }
     // groups: one tab each; "All" first unless it's switched off
@@ -188,6 +189,8 @@ private fun LocalSubsScreen(app: AppState) {
         }
         return
     }
+    // YouTube out of reach: say so (Retry, Go to downloads), not an empty feed
+    if (unreachable && !loading && items.isEmpty()) { YouAreOffline(app) { scope.launch { load(true) } }; return }
     val base = items.filter { (!it.short || !app.noShorts) && it.channelId in shown }
     // a group: its own short feed (unwatched, the last 7 days, every channel's newest first, at most 20)
     val feed = if (group != null) groupFeed(base, lib.hist.mapTo(HashSet()) { it.id }, app.store.settings.value.groupDays) else base
@@ -268,7 +271,7 @@ fun ManageSubsScreen(app: AppState) {
                 TextButton(onClick = { newGroup = true }) { Text(tr("New group")) }
             }
             if (lib.groups.isEmpty()) Text(
-                tr("Sort channels into groups and Subscriptions gets a tab for each. A PocketTube backup brings its groups along (Library → Import)."),
+                tr("Sort channels into groups and Subscriptions gets a tab for each. A PocketTube backup brings its groups along (You → Import and export)."),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             )
@@ -419,7 +422,7 @@ fun LibraryScreen(app: AppState) {
         if (app.platform.canDownload) item {
             LibRow(Sym.Download.outline, tr("Downloads"), videos(saved.items.size) + if (busy > 0) " (+$busy)" else "") { if (app.platform.instant) FullMode.ask(tr("Downloads")) else app.go(Screen.Downloads) }
         }
-        item { LibRow(Sym.BarChart.outline, tr("Recap") + " · " + monthName(Sys.today().take(7)), "") { app.go(Screen.Stats) } }
+        item { LibRow(Sym.BarChart.outline, tr("Watch time"), "") { app.go(Screen.Stats) } }
         item { LibRow(Sym.Psychology.outline, tr("What Tubeless learned about you"), "") { app.go(Screen.Learned) } }
         item { LibRow(Sym.SwapVert.outline, tr("Import and export"), "") { app.go(Screen.SettingsPage("data")) } }
         item { LibRow(Sym.Settings.outline, tr("Settings"), "") { app.go(Screen.Settings) } }

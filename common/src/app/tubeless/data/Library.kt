@@ -74,7 +74,8 @@ data class Settings(
     val lang: String = "",
     val region: String = "",
     /** highest video height to play, 0 = no limit */
-    val maxHeight: Int = 1080,
+    /** 0 = Auto: the height that fills this screen (engine/Quality.kt); else a cap */
+    val maxHeight: Int = 0,
     val maxHeightMobileData: Int = 480,
     val autoplay: Boolean = true,
     val captions: Boolean = false,
@@ -131,6 +132,11 @@ data class Settings(
     val winW: Int = 0,
     val winH: Int = 0,
     val winMax: Boolean = false,
+    /** winW/winH are the window's inside (without the system's title bar and frame); false: an older build saved its outside */
+    val winContent: Boolean = false,
+    /** what the system's frame added around that inside last time (the first guess of the outside at start) */
+    val winFrameW: Int = 0,
+    val winFrameH: Int = 0,
     val subsFeedOff: Boolean = false,
     /** with groups: Subscriptions shows only the groups' tabs, not the feed of every channel */
     val subsHideAll: Boolean = false,

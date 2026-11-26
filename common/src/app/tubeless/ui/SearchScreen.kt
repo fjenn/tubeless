@@ -223,6 +223,9 @@ fun SearchScreen(app: AppState, initial: String) {
         val shown = if (refine.active) refine.apply(unseen, Sys.nowMs() / 1000) else unseen
         when {
             pager.items.isEmpty() && pager.loading -> Skeleton(rows = !compact && !grid && !app.platform.tv, wide = true)
+            // YouTube out of reach: the same page as Home and Shorts (Retry, Go to downloads)
+            pager.items.isEmpty() && pager.error != null && pager.error in setOf("No connection to YouTube", tr("No connection to YouTube")) ->
+                YouAreOffline(app) { scope.launch { pager.load() } }
             pager.items.isEmpty() && pager.error != null -> Problem(pager.error!!) { scope.launch { pager.load() } }
             pager.items.isEmpty() && pager.started -> Empty(tr("No results"))
             else -> ItemGrid(
@@ -278,6 +281,8 @@ fun searchFor(app: AppState, q: String) {
 @Composable
 private fun SearchFilters(o: SearchOptions, set: (SearchOptions) -> Unit, r: SearchRefine, setR: (SearchRefine) -> Unit, close: () -> Unit) {
     val c = MaterialTheme.colorScheme
+    // QA: when the filters window opens and closes (Esc must close it and nothing else)
+    androidx.compose.runtime.DisposableEffect(Unit) { E2E.log("dialog", "name" to "filters", "open" to true); onDispose { E2E.log("dialog", "name" to "filters", "open" to false) } }
     androidx.compose.ui.window.Dialog(onDismissRequest = close, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
         androidx.compose.material3.Surface(Modifier.widthIn(max = 960.dp).fillMaxWidth(0.92f), shape = RoundedCornerShape(16.dp), color = c.surface, shadowElevation = 8.dp) {
             Column(Modifier.verticalScroll(rememberScrollState()).padding(24.dp)) {

@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # A fresh Ubuntu 24.04 (the ubuntu:24.04 image, as root, from smoke.yml): what a user who downloads Tubeless gets.
 #   1 the AppImage on a system without libmpv (it carries its own): full smoke flow under Xvfb
-#   2 the .deb installed with apt (its dependencies resolved, libmpv among them); the menu entry passes
-#     desktop-file-validate, the AppStream data validates, the icon is there; full smoke flow under Xvfb
+#     and, without WebKitGTK on the system, its own sign-in window (linux-extra.sh: window size over 3 starts
+#     under openbox, Google's page in the sign-in window, Cancel); no "fusermount" error from its runtime
+#   2 the .deb installed with apt (its dependencies resolved, libmpv and WebKitGTK among them); the menu entry passes
+#     desktop-file-validate, the AppStream data validates, the icon is there; full smoke flow and linux-extra.sh under Xvfb
 #   scripts/smoke/ubuntu24.sh <file.deb> <file.AppImage> <out dir>
 set -uo pipefail
 deb=$(readlink -f "${1:?usage: ubuntu24.sh <deb> <AppImage> <out>}")
@@ -17,16 +19,22 @@ export DEBIAN_FRONTEND=noninteractive
 HOME=$(getent passwd "$(id -u)" | cut -d: -f6); export HOME
 apt-get update -q >/dev/null
 # the test's own tools (an X server, screenshots, validators), none of the app's libraries
-apt-get install -y -q --no-install-recommends xvfb xauth imagemagick desktop-file-utils appstream ca-certificates >/dev/null
+apt-get install -y -q --no-install-recommends xvfb xauth imagemagick desktop-file-utils appstream ca-certificates openbox procps >/dev/null
 # what every Ubuntu desktop already has and the plain image lacks (X11 / GTK / sound / GL client libraries)
 apt-get install -y -q --no-install-recommends libgtk-3-0t64 libxtst6 libxi6 libxrender1 libasound2t64 libgl1 libegl1 libusb-1.0-0 libpulse0 fonts-dejavu-core >/dev/null
 grep PRETTY_NAME /etc/os-release
 
 echo "== 1 AppImage, no libmpv on the system"
 check test -z "$(ldconfig -p | grep libmpv)"
+check test -z "$(ldconfig -p | grep -E 'libwebkit2gtk|libjavascriptcoregtk')"
 cp "$appimage" /tmp/Tubeless.AppImage && chmod +x /tmp/Tubeless.AppImage
 # no FUSE inside a container: the AppImage unpacks itself to /tmp instead (on a desktop it mounts)
 APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a -s "-screen 0 1440x960x24" "$here/desktop.sh" /tmp/Tubeless.AppImage "$out/appimage" || fail=1
+rm -rf ~/.config/Tubeless ~/.cache/Tubeless
+APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a -s "-screen 0 1440x960x24" "$here/linux-extra.sh" /tmp/Tubeless.AppImage "$out/appimage-extra" || fail=1
+# started the usual way, without FUSE here: the runtime says it can't mount, never "Error: No suitable fusermount"
+fuse=$(timeout 20 /tmp/Tubeless.AppImage --version 2>&1 | head -5)
+echo "$fuse" | grep -q 'No suitable fusermount' && { echo "FAIL: the runtime printed: $fuse"; fail=1; } || echo "PASS: no fusermount error ($(echo "$fuse" | grep -m1 . ))"
 # every library the AppImage carries finds what it links to on this system
 missing=$(cd /tmp && rm -rf squashfs-root && /tmp/Tubeless.AppImage --appimage-extract >/dev/null 2>&1 &&
   for f in squashfs-root/usr/lib/*.so*; do LD_LIBRARY_PATH=squashfs-root/usr/lib ldd "$f" 2>/dev/null | grep 'not found'; done | sort -u)
@@ -48,6 +56,9 @@ check test -s /usr/share/icons/hicolor/512x512/apps/dev.tubeless.app.png
 check test -x "$(readlink -f /usr/bin/tubeless)"
 exe=$(dpkg -L tubeless | grep -E '/bin/Tubeless$' | head -1)
 xvfb-run -a -s "-screen 0 1440x960x24" "$here/desktop.sh" "$exe" "$out/deb" || fail=1
+check test -n "$(ldconfig -p | grep libwebkit2gtk-4.1)"
+rm -rf ~/.config/Tubeless ~/.cache/Tubeless
+xvfb-run -a -s "-screen 0 1440x960x24" "$here/linux-extra.sh" "$exe" "$out/deb-extra" || fail=1
 apt-get remove -y -q tubeless >/dev/null 2>&1; check test ! -e /usr/share/applications/dev.tubeless.app.desktop
 [ $fail = 0 ] && echo "ubuntu 24.04: ALL PASS" || echo "ubuntu 24.04: FAILURES above"
 exit $fail

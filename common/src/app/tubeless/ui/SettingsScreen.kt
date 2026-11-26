@@ -407,7 +407,7 @@ private fun SettingsRows(
     fun set(f: (Settings) -> Settings) = app.store.settings.update(f)
     var dialog by remember { mutableStateOf<String?>(null) }
     val heights = listOf(0, 2160, 1440, 1080, 720, 480, 360, 240, 144)
-    fun hLabel(h: Int) = if (h == 0) tr("Best available") else "${h}p"
+    fun hLabel(h: Int) = if (h == 0) tr("Auto") else "${h}p"
     val android = app.platform.name == "android"
     val touch = app.platform.touch
     // read once per page, for the sound output row
@@ -523,7 +523,7 @@ private fun SettingsRows(
             Toggle(tr("Full screen when turned sideways"), tr("Turning the phone sideways while a video plays goes full screen"), s.rotateFull) { b -> set { it.copy(rotateFull = b) } }
         }
         if (app.platform.airplay != null || app.platform.caster != null) r.row("player", tr("Cast button") + " airplay cast tv") {
-            Toggle(tr("Cast button"), tr("The AirPlay or cast button on the player"), !s.hideCastButton) { b -> set { it.copy(hideCastButton = !b) } }
+            Toggle(tr("Cast button"), tr(if (app.platform.airplay != null) "The AirPlay or cast button on the player" else "The cast button on the player"), !s.hideCastButton) { b -> set { it.copy(hideCastButton = !b) } }
         }
         r.row("player", tr("Video at a glance") + " summary smart chapters keywords") {
             Toggle(tr("Video at a glance"), tr("A summary, key moments and chapters made on this device from the captions"), s.smart) { b -> set { it.copy(smart = b) } }
@@ -681,7 +681,7 @@ private fun SettingsRows(
         r.row("data", tr("What Tubeless learned about you") + " taste recommendations") { SItem(tr("What Tubeless learned about you"), tr("See and change what your recommendations are based on")) { app.go(Screen.Learned) } }
         r.row("data", tr("Import") + " takeout newpipe freetube invidious opml") { SItem(tr("Import"), tr("Subscriptions, history and playlists from YouTube (Google Takeout), NewPipe, FreeTube, Invidious, Tubeless or OPML")) { importFile(app) } }
         r.row("data", tr("Manage subscriptions")) { SItem(tr("Manage subscriptions"), tr("Remove channels, or all of them")) { app.go(Screen.ManageSubs) } }
-        r.row("data", tr("Export") + " backup") { SItem(tr("Export"), tr("A backup you can import here, into Tubeless on a server, or into other apps")) { dialog = "export" } }
+        r.row("data", tr("Export") + " backup") { SItem(tr("Export"), tr("A backup you can import here or into other apps")) { dialog = "export" } }
         r.row("data", tr("Clear watch history") + " history") { SItem(tr("Clear watch history"), "") { dialog = "clear" } }
         r.group("data", tr("People on this device"))
         r.row("data", tr("People on this device") + " family household profile account switch user") { PeopleItems(app) }
@@ -826,7 +826,7 @@ private fun PeopleItems(app: AppState) {
     var switching by remember { mutableStateOf<String?>(null) }
     var removing by remember { mutableStateOf<String?>(null) }
     Column {
-        if (p.names.isEmpty()) Note(tr("Everyone in the house can have their own subscriptions, history and recommendations here, and their own Tubeless server login."))
+        if (p.names.isEmpty()) Note(tr("Everyone in the house can have their own subscriptions, history and recommendations here."))
         for (e in p.names) {
             val id = Store.personId(e)
             val me = id == p.current
@@ -855,7 +855,7 @@ private fun PeopleItems(app: AppState) {
         } else AlertDialog(
             onDismissRequest = { removing = null },
             title = { Text(tr("Remove {n}?").replace("{n}", who)) },
-            text = { Text(tr("Their library, history and settings on this device are deleted. What's on a Tubeless server stays there.")) },
+            text = { Text(tr("Their library, history and settings on this device are deleted.")) },
             confirmButton = { TextButton(onClick = { app.store.removePerson(id); removing = null }) { Text(tr("Remove")) } },
             dismissButton = { TextButton(onClick = { removing = null }) { Text(tr("Cancel")) } },
         )
@@ -997,13 +997,18 @@ private fun SItem(title: String, sub: String, onClick: () -> Unit) {
     }
 }
 
+/** the settings' one switch row, for the sections other files add (Downloads) */
+@Composable
+internal fun SettingsToggle(title: String, sub: String, on: Boolean, enabled: Boolean = true, set: (Boolean) -> Unit) = Toggle(title, sub, on, enabled, set)
+
 @Composable
 private fun Toggle(title: String, sub: String, on: Boolean, enabled: Boolean = true, set: (Boolean) -> Unit) {
     val tv = LocalPlatform.current.tv
     Row(Modifier.fillMaxWidth().heightIn(min = if (tv) 0.dp else 60.dp).toggleable(on, enabled = enabled, role = Role.Switch) { set(it) }
         .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        Words(title, sub, Modifier.weight(1f).padding(end = 12.dp))
+        // greyed while it doesn't apply (its parent switch is off), as the switch itself
+        Words(title, sub, Modifier.weight(1f).padding(end = 12.dp).alpha(if (enabled) 1f else 0.38f))
         // a TV: an "off" switch has to read as a switch on dark and black themes (it nearly vanished);
         // elsewhere the web's switch, teal when on, a white knob on a grey track when off
         Switch(on, null, enabled = enabled, colors = if (tv) SwitchDefaults.colors(
