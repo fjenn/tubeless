@@ -1,5 +1,6 @@
 package app.tubeless.android
 
+import app.tubeless.Legacy
 import app.tubeless.engine.YouTube
 import app.tubeless.cast.Lan as NearLan
 import android.os.Build
@@ -93,7 +94,7 @@ class AndroidPlatform(private val app: Application) : Platform {
     }
     override val dataDir: Path = File(app.filesDir, "tubeless").also { now ->
         // installs from before the rename: the old folder moves over once
-        val old = File(app.filesDir, app.tubeless.Legacy.DATA_DIR)
+        val old = File(app.filesDir, Legacy.DATA_DIR)
         if (!now.exists() && old.isDirectory) old.renameTo(now)
     }.toOkioPath()
     override val cacheDir: Path = app.cacheDir.toOkioPath()
