@@ -12,6 +12,7 @@ arch=$(uname -m)
 work=$(mktemp -d); trap 'rm -rf "$work"' EXIT
 AppDir="$work/AppDir"; mkdir -p "$AppDir"
 cp -a "$app" "$AppDir/Tubeless"
+find "$AppDir/Tubeless" -path '*/resources/signin-helper' -type f -exec chmod 755 {} +
 cp "$here/flatpak/icon.png" "$AppDir/dev.tubeless.app.png"
 cp "$here/flatpak/icon.png" "$AppDir/.DirIcon"
 sed 's/^Exec=.*/Exec=Tubeless/' "$here/flatpak/dev.tubeless.app.desktop" > "$AppDir/dev.tubeless.app.desktop"

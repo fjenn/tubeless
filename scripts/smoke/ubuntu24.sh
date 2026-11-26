@@ -16,6 +16,8 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -q >/dev/null
 # the test's own tools (an X server, screenshots, validators), none of the app's libraries
 apt-get install -y -q --no-install-recommends xvfb xauth imagemagick desktop-file-utils appstream ca-certificates >/dev/null
+# what every Ubuntu desktop already has and the plain image lacks (X11 / GTK / sound / GL client libraries)
+apt-get install -y -q --no-install-recommends libgtk-3-0t64 libxtst6 libxi6 libxrender1 libasound2t64 libgl1 libpulse0 fonts-dejavu-core >/dev/null
 grep PRETTY_NAME /etc/os-release
 
 echo "== 1 AppImage, no libmpv on the system"
@@ -30,7 +32,8 @@ echo "== 2 .deb"
 apt-get install -y -q "$deb" > "$out/apt-install.log" 2>&1; rc=$?
 cat "$out/apt-install.log" | tail -5
 check test "$rc" = 0
-if grep -i -E '^(W|E):|warning|error' "$out/apt-install.log" | grep -v -i 'libgpg-error\|liberror'; then echo "FAIL: apt printed warnings"; fail=1; fi
+# (the image leaves out man pages, so update-alternatives notes it skipped their links: the image's, not ours)
+if grep -i -E '^(W|E):|warning|error' "$out/apt-install.log" | grep -v -i -E 'libgpg-error|liberror|skip creation of /usr/share/man'; then echo "FAIL: apt printed warnings"; fail=1; fi
 check dpkg -s tubeless
 check test -n "$(ldconfig -p | grep libmpv)"
 check desktop-file-validate /usr/share/applications/dev.tubeless.app.desktop

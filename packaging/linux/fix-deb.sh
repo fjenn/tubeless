@@ -26,6 +26,8 @@ version=$(sed -n 's/^Version: //p' "$p/DEBIAN/control")
 cp "$here/flatpak/dev.tubeless.app.metainfo.xml" "$p/usr/share/metainfo/dev.tubeless.app.metainfo.xml"
 "$here/fill-metadata.sh" "$repo" "$version" "$p/usr/share/metainfo/dev.tubeless.app.metainfo.xml"
 ln -sf "$exe" "$p/usr/bin/tubeless"
+# the sign-in window's program comes out of jpackage without its exec bit
+find "$p" -path '*/resources/signin-helper' -type f -exec chmod 755 {} +
 ctl="$p/DEBIAN/control"
 if grep -q '^Depends:' "$ctl"; then sed -i -E '/^Depends:/ s/[[:space:]]*$/, libmpv2 | libmpv1/' "$ctl"
 else echo 'Depends: libmpv2 | libmpv1' >> "$ctl"; fi

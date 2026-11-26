@@ -22,13 +22,18 @@ ENT=${ENTITLEMENTS:-$HERE/entitlements.plist}
 step() { printf '\n== %s\n' "$*"; }
 die() { echo "sign-dmg: $*" >&2; exit 1; }
 [ -d "$APP/Contents/MacOS" ] || die "$APP is not an app bundle"
+APP=$(cd "$APP" && pwd)
 
 # every Mach-O file in the bundle, deepest first (inside-out signing)
 machos() {
-  find "$APP/Contents" -type f \( -perm -u+x -o -name '*.dylib' -o -name '*.jnilib' -o -name '*.so' \) -print0 |
+  # every file, not only those with an exec bit (resources such as signin-helper can arrive without one)
+  find "$APP/Contents" -type f -print0 |
     while IFS= read -r -d '' f; do file -b "$f" | grep -q 'Mach-O' && printf '%s\n' "$f"; done |
     awk -F/ '{ print NF "\t" $0 }' | sort -rn | cut -f2-
 }
+
+# Mach-O executables that lost their exec bit on the way (artifact zips) get it back
+while IFS= read -r f; do file -b "$f" | grep -q 'executable' && chmod +x "$f"; done < <(machos)
 
 step "signing ($( [ -n "${SIGN_IDENTITY:-}" ] && echo "Developer ID" || echo "ad hoc" ))"
 if [ -n "${SIGN_IDENTITY:-}" ]; then

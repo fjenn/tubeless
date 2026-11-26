@@ -35,7 +35,16 @@ class HelperSignIn(private val dataDir: File) : SignInLauncher {
         val name = if (System.getProperty("os.name").startsWith("Windows")) "signin-helper.exe" else "signin-helper"
         env("TUBELESS_SIGNIN_HELPER")?.let { File(it) }?.takeIf { it.canExecute() }?.let { return it }
         // packaged: next to the app's other resources (S9 bundles it, see BUILD-STATUS S3)
-        System.getProperty("compose.application.resources.dir")?.let { File(it, name) }?.takeIf { it.canExecute() }?.let { return it }
+        System.getProperty("compose.application.resources.dir")?.let { File(it, name) }?.takeIf { it.isFile }?.let { f ->
+            if (f.canExecute()) return f
+            // packaged without its exec bit (and in a folder the user can't change, e.g. /opt): a runnable copy
+            val copy = File(dataDir, "bin/$name")
+            runCatching {
+                if (!copy.isFile || copy.length() != f.length()) { copy.parentFile.mkdirs(); f.copyTo(copy, overwrite = true) }
+                copy.setExecutable(true, true)
+            }
+            if (copy.canExecute()) return copy
+        }
         // run from Gradle / the repo: tools/signin-helper/target/release
         var d: File? = File("").absoluteFile
         while (d != null) {

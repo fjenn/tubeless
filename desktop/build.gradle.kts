@@ -87,9 +87,11 @@ compose.desktop {
                 iconFile.set(project.layout.projectDirectory.file("icon.ico"))
             }
             // macOS: libmpv comes inside the app (resources/macos, filled by CI from Homebrew), else Homebrew's or
-            // MacPorts' mpv; the app isn't signed or notarized (right-click → Open the first time)
+            // MacPorts' mpv; Developer ID signed + notarized by packaging/macos/sign-dmg.sh
             macOS {
                 bundleID = "dev.tubeless.app"
+                // the libmpv set bundled by CI (Homebrew on the macos-15 runners) is built for macOS 15
+                minimumSystemVersion = "15.0"
                 appCategory = "public.app-category.video"
                 // macOS wants the first number above 0: 0.3.3 becomes 1.3.3 inside the bundle only (files keep 0.3.3)
                 packageVersion = "1." + appVersion.substringAfter('.')
