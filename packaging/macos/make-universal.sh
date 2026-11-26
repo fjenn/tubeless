@@ -43,7 +43,7 @@ check() {
   check_one() { # <file> <label>
     local a; a=$(lipo -archs "$1" 2>/dev/null || echo "?")
     n=$((n + 1))
-    case " $a " in *" arm64 "*" x86_64 "*|*" x86_64 "*" arm64 "*) return ;; esac
+    case " $a " in *" arm64 "*) case " $a " in *" x86_64 "*) return ;; esac ;; esac
     if arch_named "$2"; then named=$((named + 1)); return; fi
     if printf '%s\n' "$only" | grep -qxF "$(basename "$2")"; then say "  one arch by design ($a): $2"; return; fi
     say "  SINGLE-ARCH ($a): $2"; bad=1
@@ -111,7 +111,8 @@ if [ -d "$X/$RES" ]; then
       id=$(otool -D "$f" | tail -n +2 | head -1)
       ib=$(basename "${id:-x}")
       nb=$(lookup "$WORK/xren" "$ib"); [ -n "$id" ] && [ -n "$nb" ] && args+=(-id "$(dirname "$id")/$nb")
-      if [ ${#args[@]} -gt 0 ]; then install_name_tool "${args[@]}" "$f" 2>/dev/null; fi
+      # a changed library needs a valid signature again (ad hoc; sign-dmg.sh puts the Developer ID on)
+      if [ ${#args[@]} -gt 0 ]; then install_name_tool "${args[@]}" "$f" 2>/dev/null; codesign --force -s - "$f" 2>/dev/null; fi
     done
     while IFS=$'\t' read -r b nb; do mv "$X/$RES/$b" "$X/$RES/$nb"; done < "$WORK/xren"
   fi
@@ -202,9 +203,10 @@ for cfg in "$OUT/$APPDIR"/*.cfg; do
   xc="$X/$APPDIR/$(basename "$cfg")"
   diff <(grep -v '^app.classpath=' "$cfg") <(grep -v '^app.classpath=' "$xc") >/dev/null || die "$(basename "$cfg") differs beyond the classpath"
   if [ ${#cfg_extra[@]} -gt 0 ]; then
-    /usr/bin/awk -v extra="$(printf '%s\n' "${cfg_extra[@]}")" '
+    printf '%s\n' "${cfg_extra[@]}" > "$WORK/cfg-extra"
+    /usr/bin/awk -v extra="$WORK/cfg-extra" '
       { lines[NR] = $0; if ($0 ~ /^app.classpath=/) last = NR }
-      END { for (i = 1; i <= NR; i++) { print lines[i]; if (i == last) printf "%s\n", extra } }' "$cfg" > "$cfg.new"
+      END { for (i = 1; i <= NR; i++) { print lines[i]; if (i == last) while ((getline l < extra) > 0) print l } }' "$cfg" > "$cfg.new"
     mv "$cfg.new" "$cfg"
   fi
 done
