@@ -19,7 +19,7 @@ apt-get update -q >/dev/null
 # the test's own tools (an X server, screenshots, validators), none of the app's libraries
 apt-get install -y -q --no-install-recommends xvfb xauth imagemagick desktop-file-utils appstream ca-certificates >/dev/null
 # what every Ubuntu desktop already has and the plain image lacks (X11 / GTK / sound / GL client libraries)
-apt-get install -y -q --no-install-recommends libgtk-3-0t64 libxtst6 libxi6 libxrender1 libasound2t64 libgl1 libpulse0 fonts-dejavu-core >/dev/null
+apt-get install -y -q --no-install-recommends libgtk-3-0t64 libxtst6 libxi6 libxrender1 libasound2t64 libgl1 libegl1 libusb-1.0-0 libpulse0 fonts-dejavu-core >/dev/null
 grep PRETTY_NAME /etc/os-release
 
 echo "== 1 AppImage, no libmpv on the system"
@@ -27,6 +27,10 @@ check test -z "$(ldconfig -p | grep libmpv)"
 cp "$appimage" /tmp/Tubeless.AppImage && chmod +x /tmp/Tubeless.AppImage
 # no FUSE inside a container: the AppImage unpacks itself to /tmp instead (on a desktop it mounts)
 APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a -s "-screen 0 1440x960x24" "$here/desktop.sh" /tmp/Tubeless.AppImage "$out/appimage" || fail=1
+# every library the AppImage carries finds what it links to on this system
+missing=$(cd /tmp && rm -rf squashfs-root && /tmp/Tubeless.AppImage --appimage-extract >/dev/null 2>&1 &&
+  for f in squashfs-root/usr/lib/*.so*; do LD_LIBRARY_PATH=squashfs-root/usr/lib ldd "$f" 2>/dev/null | grep 'not found'; done | sort -u)
+check test -z "$missing"; [ -z "$missing" ] || echo "$missing"
 grep -q 'mpv is missing' "$out/appimage/app-stdout.log" && { echo "FAIL: AppImage found no libmpv"; fail=1; }
 rm -rf ~/.config/Tubeless ~/.cache/Tubeless
 

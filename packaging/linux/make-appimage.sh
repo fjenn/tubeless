@@ -25,6 +25,11 @@ mpv=$(ldconfig -p | awk '/libmpv\.so\.[0-9]+ /{print $NF; exit}')
 curl -fsSL -o "$work/linuxdeploy" "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-$arch.AppImage"
 chmod +x "$work/linuxdeploy"
 APPIMAGE_EXTRACT_AND_RUN=1 NO_STRIP=1 "$work/linuxdeploy" --appdir "$AppDir" --library "$mpv" >/dev/null
+# kept out by linuxdeploy's excludelist but missing on a stock Ubuntu desktop (FFmpeg's libavdevice wants them)
+for want in libjack.so.0 libdb-5.3.so; do
+  p=$(ldconfig -p | awk -v w="$want" '$1 == w { print $NF; exit }')
+  if [ -n "$p" ] && [ ! -e "$AppDir/usr/lib/$want" ]; then cp -L "$p" "$AppDir/usr/lib/$want"; fi
+done
 compgen -G "$AppDir/usr/lib/libmpv.so*" >/dev/null || { echo "make-appimage: libmpv was not bundled" >&2; exit 1; }
 echo "bundled: $(find "$AppDir/usr/lib" -type f | wc -l) libraries, $(du -sh "$AppDir/usr/lib" | cut -f1)"
 curl -fsSL -o "$work/appimagetool" "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-$arch.AppImage"
