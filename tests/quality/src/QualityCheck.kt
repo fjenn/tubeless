@@ -29,11 +29,11 @@ fun check(): Int {
     eq("hdr av1 SDR 10-bit", Quality.hdr(f(1, "av01.0.13M.10.0.110.01.01.01.0", 2160, 60, 1, 1)), false)
     val u = "https://i.ytimg.com/vi/KLuTLF3x9sA/hqdefault.jpg"
     eq("thumb desktop card 720x405", Thumbs.candidates(u, 720, 405).first().substringAfterLast('/'), "hq720.webp")
-    eq("thumb row 336x189", Thumbs.candidates(u, 336, 189).first().substringAfterLast('/'), "hqdefault.webp")
+    eq("thumb row 336x189", Thumbs.candidates(u, 336, 189).first().substringAfterLast('/'), "hq720.webp")
     eq("thumb tiny 200x112", Thumbs.candidates(u, 200, 112).first().substringAfterLast('/'), "mqdefault.webp")
     eq("thumb Shorts 1206x2144", Thumbs.candidates(u, 1206, 2144).map { it.substringAfterLast('/') }, listOf("oardefault.webp", "hq720.webp", "sddefault.webp", "hqdefault.webp"))
     eq("thumb weak TV", Thumbs.candidates(u, 720, 405, weak = true).first().substringAfterLast('/'), "hqdefault.webp")
-    eq("thumb unknown size", Thumbs.candidates(u, 0, 0), listOf(u))
+    eq("thumb unknown size", Thumbs.candidates(u, 0, 0).first().substringAfterLast('/'), "hq720.webp")
     eq("avatar 80px", Thumbs.candidates("https://yt3.ggpht.com/abc=s88-c-k-c0x00ffffff-no-rj", 80, 80), listOf("https://yt3.ggpht.com/abc=s80-c-k-c0x00ffffff-no-rj"))
     eq("other url untouched", Thumbs.candidates("https://example.com/a.jpg", 100, 100), listOf("https://example.com/a.jpg"))
     return bad

@@ -38,7 +38,7 @@ object Net {
     }
 
     suspend fun get(url: String, headers: Map<String, String> = emptyMap()): String {
-        val text = call(HttpMethod.Get, url, null, headers)
+        val text = local(url)?.second?.decodeToString() ?: call(HttpMethod.Get, url, null, headers)
         // subtitles arrive cleaned (Vtt), as on the other platforms
         return if (Vtt.isCaption(url)) Vtt.clean(text) else text
     }
@@ -48,6 +48,7 @@ object Net {
 
     /** a GET whose answer is bytes (a range of a video format): its status and body; only a failed connection throws */
     suspend fun bytes(url: String, headers: Map<String, String>): Pair<Int, ByteArray> {
+        local(url)?.let { return it }
         val r: HttpResponse = try {
             client.request(url) { this.method = HttpMethod.Get; headers.forEach { (k, v) -> header(k, v) } }
         } catch (e: CancellationException) {
@@ -58,7 +59,21 @@ object Net {
         return r.status.value to r.body<ByteArray>()
     }
 
+    /**
+     * A saved file (a downloaded video's subtitles are file:// addresses): read from disk. Ktor's URLSession engine
+     * must never get one: it takes every answer for an HTTP one and the app crashes (offline playback, build 2).
+     */
+    private suspend fun local(url: String): Pair<Int, ByteArray>? {
+        if (!url.startsWith("file:", ignoreCase = true)) return null
+        val path = platform.Foundation.NSURL.URLWithString(url)?.path ?: throw okio.IOException("bad file address")
+        return kotlinx.coroutines.withContext(Sys.IO) {
+            try { 200 to Sys.fs.read(okio.Path.Companion.run { path.toPath() }) { readByteArray() } }
+            catch (e: Exception) { throw okio.IOException(e.message ?: "file not readable") }
+        }
+    }
+
     private suspend fun call(method: HttpMethod, url: String, body: String?, headers: Map<String, String>): String {
+        if (!url.startsWith("http", ignoreCase = true)) throw okio.IOException("not a web address")
         val r: HttpResponse = try {
             client.request(url) {
                 this.method = method

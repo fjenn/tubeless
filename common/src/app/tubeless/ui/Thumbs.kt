@@ -33,17 +33,19 @@ object Thumbs {
      * YouTube's video pictures or the size isn't known). [weak]: a small device keeps what it asked for at most.
      */
     fun candidates(url: String, w: Int, h: Int, weak: Boolean = false): List<String> {
-        if (w <= 0 || h <= 0) return listOf(url)
-        AVATAR.find(url)?.let { m ->
+        val known = w > 0 && h > 0
+        if (known) AVATAR.find(url)?.let { m ->
             val px = ((max(w, h) + 7) / 8 * 8).coerceIn(48, 900)
             return listOf(m.groupValues[1] + "=s" + px + m.groupValues[3])
         }
         val m = VIDEO.find(url) ?: return listOf(url)
         val id = m.groupValues[1]
         // a 16:9 picture filling (crop) a w×h box must be this wide
-        val need = max(w.toDouble(), h * 16.0 / 9.0)
+        val need = if (known) max(w.toDouble(), h * 16.0 / 9.0) else 1280.0   // size not known: the sharp one
         val names = LADDER.map { it.first }
-        var top = LADDER.firstOrNull { it.second >= need }?.first ?: "hq720"
+        // sharp first: anything bigger than a small icon gets hq720 (1280 wide, ~30 KB as WebP), as youtube.com does;
+        // the 4:3 hq/sd pictures only fill their 16:9 middle, so they look soft well before their width runs out
+        var top = if (need <= 200) "mqdefault" else "hq720"
         if (weak) top = names[minOf(names.indexOf(top), names.indexOf("hqdefault"))]
         val chain = ArrayList<String>()
         if (h > w * 1.05 && !weak) chain += "oardefault"
